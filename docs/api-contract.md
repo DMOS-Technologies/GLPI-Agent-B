@@ -508,24 +508,30 @@ Single POST success also has a `Location` header; bulk creation can have GLPI's
 [GLPI 11 native mutation/error implementation, `API::createItems()`,
 `updateItems()`, `returnError()`](https://github.com/glpi-project/glpi/blob/11.0.0/src/Glpi/Api/API.php).
 
-**Missing-ID exception:** in GLPI 11.0.0 `API::updateItems()`, the nonexistent-ID
-branch increments the failure count then `continue`s before appending the
-failure result. For example, acknowledging IDs `301` (valid Pending) and
-`999999` (absent) can return:
+**Observed GLPI 11.0.7 missing-ID behavior:** native `API::updateItems()`
+omits nonexistent IDs from its result entries. The manual acknowledgement
+pass submitted valid Pending ID `7` with absent ID `2147483647` and observed:
 
 ```http
 HTTP/1.1 207 Multi-Status
 Content-Type: application/json
 
-["ERROR_GLPI_PARTIAL_UPDATE",[{"301":true,"message":""}]]
+["ERROR_GLPI_PARTIAL_UPDATE",[{"7":true,"message":""}]]
 ```
 
-If all submitted IDs are absent, that implementation returns
-`400 ["ERROR_GLPI_UPDATE",[]]`. B cannot promise one result for every missing
-ID without changing GLPI. A compares returned **ID keys** against submitted
-IDs, treats omitted results as unresolved, then GETs each unresolved ID.
-Never map PUT results by array position or treat an absent result as success.
-The installed 11.0.7 behavior must be recorded in the manual check.
+An all-absent array returned `400 ["ERROR_GLPI_UPDATE",[]]`; GET of that
+absent ID returned `404 ["ERROR_ITEM_NOT_FOUND","Item not found"]`.
+A collection PUT with `{"input":{"status":"Done"}}` and no ID returned
+`200 [[]]` without changing any row. These are native wrapper boundaries,
+not successful acknowledgements or plugin required-ID validation responses.
+The complete requests/readbacks are in [outbound-b-runtime.md](outbound-b-runtime.md)
+(calls 34,38–40,68). B does not override native HTTP handling to manufacture
+missing result entries.
+
+A compares returned **ID keys** against submitted IDs, treats omitted results
+as unresolved, then GETs each unresolved ID. Never map PUT results by array
+position or treat HTTP success/an absent result as proof of acknowledgement.
+Only a readback showing that exact snapshot Done confirms completion.
 
 `forcedisplay[0]=1&forcedisplay[1]=2` is a valid **search GET** column selection
 when those search options exist. On Computer they conventionally identify
@@ -1388,7 +1394,7 @@ These are now requirements rather than unapproved defaults.
 | Q9 | One background worker; durable start marker and partial evidence; no blind replay of interrupted/uncertain writes, especially first copy. Held/Failed are not automatically reopened. Reconcile before any necessary new Work. Queue age alone does not expire work. |
 | Q10 | Capture submitting user/profile as B-owned metadata and recheck their current authorizations for local processing. Never inherit cron administrator privileges or store session credentials. |
 | Q11 | Existing Work records carry Sync/Suspend/Resume operations and retain indexed verified link/scope evidence. No fourth record type, custom endpoint, deletion, or entity transfer. |
-| Q12 | Local target is GLPI 11.0.7, confirmed from its running source. A must reconcile acknowledgement responses by actual ID keys and read back omitted/uncertain results. Native missing-ID behavior is a manual verification case, never a reason to override GLPI HTTP handling. |
+| Q12 | Local target is GLPI 11.0.7, confirmed from its running source. A must reconcile acknowledgement responses by actual ID keys and read back omitted/uncertain results. The observed missing-ID omission and no-ID collection response are recorded in section 3.2 and the OB ledger; never override GLPI HTTP handling. |
 | Q13 | Local disposable test base is `http://localhost:8081/api.php/v1`. Production uses B's configured HTTPS Legacy API base. |
 | Q14 | One A consumer per B. Use discovered numeric search options and ascending queue IDs for bounded passes; revisit unresolved IDs without starving later rows. Never treat offset pages as an immutable snapshot. |
 | Q15 | Verify implementation hooks, bookkeeping, field writes, permissions, and native API exposure against installed GLPI11.0.7 source. These are engineering checks, not permission to invent APIs. |
