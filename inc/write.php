@@ -43,9 +43,12 @@ function plugin_agentbdmosassetsync_write_value(CommonDBTM $asset, array $field,
         }
         $value = (int) $value;
     } elseif (in_array($kind, ['integer', 'number'], true)) {
-        if ((!is_int($value) && !is_float($value)) || !is_finite((float) $value)
-            || ($kind === 'integer' && !is_int($value))) {
+        if ((!is_int($value) && !is_float($value)) || !is_finite((float) $value)) {
             throw new RuntimeException('Destination requires a compatible finite number');
+        }
+        $value = plugin_agentbdmosassetsync_number($value);
+        if ($kind === 'integer' && !is_int($value)) {
+            throw new RuntimeException('Destination integer requires an exact integral value');
         }
         if ($field['custom_field_id'] === null) {
             plugin_agentbdmosassetsync_numeric_bounds($field['sql']['Type'], $value);
@@ -124,7 +127,7 @@ function plugin_agentbdmosassetsync_dropdown_id(CommonDBTM $asset, array $field,
     return $matches[0];
 }
 
-function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping, int $assetId, $value): string
+function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping, int $assetId, $value): array
 {
     global $DB;
     $lock = 'asb-setting-' . sha1($work['route_id']);
@@ -142,7 +145,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     || !in_array($mapping, json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR))) {
                     throw new RuntimeException('Current link or mapping no longer matches');
                 }
-                plugin_agentbdmosassetsync_check_asset($asset, $work, UPDATE);
+                plugin_agentbdmosassetsync_check_asset($asset, $work, $mapping->source === 'Both' ? READ : UPDATE);
             } catch (RuntimeException $e) {
                 throw new RuntimeException('Hold: ' . $e->getMessage());
             }
@@ -154,23 +157,33 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                 throw new RuntimeException('Hold: asset transaction could not be started', 0, $e);
             }
             try {
-                $DB->doQuery('SELECT `id` FROM `' . $asset::getTable() . '` WHERE `id` = ' . $assetId . ' FOR UPDATE');
-                if (!$asset->getFromDB($assetId)) {
-                    throw new RuntimeException('Hold: asset disappeared before write');
-                }
                 try {
-                    plugin_agentbdmosassetsync_check_asset($asset, $work, UPDATE);
+                    plugin_agentbdmosassetsync_lock_current_asset($work, $asset, $mapping->source === 'Both' ? READ : UPDATE);
                 } catch (RuntimeException $e) {
                     throw new RuntimeException('Hold: ' . $e->getMessage(), 0, $e);
                 }
-                $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+                $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, $mapping->source !== 'Both');
+                $current = plugin_agentbdmosassetsync_locked_value($work, $asset, $field, $mapping->source !== 'Both');
+                if ($mapping->source === 'Both') {
+                    $decision = plugin_agentbdmosassetsync_both_decision($work, $asset, $mapping, $field, $value, $current);
+                    if ($decision['outcome'] !== 'AppliedToB') {
+                        $completionAttempted = true;
+                        $DB->commit();
+                        return $decision;
+                    }
+                    try {
+                        plugin_agentbdmosassetsync_check_asset($asset, $work, UPDATE);
+                        $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+                    } catch (RuntimeException $e) {
+                        throw new RuntimeException('Hold: A won Both but the current B write is not permitted: ' . $e->getMessage(), 0, $e);
+                    }
+                }
                 $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $value);
                 $expected = plugin_agentbdmosassetsync_field_value($field, $local);
-                $current = plugin_agentbdmosassetsync_current_value($asset, $field);
                 if ($current === $expected) {
                     $completionAttempted = true;
                     $DB->commit();
-                    return 'AlreadyEqual';
+                    return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
                 }
                 $writeAttempted = true;
                 try {
@@ -192,7 +205,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                 }
                 $completionAttempted = true;
                 $DB->commit();
-                return 'AppliedToB';
+                return ['outcome' => 'AppliedToB', 'reason' => null, 'return' => null];
             } catch (Throwable $e) {
                 try {
                     $DB->rollBack();
@@ -248,18 +261,7 @@ function plugin_agentbdmosassetsync_write_fields(CommonDBTM $asset, array $field
 function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array $field, array $values): bool
 {
     global $DB;
-    $type = $field['storage_class'];
-    $storage = new $type();
-    $rows = $DB->request(['FROM' => $type::getTable(), 'WHERE' => ['items_id' => $asset->getID()]]);
-    if (count($rows) > 1) {
-        throw new RuntimeException('Fields storage row is ambiguous');
-    }
-    $data = $storage->getFromDBByCrit(['items_id' => $asset->getID()]) ? $storage->fields : [];
-    if (isset($data['id'])) {
-        $DB->doQuery('SELECT `id` FROM `' . $type::getTable() . '` WHERE `id` = ' . (int) $data['id'] . ' FOR UPDATE');
-        $storage->getFromDB($data['id']);
-        $data = $storage->fields;
-    }
+    $data = plugin_agentbdmosassetsync_locked_fields_row($asset, $field) ?? [];
     $status = PluginFieldsStatusOverride::getStatusFieldName($asset::class);
     $statusValue = $asset->fields[$status] ?? null;
     $overrides = $statusValue !== null

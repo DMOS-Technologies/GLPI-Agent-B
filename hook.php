@@ -84,7 +84,7 @@ function plugin_agentbdmosassetsync_install()
             'mode' => CronTask::MODE_EXTERNAL,
             'allowmode' => CronTask::MODE_EXTERNAL,
             'state' => CronTask::STATE_WAITING,
-            'comment' => 'Foundation task; no work processor is installed yet.',
+            'comment' => 'Process accepted Agent B synchronization and scope-control work.',
         ]);
     }
     return true;

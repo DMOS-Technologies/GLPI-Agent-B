@@ -175,7 +175,8 @@ function plugin_agentbdmosassetsync_first_copy_values(CommonDBTM $asset, array $
                 throw new RuntimeException('A supplied no value for this enabled first-copy mapping');
             }
             $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
-            $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $values->{$mapping->mapping_id});
+            $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping,
+                plugin_agentbdmosassetsync_exact_work_value($work, $mapping->mapping_id, $values->{$mapping->mapping_id}));
             $expected = plugin_agentbdmosassetsync_field_value($field, $local);
             if ($field['container_id'] === null) {
                 $input[$field['value_column']] = $local;
