@@ -410,9 +410,13 @@ back the IDs instead of assuming a repeat PUT is accepted. `Done -> Pending`
 and every other value are forbidden. There is no `Failed` Change status:
 failed/conflicted rows remain Pending with a reason.
 
-**Approved:** one immutable snapshot per genuine asset save per route, with
-all eligible changed fields and their original per-field times. A later edit
-creates another row; B must not overwrite a row A may already have read.
+**Approved:** one immutable snapshot per genuine underlying storage save per
+route, with its eligible changed fields and original per-field times. One user
+save may produce separate native-field and Fields-plugin rows; the user
+explicitly approved this on 24 October 2026 because some Fields-only paths
+have no reliable parent completion hook in GLPI 11.0.7. Capture each row before
+that local save returns; no shutdown-only flush or mutation of an exposed
+snapshot. A later edit creates another row; B must not overwrite a row A may already have read.
 Sync writes never create a Change row.
 
 ## 2. A service account profile rights (deliverable 2)
@@ -1377,7 +1381,7 @@ These are now requirements rather than unapproved defaults.
 | Q2 | An entity-pair change uses a distinct route. Preserve old assets, links, queue/work evidence. Return-to-scope verifies and reuses the original link. |
 | Q3 | Brunei `+08:00` genuine field timestamps at second precision; trusted server clocks; compare instants; differing equal/missing/unreliable times conflict. No manual-edit cooldown. GLPI-owned metadata uses its native date conventions. |
 | Q4 | Reject duplicate Work IDs; A reads the existing row. Reject non-increasing Setting versions, including identical retries. Enforce unique/version checks safely under concurrency. |
-| Q5 | One immutable Change snapshot per genuine save per applicable route; no merging and no cleanup of Done evidence. |
+| Q5 | One immutable Change snapshot per genuine underlying storage save per applicable route; separate native/Fields rows from one user save are allowed. Capture immediately, with no shutdown-only flush. No merging or cleanup of Done evidence. |
 | Q6 | Reject malformed admission payloads; save structurally valid Work then Hold scope/settings/type mismatches visibly without asset writes. |
 | Q7 | Generic installed GLPI asset registry, including registered custom asset classes; no per-type implementation. Validate field-kind support and actual safe local writes. Native and Fields-plugin scalar mappings plus the four documented text/dropdown conversions are required. Unsupported enabled mappings, including unavailable Fields support, are rejected during Setting admission for later review/fix. Complex non-scalar fields remain rejected until a payload/save contract exists. |
 | Q8 | Process supported fields and record exact skipped-field reasons. Done may contain documented skips; unresolved conflicts are Held; definite save failures are Failed. Preserve verified partial outcomes. An entire Change snapshot must be covered before it can become Done. |

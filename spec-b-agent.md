@@ -60,6 +60,7 @@ Exact class names, table names, field names, approved implementation decisions, 
 - A row becomes **Done** only in two cases: A acknowledges it, or a successful correction work covers it.
 - Failed or conflicted rows stay available for retry or review.
 - Edits made after A reads a batch become new rows.
+- One user save may produce separate native-field and Fields-plugin Change rows, each captured immediately for its genuine underlying storage save. The user approved this GLPI 11.0.7 compatibility rule; never defer a necessary capture to shutdown or mutate an already exposed snapshot.
 
 ---
 
