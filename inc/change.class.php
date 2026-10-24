@@ -112,8 +112,94 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
 
     public function update(array $input, $history = true, $options = [])
     {
-        // The acknowledgement validator is a separate assigned part.
-        plugin_agentbdmosassetsync_fail('ASB_CHANGE_ACKNOWLEDGEMENT_UNAVAILABLE: foundation_stage');
+        $this->validateAcknowledgement($input);
+        return $this->finishPending((int) $input['id'], true, $input['status'], $history, $options);
+    }
+
+    private function validateAcknowledgement(array $input): void
+    {
+        $owned = ['route_id', 'settings_version', 'a_entities_id', 'entities_id', 'itemtype',
+            'identity_json', 'changed_fields_json', 'retry_count', 'error', 'date_creation', 'date_mod', 'done_at'];
+        plugin_agentbdmosassetsync_check_fields($input, ['id', 'status'], $owned);
+        plugin_agentbdmosassetsync_require_fields($input, ['id', 'status']);
+        if (!plugin_agentbdmosassetsync_is_uint($input['id'], 1)) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=id');
+        }
+        if (!is_string($input['status'])) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=status');
+        }
+    }
+
+    private function checkAcknowledgementScope(): void
+    {
+        $route = plugin_agentbdmosassetsync_read_setting($this->fields['route_id']);
+        if ($route === null
+            || (int) $route['entities_id'] !== (int) $this->fields['entities_id']
+            || (int) $route['a_entities_id'] !== (int) $this->fields['a_entities_id']) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_SCOPE_MISMATCH: reason=route_entity_pair');
+        }
+        // Finishing an old immutable snapshot does not require the current settings version or enabled state.
+        $identity = plugin_agentbdmosassetsync_json('identity_json', $this->fields['identity_json']);
+        if (!plugin_agentbdmosassetsync_object_keys($identity, ['a_items_id', 'b_items_id', 'serial'])
+            || !plugin_agentbdmosassetsync_is_uint($identity->b_items_id, 1)
+            || ($identity->a_items_id !== null && !plugin_agentbdmosassetsync_is_uint($identity->a_items_id, 1))) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE');
+        }
+        $type = $this->fields['itemtype'];
+        if (!is_subclass_of($type, CommonDBTM::class)) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=itemtype');
+        }
+        $asset = new $type();
+        if (!$asset->getFromDB($identity->b_items_id) || !$asset->isEntityAssign()
+            || (int) $asset->getEntityID() !== (int) $this->fields['entities_id']) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_SCOPE_MISMATCH: reason=asset_entity');
+        }
+        $this->checkAcknowledgementLink($identity);
+    }
+
+    private function checkAcknowledgementLink(stdClass $identity): void
+    {
+        global $DB;
+
+        // Lock retained evidence while deciding whether this relationship is currently Suspended.
+        $query = 'SELECT * FROM `' . PluginAgentbdmosassetsyncWork::getTable() . '` WHERE `itemtype` = '
+            . $DB::quoteValue($this->fields['itemtype']) . ' AND (`route_id` = '
+            . $DB::quoteValue($this->fields['route_id']) . ' OR `b_items_id` = ' . $identity->b_items_id . ')'
+            . " AND `link_state` IN ('Active', 'Suspended') ORDER BY `id` DESC FOR UPDATE";
+        $result = $DB->doQuery($query);
+        $latest = [];
+        while ($work = $DB->fetchAssoc($result)) {
+            // An unlinked historical snapshot must not acknowledge another route's retained ownership.
+            if ($work['route_id'] !== $this->fields['route_id']) {
+                plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_AMBIGUOUS: reason=competing_route');
+            }
+            $aId = (int) $work['a_items_id'];
+            if (!isset($latest[$aId])) {
+                $latest[$aId] = $work;
+            }
+        }
+        $matching = [];
+        foreach ($latest as $aId => $work) {
+            if ((int) $work['b_items_id'] !== $identity->b_items_id && $aId !== $identity->a_items_id) {
+                continue;
+            }
+            if ($aId < 1 || (int) $work['b_items_id'] !== $identity->b_items_id
+                || (int) $work['entities_id'] !== (int) $this->fields['entities_id']
+                || (int) $work['a_entities_id'] !== (int) $this->fields['a_entities_id']) {
+                plugin_agentbdmosassetsync_fail('ASB_CHANGE_SCOPE_MISMATCH: reason=verified_link');
+            }
+            $matching[$aId] = $work['link_state'];
+        }
+        if (count($matching) > 1 || ($matching && $identity->a_items_id !== null
+            && !isset($matching[$identity->a_items_id]))) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_AMBIGUOUS');
+        }
+        if ($identity->a_items_id !== null && !$matching) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=verified_link');
+        }
+        if ($matching && reset($matching) === 'Suspended') {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_LINK_SUSPENDED');
+        }
     }
 
     public function prepareInputForUpdate($input)
@@ -121,34 +207,63 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
         return $this->internalDone ? $input : false;
     }
 
-    /** REST can update a record, but cannot call this local-only method. */
+    /** Local correction code proves exact snapshot coverage before calling this method. */
     public function markDoneInternally(int $id): bool
     {
-        global $DB;
-
         if (!plugin_agentbdmosassetsync_is_uint($id, 1)) {
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=ids');
         }
+        return $this->finishPending($id, false);
+    }
+
+    private function finishPending(int $id, bool $acknowledgement, string $status = 'Done', $history = true, array $options = []): bool
+    {
+        global $DB;
+
         $DB->beginTransaction();
         try {
-            // Lock the exact row so an acknowledgement/correction cannot race this transition.
             $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
-            if (!$this->getFromDB($id) || $this->fields['status'] !== 'Pending') {
+            if (!$this->getFromDB($id)) {
+                if ($acknowledgement) {
+                    plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=queue_row');
+                }
                 $DB->rollBack();
                 return false;
             }
+            if ($acknowledgement && (!$this->can($id, UPDATE)
+                || !Session::haveAccessToEntity((int) $this->fields['entities_id']))) {
+                plugin_agentbdmosassetsync_fail('ASB_CHANGE_PERMISSION_DENIED');
+            }
+            if ($this->fields['status'] !== 'Pending' || $status !== 'Done') {
+                if ($acknowledgement) {
+                    plugin_agentbdmosassetsync_fail('ASB_CHANGE_TRANSITION: from=' . $this->fields['status'] . ' to=' . $status);
+                }
+                $DB->rollBack();
+                return false;
+            }
+            if ($acknowledgement) {
+                $this->checkAcknowledgementScope();
+            }
             $before = $this->fields;
             $doneAt = Session::getCurrentTime();
+            if ($doneAt === null) {
+                plugin_agentbdmosassetsync_fail('ASB_CHANGE_TIME_UNAVAILABLE');
+            }
             $this->internalDone = true;
-            $saved = parent::update(['id' => $id, 'status' => 'Done', 'done_at' => $doneAt]);
-            if (!$saved || !$this->getFromDB($id)
-                || $this->fields['status'] !== 'Done' || $this->fields['done_at'] !== $doneAt) {
+            $saved = parent::update(['id' => $id, 'status' => 'Done', 'done_at' => $doneAt], $history, $options);
+            if (!$saved || !$this->getFromDB($id) || $this->fields['status'] !== 'Done'
+                || $this->fields['done_at'] !== $doneAt || $this->fields['date_mod'] !== $doneAt) {
+                if ($acknowledgement) {
+                    plugin_agentbdmosassetsync_fail('ASB_CHANGE_VERIFY_FAILED');
+                }
                 $DB->rollBack();
                 return false;
             }
             foreach ($before as $field => $value) {
-                if (!in_array($field, ['status', 'done_at', 'date_mod'], true)
-                    && $this->fields[$field] !== $value) {
+                if (!in_array($field, ['status', 'done_at', 'date_mod'], true) && $this->fields[$field] !== $value) {
+                    if ($acknowledgement) {
+                        plugin_agentbdmosassetsync_fail('ASB_CHANGE_VERIFY_FAILED: field=' . $field);
+                    }
                     $DB->rollBack();
                     return false;
                 }
