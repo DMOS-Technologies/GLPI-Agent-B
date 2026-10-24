@@ -45,7 +45,7 @@ function plugin_agentbdmosassetsync_snapshot_scope(array $work, array $route, Co
             || (!is_scalar($field->value) && $field->value !== null)) {
             throw new RuntimeException('Snapshot mapping or genuine field evidence unavailable: ' . $row['id']);
         }
-        plugin_agentbdmosassetsync_field_descriptor($asset, $mappings[$id]->b_field, $mappings[$id]->source !== 'B');
+        plugin_agentbdmosassetsync_field_descriptor($asset, $mappings[$id]->b_field, $mappings[$id]->source === 'A');
     }
     return $fields;
 }
@@ -87,21 +87,30 @@ function plugin_agentbdmosassetsync_begin_corrections(array $work, CommonDBTM $a
     });
 }
 
-function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset, string $mappingId, $value): array
+function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset, string $mappingId, $value,
+    bool $lockCurrent = false): array
 {
     global $DB;
     if (!Session::haveRight(PluginAgentbdmosassetsyncChange::$rightname, READ)) {
         return ['changed_at' => null, 'reliable' => false];
     }
-    $rows = $DB->request(['FROM' => PluginAgentbdmosassetsyncChange::getTable(), 'WHERE' => [
+    $criteria = ['FROM' => PluginAgentbdmosassetsyncChange::getTable(), 'WHERE' => [
         'route_id' => $work['route_id'], 'itemtype' => $work['itemtype'],
         'entities_id' => (int) $work['entities_id'], 'a_entities_id' => (int) $work['a_entities_id'],
-        'settings_version' => (int) $work['settings_version']], 'ORDER' => 'id DESC']);
-    foreach ($rows as $row) {
-        $change = new PluginAgentbdmosassetsyncChange();
-        if (!$change->getFromDB($row['id']) || !$change->can($row['id'], READ)) {
-            continue;
+        'settings_version' => (int) $work['settings_version']], 'ORDER' => 'id DESC'];
+    if ($lockCurrent) {
+        // A locking read sees changes committed while the actual Fields storage lock was awaited.
+        $query = new DBmysqlIterator($DB);
+        $query->buildQuery($criteria);
+        $rows = [];
+        $stored = $DB->doQuery($query->getSql() . ' FOR UPDATE');
+        while ($row = $DB->fetchAssoc($stored)) {
+            $rows[] = $row;
         }
+    } else {
+        $rows = $DB->request($criteria);
+    }
+    foreach ($rows as $row) {
         $identity = json_decode($row['identity_json'], false, 512, JSON_THROW_ON_ERROR);
         if (!$identity instanceof stdClass || ($identity->b_items_id ?? null) !== (int) $asset->getID()
             || ($identity->a_items_id !== null && $identity->a_items_id !== (int) $work['a_items_id'])) {
@@ -111,9 +120,18 @@ function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset,
         if (!$fields instanceof stdClass || !property_exists($fields, $mappingId)) {
             continue;
         }
+        $change = new PluginAgentbdmosassetsyncChange();
+        if ($lockCurrent) {
+            $change->getFromResultSet($row);
+        } elseif (!$change->getFromDB($row['id'])) {
+            break;
+        }
+        if (!$change->can($row['id'], READ)) {
+            break;
+        }
         $field = $fields->$mappingId;
         if (plugin_agentbdmosassetsync_object_keys($field, ['value', 'changed_at', 'reliable'])
-            && $field->value === $value && $field->reliable === true
+            && plugin_agentbdmosassetsync_scalar_equal($field->value, $value) && $field->reliable === true
             && plugin_agentbdmosassetsync_evidence_time($field->changed_at) !== null) {
             return ['changed_at' => $field->changed_at, 'reliable' => true];
         }
@@ -145,7 +163,7 @@ function plugin_agentbdmosassetsync_snapshot_returned(stdClass $fields, stdClass
         }
         $returned = $returns->$mappingId;
         $time = plugin_agentbdmosassetsync_evidence_time($returned['changed_at']);
-        if ($returned['value'] !== $field->value || !$returned['reliable'] || $time === null
+        if (!plugin_agentbdmosassetsync_scalar_equal($returned['value'], $field->value) || !$returned['reliable'] || $time === null
             || $time < plugin_agentbdmosassetsync_evidence_time($field->changed_at)) {
             return false;
         }
@@ -196,10 +214,28 @@ function plugin_agentbdmosassetsync_correction_coverage(array $work, array $rout
             throw new RuntimeException('Snapshot field was not fully handled: ' . $id);
         }
         $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
-        plugin_agentbdmosassetsync_lock_field($asset, $field);
-        $current = plugin_agentbdmosassetsync_field_read($asset, $field);
+        $current = plugin_agentbdmosassetsync_locked_value($work, $asset, $field);
+        $aValue = plugin_agentbdmosassetsync_exact_work_value($work, $id, $aValues->$id);
+        if ($mapping->source === 'Both') {
+            $expected = plugin_agentbdmosassetsync_comparison_value($field, $mapping, $aValue);
+            if (!plugin_agentbdmosassetsync_scalar_equal($current, $expected)) {
+                throw new RuntimeException('Both snapshot still awaits matching A handling: ' . $id);
+            }
+            if ($outcomes[$id] === 'AlreadyEqual') {
+                continue;
+            }
+            $aTimes = json_decode($work['a_change_times_json'], false, 512, JSON_THROW_ON_ERROR);
+            $evidence = $aTimes->$id ?? null;
+            $aTime = $evidence instanceof stdClass && $evidence->reliable === true
+                ? plugin_agentbdmosassetsync_evidence_time($evidence->changed_at) : null;
+            if ($outcomes[$id] === 'AppliedToB' && $aTime !== null
+                && $aTime > plugin_agentbdmosassetsync_evidence_time($snapshot->changed_at)) {
+                continue;
+            }
+            throw new RuntimeException('Both snapshot has no complete verified winning outcome: ' . $id);
+        }
         $expected = plugin_agentbdmosassetsync_field_value($field,
-            plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $aValues->$id));
+            plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $aValue));
         if ($current !== $expected) {
             throw new RuntimeException('Current field differs from the verified A handling: ' . $id);
         }
@@ -207,7 +243,7 @@ function plugin_agentbdmosassetsync_correction_coverage(array $work, array $rout
             continue;
         }
         if ($mapping->source === 'B' && $outcomes[$id] === 'ReturnToA'
-            && $current === $snapshot->value
+            && plugin_agentbdmosassetsync_scalar_equal($current, $snapshot->value)
             && plugin_agentbdmosassetsync_snapshot_returned((object) [$id => $snapshot], $result['b_values_for_a'])) {
             continue;
         }
@@ -225,14 +261,16 @@ function plugin_agentbdmosassetsync_finish_corrections(PluginAgentbdmosassetsync
             plugin_agentbdmosassetsync_route_action($work, static function () use ($record, $work, $id, &$result, $DB) {
                 $DB->beginTransaction();
                 try {
-                    $DB->doQuery('SELECT `id` FROM `' . PluginAgentbdmosassetsyncChange::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
+                    $snapshot = $DB->fetchAssoc($DB->doQuery('SELECT * FROM `' . PluginAgentbdmosassetsyncChange::getTable()
+                        . '` WHERE `id` = ' . $id . ' FOR UPDATE'));
                     $route = plugin_agentbdmosassetsync_current_route($work);
                     $asset = plugin_agentbdmosassetsync_find_existing($work);
-                    $DB->doQuery('SELECT `id` FROM `' . $asset::getTable() . '` WHERE `id` = ' . (int) $asset->getID() . ' FOR UPDATE');
-                    $asset->getFromDB($asset->getID());
-                    plugin_agentbdmosassetsync_check_asset($asset, $work, READ);
+                    plugin_agentbdmosassetsync_lock_current_asset($work, $asset, READ);
                     $change = new PluginAgentbdmosassetsyncChange();
-                    if (!$change->getFromDB($id) || !$change->can($id, UPDATE) || !$change->can($id, READ)) {
+                    if ($snapshot) {
+                        $change->getFromResultSet($snapshot);
+                    }
+                    if (!$snapshot || !$change->can($id, UPDATE) || !$change->can($id, READ)) {
                         throw new RuntimeException('Correction snapshot missing or not permitted: ' . $id);
                     }
                     plugin_agentbdmosassetsync_correction_coverage($work, $route, $asset, $change->fields, $result);
@@ -274,6 +312,95 @@ function plugin_agentbdmosassetsync_lock_field(CommonDBTM $asset, array $field):
     $key = $field['container_id'] === null ? 'id' : 'items_id';
     $DB->doQuery('SELECT `id` FROM `' . $field['table'] . '` WHERE `' . $key . '` = '
         . (int) $asset->getID() . ' FOR UPDATE');
+}
+
+/** Hydrate the current locking row; a consistent reread may still see the old transaction snapshot. */
+function plugin_agentbdmosassetsync_lock_current_asset(array $work, CommonDBTM $asset, int $right): void
+{
+    global $DB;
+    if ($asset::class !== $work['itemtype']) {
+        throw new RuntimeException('Hold: current asset concrete type changed');
+    }
+    $query = new DBmysqlIterator($DB);
+    $query->buildQuery(['FROM' => $asset::getTable(), 'WHERE' =>
+        ['id' => (int) $asset->getID()] + $asset::getSystemSQLCriteria()]);
+    $rows = $DB->doQuery($query->getSql() . ' FOR UPDATE');
+    if ($DB->numrows($rows) !== 1) {
+        throw new RuntimeException('Hold: current asset is missing or belongs to another concrete type');
+    }
+    $asset->getFromResultSet($DB->fetchAssoc($rows));
+    $asset->post_getFromDB();
+    if ((int) $asset->getEntityID() !== (int) $work['entities_id']
+        || !empty($asset->fields['is_deleted']) || !empty($asset->fields['is_template'])
+        || !$asset->can($asset->getID(), $right)) {
+        throw new RuntimeException('Hold: current locked asset scope or submitting permission changed');
+    }
+    $query->buildQuery(['FROM' => PluginAgentbdmosassetsyncWork::getTable(), 'WHERE' =>
+        ['itemtype' => $work['itemtype'], 'b_items_id' => (int) $asset->getID()]]);
+    $owners = $DB->doQuery($query->getSql() . ' FOR UPDATE');
+    while ($owner = $DB->fetchAssoc($owners)) {
+        if ($owner['route_id'] !== $work['route_id'] || (int) $owner['a_items_id'] !== (int) $work['a_items_id']) {
+            throw new RuntimeException('Hold: current B asset has competing retained ownership');
+        }
+    }
+}
+
+/** Validate the actual Fields owner and scope before using its locked storage values. */
+function plugin_agentbdmosassetsync_locked_fields_row(CommonDBTM $asset, array $field): ?array
+{
+    global $DB;
+    $rows = $DB->doQuery('SELECT * FROM `' . $field['table'] . '` WHERE `items_id` = '
+        . (int) $asset->getID() . ' FOR UPDATE');
+    if ($DB->numrows($rows) > 1) {
+        throw new RuntimeException('Hold: current Fields storage is ambiguous');
+    }
+    $row = $DB->fetchAssoc($rows) ?: null;
+    if ($row !== null && ((int) $row['items_id'] !== (int) $asset->getID()
+        || $row['itemtype'] !== $asset::class
+        || (int) $row['plugin_fields_containers_id'] !== $field['container_id']
+        || ($asset->isEntityAssign() && (!array_key_exists('entities_id', $row)
+            || (int) $row['entities_id'] !== (int) $asset->getEntityID())))) {
+        throw new RuntimeException('Hold: current Fields row owner, container, or entity changed');
+    }
+    $rows = $DB->doQuery('SELECT * FROM `' . PluginFieldsContainer::getTable() . '` WHERE `id` = '
+        . (int) $field['container_id'] . ' FOR UPDATE');
+    $container = $DB->fetchAssoc($rows);
+    if (!$container || !$container['is_active']
+        || !in_array($asset::class, PluginFieldsToolbox::decodeJSONItemtypes($container['itemtypes']), true)
+        || PluginFieldsContainer::getClassname($asset::class, $container['name']) !== $field['storage_class']) {
+        throw new RuntimeException('Hold: current Fields container is unavailable for this concrete type');
+    }
+    $entities = $container['is_recursive'] ? getSonsOf('glpi_entities', (int) $container['entities_id'])
+        : [(int) $container['entities_id']];
+    if (($asset->isEntityAssign() && !in_array((int) $asset->getEntityID(), array_map('intval', $entities), true))
+        || PluginFieldsProfile::getRightOnContainer((int) ($_SESSION['glpiactiveprofile']['id'] ?? 0),
+            $field['container_id']) < READ) {
+        throw new RuntimeException('Hold: current Fields container scope or read permission changed');
+    }
+    return $row;
+}
+
+/** Read the locked row itself, rather than an older repeatable-read snapshot. */
+function plugin_agentbdmosassetsync_locked_value(array $work, CommonDBTM $asset, array $field, bool $allowMissing = false)
+{
+    plugin_agentbdmosassetsync_lock_current_asset($work, $asset, READ);
+    $row = $field['container_id'] === null ? $asset->fields
+        : plugin_agentbdmosassetsync_locked_fields_row($asset, $field);
+    if ($row === null) {
+        if ($allowMissing) {
+            return null;
+        }
+        throw new RuntimeException('Hold: current field storage is missing');
+    }
+    $value = $row[$field['column']];
+    if ($field['custom_field_id'] !== null) {
+        $values = json_decode($value ?? '[]', true, 512, JSON_THROW_ON_ERROR);
+        $value = $field['custom_type']->formatValueFromDB($values[$field['custom_field_id']] ?? $field['custom_default']);
+    }
+    if ($field['kind'] === 'dropdown' && ($value === null || (int) $value === 0)) {
+        return null;
+    }
+    return plugin_agentbdmosassetsync_field_value($field, $value);
 }
 
 function plugin_agentbdmosassetsync_note_correction_failure(array $work, int $id, string $reason): void

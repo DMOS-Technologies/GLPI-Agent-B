@@ -175,7 +175,11 @@ function plugin_agentbdmosassetsync_field_value(array $descriptor, $value)
         if (!is_numeric($value) || !is_finite((float) $value)) {
             throw new RuntimeException('Invalid stored number');
         }
-        return $descriptor['kind'] === 'integer' ? (int) $value : $value + 0;
+        $number = plugin_agentbdmosassetsync_number($value);
+        if ($descriptor['kind'] === 'integer' && !is_int($number)) {
+            throw new RuntimeException('Stored integer is fractional or outside the exact local integer range');
+        }
+        return $number;
     }
     if (in_array($descriptor['kind'], ['date', 'datetime'], true)) {
         $format = $descriptor['kind'] === 'date' ? 'Y-m-d' : 'Y-m-d H:i:s';
@@ -188,6 +192,89 @@ function plugin_agentbdmosassetsync_field_value(array $descriptor, $value)
         throw new RuntimeException('Stored field is not scalar');
     }
     return (string) $value;
+}
+
+/** Canonical wire numbers: 1 and 1.0 agree, without rounding a large integer into a float. */
+function plugin_agentbdmosassetsync_number($value)
+{
+    if ((!is_int($value) && !is_float($value) && !is_string($value))
+        || !is_numeric($value) || !is_finite((float) $value)) {
+        throw new RuntimeException('Invalid finite number');
+    }
+    $text = is_string($value) ? $value : json_encode($value, JSON_THROW_ON_ERROR);
+    $canonical = plugin_agentbdmosassetsync_number_text($text);
+    $number = json_decode($canonical, false, 512, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
+    if (is_string($number)) {
+        $number = (float) $number;
+    }
+    if (!is_finite((float) $number)
+        || plugin_agentbdmosassetsync_number_text(json_encode($number, JSON_THROW_ON_ERROR)) !== $canonical) {
+        throw new RuntimeException('Number cannot be represented on the JSON wire without precision loss');
+    }
+    return $number;
+}
+
+function plugin_agentbdmosassetsync_number_text(string $value): string
+{
+    if (preg_match('/\A(-?)([0-9]+)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?\z/D', $value, $parts) !== 1) {
+        throw new RuntimeException('Invalid numeric representation');
+    }
+    $fraction = $parts[3] ?? '';
+    $exponent = (int) ($parts[4] ?? 0);
+    if (abs($exponent) > 1024) {
+        throw new RuntimeException('Number exponent exceeds supported exact wire representation');
+    }
+    $digits = $parts[2] . $fraction;
+    $point = strlen($parts[2]) + $exponent;
+    if ($point <= 0) {
+        $whole = '0';
+        $fraction = str_repeat('0', -$point) . $digits;
+    } elseif ($point >= strlen($digits)) {
+        $whole = $digits . str_repeat('0', $point - strlen($digits));
+        $fraction = '';
+    } else {
+        $whole = substr($digits, 0, $point);
+        $fraction = substr($digits, $point);
+    }
+    $whole = ltrim($whole, '0') ?: '0';
+    $fraction = rtrim($fraction, '0');
+    $normalized = $whole . ($fraction !== '' ? '.' . $fraction : '');
+    return ($parts[1] === '-' && $normalized !== '0' ? '-' : '') . $normalized;
+}
+
+function plugin_agentbdmosassetsync_scalar_equal($left, $right): bool
+{
+    if ((is_int($left) || is_float($left)) && (is_int($right) || is_float($right))) {
+        return plugin_agentbdmosassetsync_number($left) === plugin_agentbdmosassetsync_number($right);
+    }
+    return $left === $right;
+}
+
+function plugin_agentbdmosassetsync_exact_work_value(array $work, string $mappingId, $decoded)
+{
+    if (!is_int($decoded) && !is_float($decoded)) {
+        return $decoded; // A JSON string remains a string even when its contents look numeric.
+    }
+    // Admission already requires a flat scalar object. Read its original tokens before PHP rounds numbers.
+    $json = $work['a_values_json'];
+    $offset = strpos($json, '{') + 1;
+    $string = '"(?:[^"\\\\]|\\\\.)*"';
+    $scalar = $string . '|true|false|null|-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?';
+    $pattern = '/\\G\\s*(' . $string . ')\\s*:\\s*(' . $scalar . ')\\s*([,}])/s';
+    $selected = null;
+    while (preg_match($pattern, $json, $parts, 0, $offset) === 1) {
+        $offset += strlen($parts[0]);
+        if (json_decode($parts[1], false, 512, JSON_THROW_ON_ERROR) === $mappingId) {
+            $selected = $parts[2]; // json_decode selects the final member when a key is repeated.
+        }
+        if ($parts[3] === '}') {
+            break;
+        }
+    }
+    if ($selected !== null) {
+        return plugin_agentbdmosassetsync_number($selected);
+    }
+    throw new RuntimeException('Original numeric scalar could not be read exactly');
 }
 
 
@@ -244,7 +331,8 @@ function plugin_agentbdmosassetsync_custom_descriptor(\Glpi\Asset\Asset $asset, 
         }
         return ['storage_class' => $asset::class, 'table' => $asset::getTable(), 'column' => 'custom_fields',
             'value_column' => $name, 'kind' => $kind, 'dropdown_class' => $dropdown, 'container_id' => null,
-            'custom_field_id' => (int) $definition->getID(), 'custom_type' => $type, 'sql' => $DB->getField($asset::getTable(), 'custom_fields')];
+            'custom_field_id' => (int) $definition->getID(), 'custom_type' => $type,
+            'custom_default' => $definition->fields['default_value'], 'sql' => $DB->getField($asset::getTable(), 'custom_fields')];
     }
     throw new RuntimeException('Custom asset field definition is missing: ' . $name);
 }

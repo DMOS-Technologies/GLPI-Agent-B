@@ -4,6 +4,7 @@ require_once __DIR__ . '/write.php';
 require_once __DIR__ . '/firstcopy.php';
 require_once __DIR__ . '/results.php';
 require_once __DIR__ . '/scope.php';
+require_once __DIR__ . '/both.php';
 
 function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
 {
@@ -254,11 +255,7 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
                 continue;
             }
             $outcome = ['mapping_id' => $mapping->mapping_id, 'outcome' => 'Skipped', 'reason' => null];
-            if ($mapping->source === 'Both') {
-                $status = $status === 'Failed' ? 'Failed' : 'Held';
-                $reason = 'Both conflict processing is not installed yet';
-                $outcome['reason'] = $reason;
-            } elseif ($mapping->source === 'B') {
+            if ($mapping->source === 'B') {
                 try {
                     $result['b_values_for_a']->{$mapping->mapping_id} = plugin_agentbdmosassetsync_return_value($work, $mapping,
                         $result['b_items_id']);
@@ -270,10 +267,25 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
                 }
             } elseif (!property_exists($values, $mapping->mapping_id)) {
                 $outcome['reason'] = 'A supplied no value for this enabled mapping';
+                if ($mapping->source === 'Both') {
+                    $outcome['outcome'] = 'Conflict';
+                    $status = $status === 'Failed' ? 'Failed' : 'Held';
+                    $reason = $outcome['reason'];
+                }
             } else {
                 try {
-                    $outcome['outcome'] = plugin_agentbdmosassetsync_write_mapping($work, $mapping,
-                        $result['b_items_id'], $values->{$mapping->mapping_id});
+                    $decision = plugin_agentbdmosassetsync_write_mapping($work, $mapping,
+                        $result['b_items_id'], plugin_agentbdmosassetsync_exact_work_value($work,
+                            $mapping->mapping_id, $values->{$mapping->mapping_id}));
+                    $outcome['outcome'] = $decision['outcome'];
+                    $outcome['reason'] = $decision['reason'];
+                    if ($decision['return'] !== null) {
+                        $result['b_values_for_a']->{$mapping->mapping_id} = $decision['return'];
+                    }
+                    if ($decision['outcome'] === 'Conflict') {
+                        $status = $status === 'Failed' ? 'Failed' : 'Held';
+                        $reason = $decision['reason'];
+                    }
                 } catch (RuntimeException $e) {
                     $outcome['reason'] = $e->getMessage();
                     if (str_starts_with($e->getMessage(), 'Save failed:')) {
