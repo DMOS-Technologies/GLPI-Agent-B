@@ -150,8 +150,13 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
             plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=itemtype');
         }
         $asset = new $type();
-        if (!$asset->getFromDB($identity->b_items_id) || !$asset->isEntityAssign()
-            || (int) $asset->getEntityID() !== (int) $this->fields['entities_id']) {
+        // Concrete custom types share a table; an ID alone does not prove the snapshot's itemtype.
+        $criteria = [$type::getTableField($type::getIndexName()) => $identity->b_items_id]
+            + $type::getSystemSQLCriteria($type::getTable());
+        if (!$asset->getFromDBByCrit($criteria)) {
+            plugin_agentbdmosassetsync_fail('ASB_CHANGE_SCOPE_MISMATCH: reason=asset_identity');
+        }
+        if (!$asset->isEntityAssign() || (int) $asset->getEntityID() !== (int) $this->fields['entities_id']) {
             plugin_agentbdmosassetsync_fail('ASB_CHANGE_SCOPE_MISMATCH: reason=asset_entity');
         }
         $this->checkAcknowledgementLink($identity);
