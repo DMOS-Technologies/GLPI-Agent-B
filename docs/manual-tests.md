@@ -36,7 +36,7 @@ section 4.9 fixtures for scope operations. A checklist expectation is not a runt
 |---|---|---|
 | Foundation installation, rights, Setting validation | Reviewed and exercised | Preserved foundation results/ledger below |
 | Background matching, writes, recovery | Existing A-source worker reviewed and exercised | IB observed cases PASS; uncertainty injections and future parts NOT RUN |
-| Edit capture, field evidence, acknowledgements | Capture reviewed/exercised; acknowledgement source reviewed | OC observed cases PASS; OB runtime pending |
+| Edit capture, field evidence, acknowledgements | Capture and acknowledgement reviewed/exercised | OC/OB observed cases PASS; explicit unrun variants below |
 | Native/Fields scalars and dropdown conversions | Installed metadata and representative writes exercised | OC/IB scoped results below; exhaustive type/field coverage NOT RUN |
 | Full flow and generic/custom-type evidence | Await integrated candidate | NOT RUN |
 
@@ -837,18 +837,18 @@ write the asset or create another Change.
 
 | ID | Bounded manual acknowledgement case | Result |
 |---|---|---|
-| OB01 | Exact Pending row, input object `{id,status:Done}` to ID URL: native 200 array keyed by actual B ID, then GET Done with native done_at/date_mod set. Compare all other saved columns byte-for-byte; original values/times/identity/retry_count/error never change. Asset and queue count unchanged. | NOT RUN |
-| OB02 | Bulk two explicitly handled Pending IDs: native 200 per-ID true results, read both Done, leave an unselected/newer Pending ID unchanged. Rows from separate native/Fields underlying snapshots require independent full coverage; never infer completion from same asset/field. | NOT RUN |
-| OB03 | Pending->Pending, lowercase done, unknown status, Done->Done and Done->Pending reject ASB_CHANGE_TRANSITION; null/number/bool/object status rejects ASB_INVALID_FIELD. Missing status rejects required. Rejected rows retain exact original state; native rights may reject before validation. | NOT RUN |
-| OB04 | Each B-owned field supplied even unchanged/null (route/version/A+B entities/type/identity/changed_fields/retry_count/error/date_creation/date_mod/done_at) rejects ASB_B_OWNED_FIELD. Unknown/bypass keys reject ASB_UNKNOWN_FIELD. Combined owned+unknown+missing status prioritizes owned, then unknown, then required; lexical key ordering within category. | NOT RUN |
-| OB05 | Malformed/nonpositive/string/float id rejects where plugin validation is reached. Missing ID in a native collection PUT can be skipped by V1 before class validation; record actual wrapper/omission, not an invented plugin required-message guarantee. Same native boundary applies to known absent development ID. Compare result ID keys and GET unresolved IDs. | NOT RUN |
-| OB06 | Mixed bulk valid Pending + Done transition failure + forbidden field gives native 207 ERROR_GLPI_PARTIAL_UPDATE and per-ID booleans; only valid rows change. All invalid array gives native 400 ERROR_GLPI_UPDATE; singleton denial scalar message shape. Preserve success despite sibling failure; no batch rollback assumed. | NOT RUN |
-| OB07 | Mixed real Pending plus known absent ID and all-absent batch: record installed 11.0.7 missing-ID omission exactly. Do not map results by array position or use forcedisplay on PUT; omitted IDs unresolved, GET404 is not an acknowledgement. | NOT RUN |
-| OB08 | Genuine unlinked snapshot `identity.a_items_id=null` can be acknowledged when actual B asset is still in routed entity and no conflicting/suspended retained link exists. Disable its route/bump version/type settings through normal saved settings first; old snapshot still acknowledges if route pair/current B scope remain valid. Preserve settings and asset unchanged by ack. | NOT RUN |
-| OB09 | Known verified link Active permits scope check; latest retained Suspended, competing identities, mismatching known link, missing linked evidence or actual B asset missing/wrong entity reject while Pending remains unchanged. Use trusted normal worker/control evidence only; unsupported fixture states stay NOT RUN until those parts exist. No raw DML or unrelated asset moves. | NOT RUN |
-| OB10 | Restricted Change read-only/no-update and out-of-entity users cannot acknowledge. Record native access/per-row wrapper, GET permitted state as authorized actor afterwards. Check profile/entity rights under actual API session, not admin privilege. No deletion/purge requests. | NOT RUN |
-| OB11 | Two manual independent sessions concurrently acknowledge the same Pending row: exactly one transition succeeds, second rejects after locked reread, exact row remains Done with one immutable payload. Lost response reconciliation reads IDs before retrying; no automatic Done->Done success. | NOT RUN |
-| OB12 | Local markQueueRowsDone remains exact-ID and caller-coverage controlled after refactor: selected handled Pending changes, missing/already-Done return false, unrelated Pending row unchanged; internal guard releases after rejected save. Do not duplicate completed helper proof unless this refactor requires the changed-path observation. Safe persistence/verification failure injection remains NOT RUN absent an approved local hook. | NOT RUN |
+| OB01 | Exact Pending row, input object `{id,status:Done}` to ID URL: native 200 array keyed by actual B ID, then GET Done with native done_at/date_mod set. Compare all other saved columns byte-for-byte; original values/times/identity/retry_count/error never change. Asset and queue count unchanged. | PASS curl3–4,68 — exact3 Done; other columns unchanged |
+| OB02 | Bulk two explicitly handled Pending IDs: native 200 per-ID true results, read both Done, leave an unselected/newer Pending ID unchanged. Rows from separate native/Fields underlying snapshots require independent full coverage; never infer completion from same asset/field. | PASS curl35,42,68 — separate4/5 Done; newer13 and unselected10–13 Pending |
+| OB03 | Pending->Pending, lowercase done, unknown status, Done->Done and Done->Pending reject ASB_CHANGE_TRANSITION; null/number/bool/object status rejects ASB_INVALID_FIELD. Missing status rejects required. Rejected rows retain exact original state; native rights may reject before validation. | PASS curl5–14,67–68 — exact transitions/type/required failures, row2 later legitimate Done only |
+| OB04 | Each B-owned field supplied even unchanged/null (route/version/A+B entities/type/identity/changed_fields/retry_count/error/date_creation/date_mod/done_at) rejects ASB_B_OWNED_FIELD. Unknown/bypass keys reject ASB_UNKNOWN_FIELD. Combined owned+unknown+missing status prioritizes owned, then unknown, then required; lexical key ordering within category. | PASS curl15–30,68 — every declared owned column, bypass and priority/order failures; immutable payloads retained |
+| OB05 | Malformed/nonpositive/string/float id rejects where plugin validation is reached. Missing ID in a native collection PUT can be skipped by V1 before class validation; record actual wrapper/omission, not an invented plugin required-message guarantee. Same native boundary applies to known absent development ID. Compare result ID keys and GET unresolved IDs. | PASS curl31–34,68 — string ID reaches plugin invalid; zero/float native400/null, collection no-ID200[[]] no mutation; other malformed ID shapes NOT RUN |
+| OB06 | Mixed bulk valid Pending + Done transition failure + forbidden field gives native 207 ERROR_GLPI_PARTIAL_UPDATE and per-ID booleans; only valid rows change. All invalid array gives native 400 ERROR_GLPI_UPDATE; singleton denial scalar message shape. Preserve success despite sibling failure; no batch rollback assumed. | PASS curl36–37,68 — exact207 mixed per-ID true/false and400 all-invalid array; valid6 persists |
+| OB07 | Mixed real Pending plus known absent ID and all-absent batch: record installed 11.0.7 missing-ID omission exactly. Do not map results by array position or use forcedisplay on PUT; omitted IDs unresolved, GET404 is not an acknowledgement. | PASS curl38–40,68 — mixed7+absent207 only7 entry; all-absent400/[]; absent GET404; no PUT forcedisplay |
+| OB08 | Genuine unlinked snapshot `identity.a_items_id=null` can be acknowledged when actual B asset is still in routed entity and no conflicting/suspended retained link exists. Disable its route/bump version/type settings through normal saved settings first; old snapshot still acknowledges if route pair/current B scope remain valid. Preserve settings and asset unchanged by ack. | PASS observed genuine unlinked3/4/5/6/7/8/2 under disabled route6/newer version6 — curl3,35–38,54–55,67 |
+| OB09 | Known verified link Active permits scope check; latest retained Suspended, competing identities, mismatching known link, missing linked evidence or actual B asset missing/wrong entity reject while Pending remains unchanged. Use trusted normal worker/control evidence only; unsupported fixture states stay NOT RUN until those parts exist. No raw DML or unrelated asset moves. | PASS known Active14 and cross-route historical unlinked15 rejected after real Work58 — curl41,43–52/local1; Suspended, same-route competing/missing/mismatched links and missing/wrong-entity asset NOT RUN |
+| OB10 | Restricted Change read-only/no-update and out-of-entity users cannot acknowledge. Record native access/per-row wrapper, GET permitted state as authorized actor afterwards. Check profile/entity rights under actual API session, not admin privilege. No deletion/purge requests. | PASS actual read-only/no-rights/outside sessions curl58–66; exact profile14 Change rights restored3 local3–5 |
+| OB11 | Two manual independent sessions concurrently acknowledge the same Pending row: exactly one transition succeeds, second rejects after locked reread, exact row remains Done with one immutable payload. Lost response reconciliation reads IDs before retrying; no automatic Done->Done success. | PASS two independent concurrent sessions curl53–57 — one200, one400 Done transition; row8 exact Done; lost-response/stress variants NOT RUN |
+| OB12 | Local markQueueRowsDone remains exact-ID and caller-coverage controlled after refactor: selected handled Pending changes, missing/already-Done return false, unrelated Pending row unchanged; internal guard releases after rejected save. Do not duplicate completed helper proof unless this refactor requires the changed-path observation. Safe persistence/verification failure injection remains NOT RUN absent an approved local hook. | PASS local2 — Done3 false, missing false, selected9 true; exact unselected10 unchanged; persistence/verification injection NOT RUN without safe hook |
 
 No automated test, runtime curl, deployment or implementation edit was performed
 by the reviewer. External acknowledgement completion does not certify A's save,
@@ -928,3 +928,69 @@ no asset/link writes. Changes1 Done and2–14 Pending are preserved. First copy,
 B returns, Both arbitration, Suspend/Resume execution, exact correction
 completion and full end-to-end flow remain later-stage requirements. The
 unrun variants in IB01–15 remain explicit; no passing claim extends to them.
+
+## Senior 1(c): first-copy candidate bounded manual matrix
+
+Prepared from approved spec section 4 and contract sections 1.4/5.3/Q8–Q10.
+This is a future candidate checklist, not source approval or executed evidence.
+Review only the completed first-copy diff when ready. Keep IB's historical
+zero-match Held result; the new stage changes fresh eligible zero-match Work
+only. Reuse the approved native REST Work POST/GET path and bounded local
+processor; no direct asset-create shortcut or fake retained-link SQL.
+
+Use disposable routes/types and new permitted serials verified absent inside
+the exact routed B entity under the captured submitting account. Record
+pre/post asset IDs, native History, queue IDs/count, current mapping/version,
+and full Work result. Fields/custom metadata and generated columns must be
+actual installed descriptors. Do not repeat passed admission/IB/OC tests.
+
+| ID | Bounded first-copy scenario and required evidence | Result |
+|---|---|---|
+| IC01 | Complete permitted exact-serial lookup positively finds no B asset; fresh Work is Accepted before execution. Background local add creates exactly one asset of enabled type in routed entity, reread confirms intended values, verified Active link and confirmed positive b_items_id/created_b_items_id, correct completed status/outcomes and submitter History. No sync Change. | NOT RUN — await complete candidate |
+| IC02 | First copy seeds enabled supported supplied A mappings once for source A, B and Both; equal/missing/unreliable time evidence never selects an existing-value winner for a new asset. Disabled/unmapped/absent A values do not fabricate writes, and missing supported values have specific outcomes. All original Work input remains immutable. | NOT RUN |
+| IC03 | Native text/scalar/dropdown, actual custom asset virtual scalar and installed Fields scalar destinations use generic descriptors/local methods. Required label conversions resolve unique permitted B options, with local IDs distinct from A. Reread raw/virtual custom values and Fields storage; unrelated defaults/siblings survive. Record representative types, not “all types.” | NOT RUN |
+| IC04 | Definite invalid/unsafe/unwritable supplied mapping or missing/duplicate/unreadable dropdown option follows approved per-field skip/failure policy with exact reason. Supported sibling values may succeed honestly. No option creation, generated bookkeeping/entity/deletion mapped write, silent truncation/default or false AppliedToB. Metadata rejection already covered by Setting admission is not rerun. | NOT RUN |
+| IC05 | Missing usable identifier, duplicate serial, inaccessible/incomplete lookup, unverified claimed B ID or contradictory retained ownership Hold and create zero assets. Use only new first-copy boundary variants not already proved by IB, and retain IB results as prior evidence. A remote ID never becomes a local B ID. | NOT RUN |
+| IC06 | Current route/version/type/entity or submitting Work/asset CREATE/field rights change after admission: Hold/skip as specified before the affected action, with no cron-admin bypass or forbidden creation. Restore only new test-profile rights through normal GLPI methods. Do not move an existing asset or infer no match from denied READ. | NOT RUN |
+| IC07 | After confirmed creation, a fresh ordinary Sync with same route/A identity verifies/reuses the retained asset even if serial changed: no second add, created_b_items_id null on reuse, no repeated first-copy seeding. Source B/Both existing-asset processing remains explicitly outside this part until implemented. | NOT RUN |
+| IC08 | Two fresh A identities or routes try the same destination identity: verified competing ownership Holds visibly, never silently links both to one asset. Two eligible fresh Works for the same source/serial cannot create duplicate assets through the one-worker/route-identity locking boundary. Use real concurrent native connections only if separately authorized/needed. | NOT RUN |
+| IC09 | Definite local add rejection/false save or reread verification failure reports Failed or Held according to actual certainty, never Done/confirmed created ID without proof. Confirm rollback only from actual readback. Preserve any verified asset/link/partial field outcomes honestly; later runner does not reopen terminal Work. | NOT RUN |
+| IC10 | Safe approved interruption after add but before Work/link completion, if a real hook exists: durable started marker and any confirmed partial evidence survive; next runner Holds uncertain instead of blindly creating again. Lost response is reconciled by original Work ID and actual asset/link reads. No destructive SQL, code damage or invented injection; absent safe hook record NOT RUN/source-only. | NOT RUN |
+| IC11 | Every native/custom/Fields first-copy save runs inside sync guard, including later seed updates. Queue count/IDs remain unchanged; immediate genuine edit afterwards queues normally with original evidence. History identifies captured submitting user; caller cron context restored after success and failure. | NOT RUN |
+| IC12 | Suspend/Resume, returned B values/Both arbitration and correction completion remain explicitly Held/not installed if absent in this part. Existing Pending Changes stay unchanged and no handled IDs are claimed Done. First-copy completion alone does not certify full product flows. Preserve all fixtures and disable only new test routes after readback; no delete/purge/cleanup. | NOT RUN |
+
+Source approval and actual IC evidence will be appended separately after the
+completed candidate and operator report. Unsafe recovery injection, unsupported
+metadata combinations and unexercised types remain explicitly unrun.
+
+### Senior 2(b) executed evidence review
+
+Independent review of all 70 manual curl entries and 5 native local operations
+found no implementation blocker in the observed acknowledgement stage. The
+complete redacted ledger is preserved verbatim in
+[outbound-b-runtime.md](outbound-b-runtime.md). Comparison of baseline call2
+with final call68 confirms original Changes1–14 retain every column except
+allowed status/date_mod/done_at byte-for-byte. No reviewer runtime request,
+deployment, implementation edit or repeated source check was performed.
+
+Exact singleton/bulk completion, owned-field priority, invalid transitions,
+profile/entity denial and actual two-session acknowledgement are observed.
+The native absent-ID omission and no-ID200[[]] boundaries are documented in
+api-contract section 3.2; HTTP success alone does not prove completion.
+Unlinked genuine snapshots under a disabled/newer route still acknowledge.
+The P2 cross-route fix has actual proof: genuine historical unlinked15 under
+route11 remains Pending after normal Work58 confirms Active B152/A933101
+ownership under route12, and ack rejects competing_route. Worker and ack
+leave the fresh asset's History count2 unchanged; existing Computer149's
+History remains29. No fabricated link/queue fixture was used.
+
+Final Done IDs are1–9 and14; Pending10–13 and15. Change1 was already Done.
+Only the explicitly authorized genuine scope edit created new Change15;
+acknowledgements created no asset or queue row. New routes11/12 are disabled
+at version2, profile14 Change rights restored3, and all five sessions closed.
+A's complete handling was explicitly simulated for these acknowledgements;
+this does not certify A's actual save or full product flow. Suspended-link
+execution, destructive missing/wrong-entity asset fixtures, other contradictory
+same-route link variants and unsafe persistence/verification failure injection
+remain NOT RUN, as specified in OB01–12. Source and observed runtime are
+approved for this part; the original P2 finding and targeted fix stay visible.
