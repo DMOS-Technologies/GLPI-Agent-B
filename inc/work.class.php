@@ -294,6 +294,24 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         }
     }
 
+    /** First copy owns the outer transaction so the asset and verified link commit together. */
+    public function saveFirstCopyEvidence(int $id, array $values): bool
+    {
+        global $DB;
+
+        plugin_agentbdmosassetsync_check_fields($values, ['b_items_id', 'link_state', 'result_json']);
+        $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
+        if (!$this->getFromDB($id) || $this->fields['status'] !== 'Accepted'
+            || $this->fields['processing_started_at'] === null || $this->fields['b_items_id'] !== null) {
+            return false;
+        }
+        if (!parent::update(['id' => $id] + $values)) {
+            return false;
+        }
+        $this->verifyCreated($id, $values);
+        return true;
+    }
+
     public static function cronInfo($name)
     {
         return $name === 'processWork'

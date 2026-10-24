@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/write.php';
+require_once __DIR__ . '/firstcopy.php';
 
 function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
 {
@@ -106,7 +107,7 @@ function plugin_agentbdmosassetsync_current_route(array $work): array
     return $route;
 }
 
-function plugin_agentbdmosassetsync_find_existing(array $work): CommonDBTM
+function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissing = false): ?CommonDBTM
 {
     global $DB;
     $type = $work['itemtype'];
@@ -141,15 +142,17 @@ function plugin_agentbdmosassetsync_find_existing(array $work): CommonDBTM
         if ($identity->serial === null || trim($identity->serial) === '' || !$DB->fieldExists($type::getTable(), 'serial')) {
             throw new RuntimeException('No usable supported serial and no verified link');
         }
-        $matches = iterator_to_array($DB->request(['FROM' => $type::getTable(),
-            'WHERE' => ['entities_id' => (int) $work['entities_id'], 'serial' => $identity->serial]]));
+        $matches = iterator_to_array($DB->request(plugin_agentbdmosassetsync_serial_criteria($work, $identity->serial)));
         $matches = array_values(array_filter($matches,
             static fn($row) => $row['serial'] === $identity->serial));
         if (count($matches) > 1) {
             throw new RuntimeException('Serial match is ambiguous in routed B entity');
         }
         if (!$matches) {
-            throw new RuntimeException('Complete serial lookup found no asset; first-copy processing is not installed yet');
+            if ($allowMissing) {
+                return null;
+            }
+            throw new RuntimeException('Complete serial lookup found no asset');
         }
         if (!$asset->getFromDB($matches[0]['id'])) {
             throw new RuntimeException('Serial match could not be reread');
@@ -166,8 +169,22 @@ function plugin_agentbdmosassetsync_find_existing(array $work): CommonDBTM
     return $asset;
 }
 
+function plugin_agentbdmosassetsync_serial_criteria(array $work, string $serial): array
+{
+    $type = $work['itemtype'];
+    return ['FROM' => $type::getTable(), 'WHERE' => [
+        'entities_id' => (int) $work['entities_id'], 'serial' => $serial,
+    ] + $type::getSystemSQLCriteria()];
+}
+
 function plugin_agentbdmosassetsync_check_asset(CommonDBTM $asset, array $work, int $right): void
 {
+    global $DB;
+    // getFromDB(id) alone does not constrain GLPI custom assets' shared storage table.
+    if ($asset::class !== $work['itemtype'] || count($DB->request(['FROM' => $asset::getTable(),
+        'WHERE' => ['id' => $asset->getID()] + $asset::getSystemSQLCriteria()])) !== 1) {
+        throw new RuntimeException('Asset concrete itemtype does not match requested type');
+    }
     if ((int) $asset->getEntityID() !== (int) $work['entities_id']
         || !empty($asset->fields['is_deleted']) || !empty($asset->fields['is_template'])) {
         throw new RuntimeException('Asset scope mismatch, deleted asset, or template');
@@ -190,8 +207,19 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
         }
         [$route, $asset] = plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work) {
             $route = plugin_agentbdmosassetsync_current_route($work);
-            return [$route, plugin_agentbdmosassetsync_find_existing($work)];
+            return [$route, plugin_agentbdmosassetsync_find_existing($work, true)];
         });
+        if ($asset === null) {
+            plugin_agentbdmosassetsync_first_copy($record, $result);
+            $status = json_decode($work['handled_change_ids_json'], true, 512, JSON_THROW_ON_ERROR) === [] ? 'Done' : 'Held';
+            $reason = $status === 'Held' ? 'Correction snapshot processing is not installed yet; queue remains Pending' : null;
+            if (!$record->saveProcessorFields((int) $work['id'], ['status' => $status, 'error' => $reason,
+                'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
+                'completed_at' => $status === 'Done' ? Session::getCurrentTime() : null])) {
+                throw new RuntimeException('Cannot finalize verified first copy; started marker prevents replay');
+            }
+            return;
+        }
         $result['b_items_id'] = (int) $asset->getID();
         if (!$record->saveProcessorFields((int) $work['id'], ['b_items_id' => $result['b_items_id'], 'link_state' => 'Active'])) {
             throw new RuntimeException('Cannot persist verified existing link');
@@ -235,7 +263,7 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
             $reason = 'Correction snapshot processing is not installed yet; queue remains Pending';
         }
     } catch (Throwable $e) {
-        $status = 'Held';
+        $status = $e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Save failed:') ? 'Failed' : 'Held';
         $reason = $e instanceof RuntimeException ? $e->getMessage() : 'Processing interrupted; outcome requires review';
     }
     if (!$record->saveProcessorFields((int) $work['id'], ['status' => $status, 'error' => $reason,
