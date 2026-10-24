@@ -2,8 +2,8 @@
 
 **Target:** GLPI 11, built-in REST API **V1** (the legacy, low-level API).
 **Scope:** B only. A initiates every request. No custom routes, authentication,
-HTTP responses, or outbound calls from B. This file describes the records that
-B must implement; there is no plugin implementation yet.
+HTTP responses, or outbound calls from B. This file defines the required
+record and processing behavior. Implementation is being delivered in reviewed parts.
 
 ## Contract status and sources
 
@@ -12,15 +12,15 @@ The confirmed requirements below come from [the B spec](../spec-b-agent.md),
 [the B-starts flowchart](asset-sync-starts-in-glpi-b.png). The requested
 `docs/spec-b-agent.md` is absent; the root `spec-b-agent.md` was read instead.
 
-The user selected GLPI 11, the display name, and the deployment name below.
-Column names and wire schemas are defined by this contract. Decisions that the
-spec leaves open are explicitly marked **proposed** and collected in section 7.
-They are not silently treated as approved. This document is ready for contract
-review; A and B must resolve the blocking questions before implementing the
-affected behavior. No live GLPI instance was supplied or called.
+The user selected GLPI 11, the display name, and deployment name below. The
+remaining recommendations were explicitly approved on 24 October 2026; section 7
+records those decisions. Local curl probes confirmed GLPI **11.0.7** on
+`http://localhost:8081`, native V1 login, and native missing-resource responses
+before installation of this plugin. HTTP is restricted to that disposable
+local development instance; deployed integrations use HTTPS.
 
-GLPI protocol details were researched against the official **11.0.0 tag**,
-not inferred from the older guide. The installed 11.x patch is still a question.
+Initial protocol research used the official **11.0.0 tag**. Implementation and
+manual checks must use the installed **11.0.7** source and behavior.
 The relevant sources are linked beside the protocol sections. The normative
 rules for this plugin are the schemas and validation rules in this document;
 examples use illustrative IDs and values.
@@ -70,11 +70,13 @@ inherit GLPI's `CommonDBTM` so the V1 resource resolver can expose it.
   its HTTP JSON encoder escapes the containing string. GET returns that string;
   A decodes it separately. This avoids assuming automatic JSON decoding by
   GLPI V1 or the database. `null` in a nullable column is outer JSON `null`.
-- `TIME`: SQL `DATETIME`, B-owned metadata, shown as `YYYY-MM-DD HH:MM:SS`.
-  **Proposed UTC** storage. Genuine field times inside JSON use RFC 3339 UTC
-  strings with seconds, e.g. `2026-10-24T04:00:00Z`, or explicit `null`.
-  Precision and clock trust require Q3. Metadata times are never evidence of
-  a genuine field edit.
+- `TIME`: SQL `DATETIME`, B-owned metadata, shown as `YYYY-MM-DD HH:MM:SS`,
+  following the installed GLPI native date convention. Do not change GLPI's
+  global timezone or rewrite its core metadata. Genuine field times in sync
+  JSON use RFC 3339 seconds with Brunei offset, e.g.
+  `2026-10-24T12:00:00+08:00`, or explicit `null`. Compare parsed instants. Both
+  server clocks are trusted; equal-second differing edits conflict. There is
+  no manual-edit cooldown. Metadata is never genuine field-edit evidence.
 - `TEXT`: SQL `TEXT`, JSON string; nullable where stated.
 - Boolean settings use SQL `TINYINT UNSIGNED`, JSON integer `0` or `1`.
 
@@ -83,8 +85,11 @@ matches the saved value. Supplying a B-owned field is an error, not a request
 for B to ignore it. For updates, `id` only selects the row; A never changes it.
 GLPI's own internal bookkeeping is not an A-writable record field.
 
-**Proposed setting scope (Q1): one Setting row per immutable `route_id`, with a
-version counter per route.** This makes entity restrictions explicit using
+**Approved setting scope: one Setting row per immutable entity-pair `route_id`,
+with a version counter per route.** Multiple pairs support one-to-one,
+one-to-many, and many-to-one entity routing. One controller A serves a B
+installation. Different source assets must not silently merge because their
+serials coincide. Competing links/ownership must hold visibly. This makes entity restrictions explicit using
 GLPI's ordinary `entities_id` column. No separate `b_entities_id` column exists:
 `entities_id` is always the destination B entity. A's entity is
 `a_entities_id`. Both field names are used consistently in all three types.
@@ -99,10 +104,10 @@ on Setting.
 |---|---|---|---|
 | `id` | `ID` | Generated on create; required as update selector | B/GLPI generates; A may address it on PUT only |
 | `route_id` | `KEY128` | Required; unique | A on create; immutable afterward |
-| `a_entities_id` | `ID`, allowing `0` | Required | A on create/update, subject to Q2 |
-| `entities_id` | `ID`, allowing `0` | Required; B entity | A on create/update, subject to Q2 and entity rights |
+| `a_entities_id` | `ID`, allowing `0` | Required | A on create; immutable entity pair afterward |
+| `entities_id` | `ID`, allowing `0` | Required; B entity | A on create; immutable entity pair afterward and entity rights |
 | `route_enabled` | `TINYINT UNSIGNED` / integer `0` or `1` | Required | A |
-| `settings_version` | `VERSION` | Required | A; strictly increases, proposed Q4 |
+| `settings_version` | `VERSION` | Required | A; strictly increases |
 | `enabled_itemtypes_json` | `JSON_TEXT`, inner array of unique `ITEMTYPE` strings | Required; `[]` permits disabling all types | A |
 | `field_mappings_json` | `JSON_TEXT`, inner array of mapping objects | Required; `[]` permits no mappings | A |
 
@@ -123,7 +128,7 @@ Field-selector objects:
 
 - Native: `{"kind":"native","name":"name"}`. `name` is the actual field,
   not a numeric search-option ID.
-- Fields plugin, **proposed selector requiring Q7**:
+- Fields plugin, **selector shape; actual installed Fields metadata must be verified**:
   `{"kind":"fields","container":"assetextra","name":"customcode"}`.
   Both strings identify configured Fields-plugin metadata; their exact
   correspondence to that plugin's installed version must be confirmed.
@@ -136,13 +141,12 @@ one permitted destination option. `dropdown_label_to_dropdown` also carries
 the source label; B resolves its own option ID locally. A never supplies a
 foreign dropdown ID as though it were a B ID. No option is created
 automatically. Ambiguous/missing matches produce a visible field reason.
-Supported field kinds and selectors require Q7; a search option alone is not
+Supported field kinds and selectors follow decision Q7; a search option alone is not
 proof that a field is writable.
 
 The user explicitly requires text-to-dropdown lookup as well as the spec's
 dropdown-to-text and dropdown-to-dropdown conversions. These are required
-contract capabilities, not reasons to call a field unsupported. Their
-implementation is still pending, as is all plugin code.
+contract capabilities, not reasons to call a field unsupported. Implementation must be delivered and verified in the relevant inbound/outbound parts.
 
 ### Field support and conversion boundary
 
@@ -164,9 +168,9 @@ one unambiguous match. Zero matches or several matches means no write to that
 field, a visible reason, and no acknowledgement of the affected snapshot as
 fully handled. Never choose the first result, copy a remote ID, silently
 truncate text, or fall back to an empty/default option. Label language,
-case/whitespace matching, hierarchical paths, and null/empty handling remain
-explicit Q7 decisions. A hierarchical or duplicate label needs enough agreed
-context to identify one option.
+case/whitespace matching, hierarchical paths, and null/empty handling use
+section 7's approved conservative rules. A hierarchical or duplicate label
+needs enough context to identify one option; without it, no write.
 
 The conversion describes A -> B. If field source `B` or `Both` makes B's
 value the winner, the side saving the result must apply the conversion for
@@ -217,6 +221,7 @@ settings GET and no remote lookup by B.
 |---|---|---|---|
 | `id` | `ID` | Generated | B/GLPI only |
 | `work_id` | `KEY128` | Required; unique, immutable | A at creation only |
+| `operation` | `VARCHAR(16)` / `Sync`, `Suspend`, `Resume` | Optional; default `Sync` | A at creation only |
 | `route_id` | `KEY128` | Required | A at creation only |
 | `a_entities_id` | `ID`, allowing `0` | Required | A at creation only |
 | `entities_id` | `ID`, allowing `0` | Required; B entity | A at creation only |
@@ -226,6 +231,12 @@ settings GET and no remote lookup by B.
 | `a_change_times_json` | `JSON_TEXT`, object from mapping ID to time-evidence object | Required; `{}` explicitly represents no supplied evidence | A at creation only |
 | `settings_version` | `VERSION` | Required | A at creation only |
 | `handled_change_ids_json` | `JSON_TEXT`, array of distinct positive B Change IDs | Optional; inner default `[]` | A at creation only |
+| `submitted_users_id` | `ID` | Derived from authenticated GLPI user | B only |
+| `submitted_profiles_id` | `ID` | Derived from active GLPI profile | B only |
+| `a_items_id` | `ID` | Derived from validated identity JSON; indexed with route/type | B only |
+| `b_items_id` | nullable `ID` | Verified B identity, initially `null` | B only |
+| `link_state` | nullable `VARCHAR(16)` / `Active`, `Suspended` | Initially `null`; verified durable evidence | B only |
+| `processing_started_at` | nullable `TIME` | Initially `null`; durable start marker before processing | B only |
 | `status` | `VARCHAR(16)` / string enum below | B initializes `Accepted` | B only |
 | `result_json` | nullable `JSON_TEXT`, result object below | Initially `null` | B only |
 | `error` | nullable `TEXT` | Initially `null` | B only |
@@ -243,12 +254,12 @@ Identity object (no additional keys):
 
 A link claim must be checked against B's saved link evidence, itemtype, route,
 and entity. An arbitrary integer from A is not proof of a confirmed link.
-Durable link evidence and scope-stop signaling are unresolved in Q11.
+Durable link evidence and per-asset scope operations are defined below.
 For Change identities, `a_items_id` may also be `null` when no A link is known;
 `b_items_id` must be positive.
 
 A time-evidence object is exactly
-`{"changed_at":"2026-10-24T04:00:00Z","reliable":true}`. `changed_at` may
+`{"changed_at":"2026-10-24T12:00:00+08:00","reliable":true}`. `changed_at` may
 be `null`; `reliable` is a boolean. Missing mapping entries mean missing
 evidence. A whole-asset modification time or a sync-write time must never be
 presented as a genuine field time. Missing/unreliable evidence is not grounds
@@ -256,8 +267,8 @@ to choose an arbitrary winner for `Both`.
 
 #### Work status vocabulary and transitions
 
-The four names come from the spec's proposed default; this contract supplies
-the following meanings. Partial-field completion and retries need Q8/Q9.
+The four names use the spec's vocabulary. Partial completion and retry rules
+follow approved decisions Q8/Q9.
 
 | Stored string | Meaning |
 |---|---|
@@ -268,9 +279,8 @@ the following meanings. Partial-field completion and retries need Q8/Q9.
 
 Only B may make `Accepted -> Done`, `Accepted -> Held`, or
 `Accepted -> Failed`. No status transition is exposed to A. `Done` is final.
-No automatic `Held/Failed -> Accepted` transition is authorized by this
-contract while Q9 remains unanswered. A duplicate POST never reopens work.
-A background task needs a durable concurrency/recovery rule (Q9); the absence
+There is no automatic `Held/Failed -> Accepted` transition. A duplicate POST never reopens work.
+The single background worker must use a durable start marker; the absence
 of a public `Processing` status does not permit two workers to apply it twice.
 
 #### Work result object
@@ -288,7 +298,7 @@ exactly these properties:
 | `field_outcomes` | array of field-outcome objects | Explicit result for every considered enabled mapping |
 
 A value/time object is exactly
-`{"value":"B's value","changed_at":"2026-10-24T03:50:00Z","reliable":true}`;
+`{"value":"B's value","changed_at":"2026-10-24T11:50:00+08:00","reliable":true}`;
 `value` follows the mapping's scalar/label type, and `changed_at` may be null.
 A field-outcome object is exactly
 `{"mapping_id":"asset_name","outcome":"AppliedToB","reason":null}`.
@@ -309,6 +319,46 @@ success must be reported honestly. An uncertain first-copy result must not
 claim `created_b_items_id` is confirmed. Corrections may mark only fully
 covered queue snapshots Done; no blanket acknowledgement of input IDs.
 
+### Per-asset links and scope operations
+
+The three record types remain the only plugin records/tables. Retained Work
+rows provide durable link/scope evidence, indexed by `route_id`, `itemtype`,
+and B-derived `a_items_id`. A verified `b_items_id` is scoped to that route;
+raw remote IDs are never sufficient evidence. Do not delete these records.
+The most recent successful control operation determines Active/Suspended
+state; ordinary Sync cannot reactivate a Suspended link. Preserve verified
+link evidence even when later field processing is Held/Failed.
+
+- `Sync` applies the existing pipeline. If a retained link is Suspended,
+  hold without asset writes or first-copy creation.
+- `Suspend` carries empty A-value/time objects and no handled queue IDs. It
+  records Suspended state for the existing verified link, retains asset and
+  queue evidence, and performs no asset update. Future B edits for that link
+  are not queued while suspended. Existing Pending rows remain visible but
+  cannot be acknowledged or corrected while suspended. A must not apply
+  historical queue values after it has suspended that relationship.
+- `Resume` carries empty A-value/time objects and no handled queue IDs. It
+  rechecks the retained link, route/type/entity and current permissions, then
+  records Active state. It never creates another asset or repeats first-copy
+  seeding. Send a new ordinary Sync to exchange current mapped values.
+- Suspend/Resume without existing verified link evidence is Held. Changing
+  an entity pair uses a different route identity; returning to the original
+  pair verifies and reuses the original route/link.
+
+Process bounded batches in one worker. Persist `processing_started_at`
+before work can cause an asset write. If a process crashes and leaves started
+Accepted work, hold it as uncertain on the next run rather than replaying its
+writes. Store per-field verified outcomes as processing progresses. A person
+must reconcile an uncertain local outcome before issuing any necessary new
+Work ID. Polling does not increment attempts. Work does not expire merely
+because it is old; stale settings/scope/evidence are rechecked before writes.
+
+Before every local asset action, establish the recorded submitting user's
+current active account, profile authorization and entity/asset/field rights.
+A cron administrator's privileges never authorize that action. The captured
+user/profile IDs are B-owned, taken from the original authenticated session;
+A may not supply them or a session token in Work. No custom authentication.
+
 ### 1.5 Change fields
 
 The logical **queue ID is the GLPI row `id`**. There is no separate `queue_id`
@@ -325,7 +375,7 @@ column and no A-generated queue identifier.
 | `identity_json` | `JSON_TEXT`, identity object above | Required | B only |
 | `changed_fields_json` | `JSON_TEXT`, nonempty object from mapping ID to value/time object | Required | B only |
 | `status` | `VARCHAR(16)` / string enum below | Initially `Pending` | B on create; A may change only `Pending -> Done`; B may do that after successful correction |
-| `retry_count` | `INT UNSIGNED` / nonnegative integer | Initially `0` | B only; increment policy needs Q9 |
+| `retry_count` | `INT UNSIGNED` / nonnegative integer | Initially `0` | B only; count actual processing attempts, not polling |
 | `error` | nullable `TEXT` | Initially `null` | B only |
 | `date_creation` | `TIME` | Set when queued | B/GLPI only |
 | `date_mod` | `TIME` | Set on create/update | B/GLPI only |
@@ -342,7 +392,7 @@ back the IDs instead of assuming a repeat PUT is accepted. `Done -> Pending`
 and every other value are forbidden. There is no `Failed` Change status:
 failed/conflicted rows remain Pending with a reason.
 
-**Proposed Q5:** one immutable snapshot per genuine asset save per route, with
+**Approved:** one immutable snapshot per genuine asset save per route, with
 all eligible changed fields and their original per-field times. A later edit
 creates another row; B must not overwrite a row A may already have read.
 Sync writes never create a Change row.
@@ -370,8 +420,7 @@ Plugin-record rights do not imply asset write rights. The spec also requires
 B to respect the submitting service account's permissions when the background
 task performs a local asset add/update. Do not grant Super-Admin to solve this.
 The required asset read/create/update and dropdown/Fields permissions depend
-on the enabled types/mappings, and the authorization context must be resolved
-in Q10. No asset delete, purge, transfer, or archive rights are required for
+on the enabled types/mappings, and the authorization context follows the approved Q10 rule. No asset delete, purge, transfer, or archive rights are required for
 this integration. There is no separate API-wide entitlement that replaces
 profile and entity checks.
 
@@ -384,7 +433,7 @@ Use the HTTPS URL displayed under GLPI 11's **Legacy API** settings. GLPI
 also uses `apirest.php`. This contract uses `/glpi/api.php/v1` as the exact
 example base; replace `/glpi` with the configured installation prefix.
 Do not use `/api.php/v2` or add a plugin HTTP route. If B's deployment exposes
-only `apirest.php`, resolve Q13 and substitute that whole base consistently.
+only `apirest.php`, substitute that configured whole base consistently.
 [GLPI 11 advertised versions, `Router::getAPIVersions()`](https://github.com/glpi-project/glpi/blob/11.0.0/src/Glpi/Api/HL/Router.php).
 
 Every authenticated call below carries these headers, called **H**:
@@ -454,7 +503,7 @@ If all submitted IDs are absent, that implementation returns
 ID without changing GLPI. A compares returned **ID keys** against submitted
 IDs, treats omitted results as unresolved, then GETs each unresolved ID.
 Never map PUT results by array position or treat an absent result as success.
-The installed patch behavior remains Q12.
+The installed 11.0.7 behavior must be recorded in the manual check.
 
 `forcedisplay[0]=1&forcedisplay[1]=2` is a valid **search GET** column selection
 when those search options exist. On Computer they conventionally identify
@@ -601,7 +650,7 @@ row. There must be at most one exact matching route.
 ### 4.3 Settings write: update
 
 Headers: **H**. Use the same row, the full replaceable settings content, and a
-strictly higher version (**proposed Q4**). For example, disable its route:
+strictly higher version (**approved version rule**). For example, disable its route:
 
 ```http
 PUT /glpi/api.php/v1/PluginAgentbdmosassetsyncSetting/1
@@ -665,7 +714,7 @@ POST /glpi/api.php/v1/PluginAgentbdmosassetsyncWork
       "itemtype": "Computer",
       "identity_json": "{\"a_items_id\":42,\"b_items_id\":null,\"serial\":\"SN-0042\"}",
       "a_values_json": "{\"asset_name\":\"Finance PC\"}",
-      "a_change_times_json": "{\"asset_name\":{\"changed_at\":\"2026-10-24T04:00:00Z\",\"reliable\":true}}",
+      "a_change_times_json": "{\"asset_name\":{\"changed_at\":\"2026-10-24T12:00:00+08:00\",\"reliable\":true}}",
       "settings_version": 7,
       "handled_change_ids_json": "[]"
     }
@@ -703,7 +752,7 @@ Content-Type: application/json
 Other schema/ownership errors use the same wrapper and section 5's exact
 validation messages. Structurally valid work that later fails current
 settings/identity checks must become visibly Held, not silently disappear.
-The accept-versus-hold policy for arrival mismatches remains Q6.
+The approved policy saves structurally valid work and holds mismatches in the background.
 
 After a timeout or duplicate error, find the same `work_id` using section
 4.5 and inspect it. Do not substitute a new work ID to evade idempotency.
@@ -734,9 +783,16 @@ Content-Type: application/json
   "itemtype": "Computer",
   "identity_json": "{\"a_items_id\":42,\"b_items_id\":null,\"serial\":\"SN-0042\"}",
   "a_values_json": "{\"asset_name\":\"Finance PC\"}",
-  "a_change_times_json": "{\"asset_name\":{\"changed_at\":\"2026-10-24T04:00:00Z\",\"reliable\":true}}",
+  "a_change_times_json": "{\"asset_name\":{\"changed_at\":\"2026-10-24T12:00:00+08:00\",\"reliable\":true}}",
   "settings_version": 7,
   "handled_change_ids_json": "[]",
+  "operation": "Sync",
+  "submitted_users_id": 7,
+  "submitted_profiles_id": 9,
+  "a_items_id": 42,
+  "b_items_id": 845,
+  "link_state": "Active",
+  "processing_started_at": "2026-10-24 04:01:30",
   "status": "Done",
   "result_json": "{\"b_items_id\":845,\"created_b_items_id\":845,\"b_values_for_a\":{},\"covered_change_ids\":[],\"handled_change_ids_done\":[],\"field_outcomes\":[{\"mapping_id\":\"asset_name\",\"outcome\":\"AppliedToB\",\"reason\":null}]}",
   "error": null,
@@ -805,7 +861,7 @@ Accept-Range: PluginAgentbdmosassetsyncChange <GLPI_configured_limit>
     "entities_id": 5,
     "itemtype": "Computer",
     "identity_json": "{\"a_items_id\":42,\"b_items_id\":845,\"serial\":\"SN-0042\"}",
-    "changed_fields_json": "{\"asset_name\":{\"value\":\"Renamed in B\",\"changed_at\":\"2026-10-24T04:10:00Z\",\"reliable\":true}}",
+    "changed_fields_json": "{\"asset_name\":{\"value\":\"Renamed in B\",\"changed_at\":\"2026-10-24T12:10:00+08:00\",\"reliable\":true}}",
     "status": "Pending",
     "retry_count": 0,
     "error": null,
@@ -924,7 +980,7 @@ Headers: **H**. Example body:
       "itemtype": "Computer",
       "identity_json": "{\"a_items_id\":42,\"b_items_id\":845,\"serial\":\"SN-0042\"}",
       "a_values_json": "{\"asset_name\":\"Finance PC\"}",
-      "a_change_times_json": "{\"asset_name\":{\"changed_at\":\"2026-10-24T04:00:00Z\",\"reliable\":true}}",
+      "a_change_times_json": "{\"asset_name\":{\"changed_at\":\"2026-10-24T12:00:00+08:00\",\"reliable\":true}}",
       "settings_version": 7,
       "handled_change_ids_json": "[301]"
     }
@@ -963,6 +1019,48 @@ not PUT a second acknowledgement for IDs confirmed in
 `handled_change_ids_done`. A newer edit is a separate Pending row and is not
 covered just because it concerns the same asset/field.
 
+### 4.9 Suspend and resume an existing asset relationship
+
+Both use the same Work POST, headers H, and native responses as section 4.4.
+For a verified link between A asset 42 and B asset 845:
+
+```http
+POST /glpi/api.php/v1/PluginAgentbdmosassetsyncWork
+```
+
+```json
+{
+  "input": [{
+    "work_id": "A-20261024-suspend-42",
+    "operation": "Suspend",
+    "route_id": "route-12",
+    "a_entities_id": 12,
+    "entities_id": 5,
+    "itemtype": "Computer",
+    "identity_json": "{\"a_items_id\":42,\"b_items_id\":845,\"serial\":\"SN-0042\"}",
+    "a_values_json": "{}",
+    "a_change_times_json": "{}",
+    "settings_version": 7,
+    "handled_change_ids_json": "[]"
+  }]
+}
+```
+
+Acceptance: `201 [{"id":104,"message":""}]`. Poll
+`GET .../PluginAgentbdmosassetsyncWork/104?get_hateoas=false&expand_dropdowns=false`
+with H and no body. Only a verified `200` row with `status: "Done"`,
+`b_items_id: 845` and `link_state: "Suspended"` confirms completion. Held/Failed
+is still a 200 read with the saved reason. No asset write, transfer, deletion,
+or queue acknowledgement is part of Suspend.
+
+Resume uses the identical body with a fresh `work_id`, for example
+`A-20261024-resume-42`, and `operation: "Resume"`. Acceptance is still 201;
+completion requires a readback of Done with the same verified B ID and
+`link_state: "Active"`. It does not seed or update fields; use a new Sync Work
+afterwards. Missing/malformed operation is the ordinary schema validation
+case (`operation` omitted defaults to Sync); unknown values produce
+`ASB_INVALID_FIELD: field=operation` inside the native add-error wrapper.
+
 ## 5. Validation and state rules (deliverable 4)
 
 ### 5.1 General admission rules
@@ -991,12 +1089,12 @@ covered just because it concerns the same asset/field.
   on update. On update require selector `id`; if `route_id` is repeated it
   must equal the stored immutable value. The examples repeat it for clarity.
 - Enforce a database unique key on `route_id`, as well as friendly validation,
-  under the proposed one-row-per-route model (Q1). Duplicate creation is an
+  under the approved one-row-per-route model. Duplicate creation is an
   error, not an upsert.
-- Enforce authorized B entity scope, both old and new entity if retargeting is
-  approved. A entity IDs are opaque remote IDs: B cannot verify their existence
-  by making an outbound request. Retargeting still requires Q2.
-- Proposed version rule (Q4): create requires version >=1; an update requires
+- Enforce authorized B entity scope and immutable A/B entity pair. A entity
+  IDs are opaque remote IDs: B cannot verify their existence by making an
+  outbound request. A different pair requires a different route identity.
+- Approved version rule: create requires version >=1; an update requires
   `submitted > stored`, including a byte-identical retry. Check/replace
   atomically so concurrent stale versions cannot overwrite newer settings.
 - Reject duplicate type names and duplicate mapping IDs, invalid field
@@ -1006,10 +1104,10 @@ covered just because it concerns the same asset/field.
 - `itemtype` is data. B validates recognized/supported types generically; it
   does not add a per-type code path. Unknown or unsupported configured types
   and unsupported field kinds must be rejected visibly. The type boundary
-  and Fields behavior require Q7.
+  and Fields behavior follow decision Q7 and actual installed capabilities.
 - A field missing or not safely writable on an otherwise supported asset type
-  receives a visible per-field outcome when work is processed; the proposed
-  skip policy and where support is validated need Q7/Q8. Do not erase mappings
+  receives a visible per-field outcome when work is processed, following
+  the approved Q7/Q8 capability and skip policies. Do not erase mappings
   or silently pretend they were applied.
 - No B-owned Setting business fields exist; B must never advance the version
   or revise mappings itself. Setting has no status transition.
@@ -1017,20 +1115,23 @@ covered just because it concerns the same asset/field.
 ### 5.3 Work validation and processing boundary
 
 - Required creation fields are exactly those marked Required in section 1.4.
-  Do not require `status`, results, error, or timestamps from A.
+  `operation` defaults to Sync; only Sync/Suspend/Resume are allowed. Scope
+  operations require empty values/times and no handled IDs. Do not require
+  `status`, results, error, timestamps, submitter, or normalized identity
+  columns from A; B derives its metadata from authenticated input/context.
 - Reject every supplied B-owned field, including `status: "Accepted"` and
   `result_json: null`. Reject all A updates to existing Work records.
 - Enforce a database unique key on `work_id`, case-sensitive and covering the
   whole B installation. Concurrent duplicate requests must not create two
-  records. Proposed duplicate rule (Q4): reject the second record and let A
+  records. Approved duplicate rule: reject the second record and let A
   read the first; never overwrite the payload or repeat its completed write.
 - Require `itemtype` to be a nonempty string. Structurally valid unknown or
-  disabled arriving types must cause a visible hold under the proposed
-  arrival policy (Q6), never an arbitrary class invocation or asset creation.
+  disabled arriving types must cause a visible hold under the approved
+  admission policy, never an arbitrary class invocation or asset creation.
 - `identity_json` requires all three keys and a positive `a_items_id`.
   Missing usable B identifiers (`b_items_id` and usable serial both null) can
   be recorded, but must hold in the background: no guessing and no first copy.
-  Default proposed lookup order is confirmed link, then serial (Q7).
+  Approved lookup order is confirmed link, then usable serial.
 - `a_values_json` values must have the declared scalar/label shape. Process
   **only enabled mappings** for this type in the current settings. Extra
   unmapped values are ignored as required by spec section 4, never written;
@@ -1064,7 +1165,7 @@ covered just because it concerns the same asset/field.
   rereads writes, and applies a loop guard so sync writes never queue to A.
 - `Done` requires the evidence described in section 1.4. Held/Failed results
   remain readable; A has no status reset endpoint. Partial success, crash
-  recovery, and resumption are Q8/Q9, not speculative retry behavior.
+  recovery, and resumption follow approved Q8/Q9.
 
 ### 5.4 Change validation
 
@@ -1081,7 +1182,9 @@ covered just because it concerns the same asset/field.
   POST success is sufficient by itself. Newer queue rows remain independent.
 - Acknowledging a row is an all-fields snapshot acknowledgement. If only some
   fields were safely handled, leave the row Pending; partial-row completion
-  and already-handled snapshots in a correction need Q8/Q9.
+  and already-handled snapshots follow Q8/Q9. Already Done IDs may be reported
+  as already covered by a successful correction, never reverted or blindly
+  re-written; an external Done-to-Done acknowledgement remains rejected.
 - Pending failures/conflicts stay available with a reason. A never increments
   `retry_count`, writes `error`, or clears a queue record. No field times are
   replaced with poll, ack, or sync execution time.
@@ -1123,7 +1226,7 @@ mismatch/out of scope, disabled/unknown type, missing/ambiguous identity,
 permission failure, field conflict/unsupported field, missing/ambiguous
 option, save/verification failure, stale work, and uncertain creation. The
 result must explain the actual condition; it must not fabricate evidence.
-The spec has no stale-work threshold or recovery policy (Q9).
+Age alone does not make work stale. Approved Q9 defines recovery behavior.
 
 ## 6. Enable GLPI V1 and create the service account (deliverable 5)
 
@@ -1155,7 +1258,7 @@ service account.
    profile such as `Agent-B AssetSync service`. After plugin rights are
    available, grant exactly the per-record operations in section 2. Deny all
    Delete/Purge permissions; do not use Super-Admin. Configure any necessary
-   ordinary asset/field rights only after resolving Q10.
+   ordinary asset/field rights according to Q10 and the selected mappings.
 6. In **Administration > Users**, create a dedicated active user such as
    `assetsync-a-service`. Use the normal GLPI account mechanism. Assign the
    dedicated profile in its **Authorizations** for the routed B entities;
@@ -1175,8 +1278,8 @@ service account.
 9. Configure B's normal GLPI automatic-action runner for the future background
    task. POST acceptance will otherwise remain Accepted. B must process locally
    and check the submitting service permissions (Q10), never call itself/A
-   over HTTP. Reliable UTC clock/time configuration is required if Q3 is
-   approved. No asset deletion/purge command is part of setup.
+   over HTTP. Use reliable clocks and Brunei-offset genuine field evidence
+   according to approved Q3. No asset deletion/purge command is part of setup.
 
 ### Manual curl checklist for the reviewer (not executed here)
 
@@ -1224,8 +1327,8 @@ curl --silent --show-error --include --request PUT \
 Reviewer observations required after implementation:
 
 - Read Setting back; check increasing and stale versions, route uniqueness,
-  entity restrictions, and unsupported mappings. Never test route retargeting
-  until Q2 is resolved.
+  entity restrictions, and unsupported mappings. Verify that changing an existing
+  route's entity pair is rejected.
 - Confirm valid work saves Accepted without immediate asset mutation. POST the
   same work ID twice, including a mixed batch; check exact wrappers and a
   single saved row. Send a B-owned status/result field and verify rejection.
@@ -1244,34 +1347,43 @@ Reviewer observations required after implementation:
 No automated tests, live calls, database commands, commit, or push were run
 for this documentation task.
 
-## 7. Questions requiring explicit decisions
+## 7. Approved decisions and remaining implementation verification
 
-These questions are part of the contract deliverable. Proposed choices below
-are not authorization to guess in implementation. Blocking questions must be
-answered before A relies on the affected schemas/behavior. Spec question
-numbers refer to section 11 of the root spec.
+On 24 October 2026 the user explicitly selected timestamp conflicts without
+an edit cooldown and approved the remaining recommendations described here.
+These are now requirements rather than unapproved defaults.
 
-| ID | Question and proposed choice | Impact |
-|---|---|---|
-| Q1 | Is one Setting per immutable route, with a per-route increasing version, correct, or should B store one connection-wide snapshot/version containing several routes? This draft proposes per-route records. How many A controllers/connections may share one B? | Blocks final Setting scope, uniqueness, and version semantics. |
-| Q2 | May a route's A or B entity change in place? If so, how are the old link/evidence and pending rows preserved without silently relinking/moving assets? Proposed safe choice: create a distinct route identity for a different entity pair, keep old evidence. | Blocks route update validation beyond version/mappings/enabled state. |
-| Q3 | Approve UTC, second precision, and the evidence format in section 1.4? Are both servers' clocks trustworthy, and how is unreliable evidence detected rather than merely asserted? If subsecond edits matter, what shared precision is required? (Spec Q4.) | Blocks dependable `Both` comparisons and final timestamp policy. |
-| Q4 | Approve rejecting duplicate work IDs and rejecting settings versions <= stored, including identical retries? Approve the bounded case-sensitive ID formats and atomic unique/version checks? (Spec Q15/Q16.) | Blocks retry behavior A must depend on. Proposed native errors are documented; no custom 409. |
-| Q5 | Approve one Change row per genuine save per route, no merging, and no cleanup of Done rows? (Spec Q3/Q10.) | Fixes queue snapshot granularity and retention. |
-| Q6 | For structurally valid arriving work with mismatched settings/route/type, approve saving Accepted then holding visibly in the background, instead of admission rejection? (Spec Q7.) | Fixes whether A receives a row to poll or a failed POST. No asset write in either case. |
-| Q7 | Which GLPI asset classes count as all supported types: core only, or also GLPI 11 custom/non-core assets? Approve confirmed link then serial only, and holding types without usable identifiers? Which Fields-plugin version/selector metadata is supported, and should unavailable/unsupported custom mappings be rejected at settings write or held at work time? For the required text/dropdown conversions, what label language, case/whitespace rules, hierarchy context, and null/empty behavior apply? Which complex field kinds need explicit non-scalar formats? (Spec Q8/Q9/Q12.) | Blocks exact type/support boundary, option matching details, and custom/complex field formats. Text-to-dropdown itself is now an explicit user requirement. No invented GLPI metadata APIs. |
-| Q8 | Using section 1.3's field/conversion classification, approve skipping absent/unwritable fields with a specific reason while processing supported fields? If some fields conflict/fail, is the Work Held/Failed rather than Done? Can a queue row be Done only when every field in that snapshot is covered, as proposed here? Dropdown/text conversions are required; an absent or ambiguous option is a conversion failure, not a blanket unsupported dropdown type. (Spec Q11 and partial-result ambiguity.) | Blocks partial completion and queue acknowledgement semantics, not the required dropdown/text conversion support. |
-| Q9 | How are Held/Failed work resumed and retries counted? What makes work stale? How are durable worker ownership, per-field completion, crash recovery after add/update, and link persistence handled so a timeout never duplicates a write or first-copy asset? What happens if correction IDs were already Done? | Blocks safe background/retry implementation; duplicate IDs alone do not solve crash recovery. |
-| Q10 | How does the background task identify and recheck the original service account/profile/entity rights without storing its session token or trusting an A-supplied user ID? Which ordinary asset/dropdown/Fields rights must that account hold? | Blocks the spec's background authorization requirement. Plugin rights in section 2 remain exact. |
-| Q11 | Where is confirmed durable link evidence stored, and how does A signal that a single asset has left scope while a route stays enabled? How is return-to-scope distinguished from a first copy? The three record descriptions supply no explicit per-asset stop operation. | Blocks full transfer/stop/reuse semantics; no speculative fourth record or custom endpoint has been added. |
-| Q12 | Which exact GLPI 11.x patch is deployed, and does its native PUT missing-ID behavior still omit results as 11.0.0 does? Must A support that omission or is a fixed core patch required? | Native protocol compatibility question; no plugin HTTP override promised. |
-| Q13 | What is B's actual HTTPS Legacy API base URL and installation prefix? Is `/api.php/v1` exposed as advertised in 11.0.0, or must this deployment use `/apirest.php`? | Needed to substitute executable deployment URLs; V1 method/body conventions are researched, not guessed. |
-| Q14 | Can multiple A consumers read/ack the same queue, and how should paging avoid starvation when the earliest Pending rows remain unresolved? | No snapshot/claim/cursor capability has been assumed for GLPI offset ranges. |
-| Q15 | In the selected GLPI patch, which record validation stage sees client fields before GLPI filtering/defaults, and how will native bookkeeping be handled while rejecting all client-supplied bypass/B-owned fields? Verify the three real CommonDBTM classes through the built-in V1 API after the skeleton exists. | Implementation/version uncertainty; sources confirm the generic resolver, not these unimplemented classes. |
+| Original question | Approved decision |
+|---|---|
+| Q1 | Separate immutable entity-pair routes, each with its own Setting and increasing version. Multiple pairs support 1:1, 1:many, and many:1. One controller A per B installation. Preserve distinct asset identities and hold competing links. |
+| Q2 | An entity-pair change uses a distinct route. Preserve old assets, links, queue/work evidence. Return-to-scope verifies and reuses the original link. |
+| Q3 | Brunei `+08:00` genuine field timestamps at second precision; trusted server clocks; compare instants; differing equal/missing/unreliable times conflict. No manual-edit cooldown. GLPI-owned metadata uses its native date conventions. |
+| Q4 | Reject duplicate Work IDs; A reads the existing row. Reject non-increasing Setting versions, including identical retries. Enforce unique/version checks safely under concurrency. |
+| Q5 | One immutable Change snapshot per genuine save per applicable route; no merging and no cleanup of Done evidence. |
+| Q6 | Reject malformed admission payloads; save structurally valid Work then Hold scope/settings/type mismatches visibly without asset writes. |
+| Q7 | Generic installed GLPI asset registry, including registered custom asset classes; no per-type implementation. Validate field-kind support and actual safe local writes. Native and Fields-plugin scalar mappings plus the four documented text/dropdown conversions are required. Missing Fields support is reported visibly. Complex non-scalar fields remain rejected until a payload/save contract exists. |
+| Q8 | Process supported fields and record exact skipped-field reasons. Done may contain documented skips; unresolved conflicts are Held; definite save failures are Failed. Preserve verified partial outcomes. An entire Change snapshot must be covered before it can become Done. |
+| Q9 | One background worker; durable start marker and partial evidence; no blind replay of interrupted/uncertain writes, especially first copy. Held/Failed are not automatically reopened. Reconcile before any necessary new Work. Queue age alone does not expire work. |
+| Q10 | Capture submitting user/profile as B-owned metadata and recheck their current authorizations for local processing. Never inherit cron administrator privileges or store session credentials. |
+| Q11 | Existing Work records carry Sync/Suspend/Resume operations and retain indexed verified link/scope evidence. No fourth record type, custom endpoint, deletion, or entity transfer. |
+| Q12 | Local target is GLPI 11.0.7, confirmed from its running source. A must reconcile acknowledgement responses by actual ID keys and read back omitted/uncertain results. Native missing-ID behavior is a manual verification case, never a reason to override GLPI HTTP handling. |
+| Q13 | Local disposable test base is `http://localhost:8081/api.php/v1`. Production uses B's configured HTTPS Legacy API base. |
+| Q14 | One A consumer per B. Use discovered numeric search options and ascending queue IDs for bounded passes; revisit unresolved IDs without starving later rows. Never treat offset pages as an immutable snapshot. |
+| Q15 | Verify implementation hooks, bookkeeping, field writes, permissions, and native API exposure against installed GLPI11.0.7 source. These are engineering checks, not permission to invent APIs. |
 
-Already resolved: target major version **GLPI 11**; display name
-**Agent-B-DMOS-AssetSync**; installed directory **agentbdmosassetsync**; global
-class prefix **PluginAgentbdmosassetsync**; current repository path retained;
-correction work is an ordinary Work with handled IDs; first-copy creation is
-required. No custom route, custom authentication, outbound B call, or A-side
-code is authorized by this contract.
+Dropdown matching is conservative: preserve source readable label/text without
+implicit trimming or case folding, match exactly in the destination's locally
+configured option set and entity scope, require a single permitted result,
+and never create options. Do not use translated UI text or a hierarchy leaf
+as sufficient identity when ambiguous. A full unique hierarchy path may be
+matched when the destination metadata defines it. Empty/null dropdown labels
+never implicitly select zero/default or clear a field: leave unchanged with a
+visible reason. Compatible direct scalar nulls remain subject to the actual
+field's supported validation; no destructive scope operation is inferred.
+
+Outstanding implementation facts must be reported rather than guessed:
+actual Fields-plugin version and safe metadata/save hooks when installed;
+the exact installed-field capability inventory; verified native missing-ID
+responses; and representative core/custom/Fields processing evidence. If an
+installed type or field lacks reliable metadata or safe local write behavior,
+reject/hold it visibly and report the gap; do not mark that support tested.

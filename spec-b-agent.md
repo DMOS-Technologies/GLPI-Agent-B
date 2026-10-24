@@ -35,7 +35,7 @@
 
 ## 2. What B stores (three plugin record types)
 
-Exact class names, table names, and field names are written in `docs/api-contract.md`. Use the logical names below until then.
+Exact class names, table names, field names, approved implementation decisions, and Sync/Suspend/Resume Work operations are defined in `docs/api-contract.md`. Use that contract for the REST wire schema.
 
 ### 2.1 Setting record (A writes)
 - Entity Route (A entity to B entity), enabled asset types per route, enabled field mappings, per-field source (A / B / Both), and a settings version.
@@ -141,6 +141,7 @@ Additional rules:
 - **Fields differ per asset type.** Write only mapped fields that exist on that asset type. A mapped field that does not exist or is not safely writable on that type is skipped with a visible reason (Open Question 11).
 - **Dropdown mapped to text:** A sends the readable label, and B stores it as text.
 - **Dropdown to dropdown:** B looks up the destination option itself, because IDs differ between A and B. Option not found means no write and a visible reason.
+- **Text to dropdown:** required. B looks up the text as an exact, unique permitted local option and writes its B ID. No match or ambiguous match means no write and a visible reason; never create an option automatically.
 - **Field support:** native fields and Fields-plugin custom fields. Each field kind needs explicit support. A field showing in GLPI search options is not proof it is safe to write. Unsupported mapping means reject visibly.
 
 ---
@@ -188,12 +189,16 @@ Additional rules:
 
 ---
 
-## 11. Open Questions (answer before coding; a proposed default is given)
+## 11. Original questions and decision record
+
+The original defaults below are retained for traceability. The user approved
+the recommendations on 24 October 2026; `docs/api-contract.md` section 7 is the
+current decision record and supersedes defaults where it provides an answer.
 
 1. **ANSWERED:** correction work is a normal Work record with an optional `handled_change_ids` field.
 2. **Status names.** Default: Work = Accepted, Done, Held, Failed. Change = Pending, Done. The contract step may refine them.
 3. **Several edits to one field before A reads?** Default: one Change record per genuine save. No merging.
-4. **Timestamp storage.** Default: store UTC. A and B compare UTC. The guide's examples use Brunei time, so confirm both servers' clocks are reliable.
+4. **ANSWERED:** genuine field evidence uses Brunei RFC 3339 `+08:00` timestamps; clocks are trusted. Compare instants. No manual-edit cooldown; equal/missing/unreliable differing values conflict. Native GLPI metadata follows its installed convention.
 5. **ANSWERED:** all asset types must be supported. The controller selects which types sync.
 6. **ANSWERED:** first-copy creation is required for the next release.
 7. **Settings version mismatch on arriving work.** Default: hold with a visible status. Do not write.
