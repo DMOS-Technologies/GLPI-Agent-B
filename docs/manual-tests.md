@@ -35,7 +35,7 @@ section 4.9 fixtures for scope operations. A checklist expectation is not a runt
 | Stage | Availability | Actual result |
 |---|---|---|
 | Foundation installation, rights, Setting validation | Reviewed and exercised | Preserved foundation results/ledger below |
-| Background matching, writes, recovery | Existing A-source worker and first copy reviewed/exercised | IB/IC observed cases PASS; uncertainty injections and future parts NOT RUN |
+| Background matching, writes, recovery | Existing A-source worker and first copy reviewed/exercised | IB/IC/ID observed cases PASS; uncertainty injections and Both/full-flow requirements remain |
 | Edit capture, field evidence, acknowledgements | Capture and acknowledgement reviewed/exercised | OC/OB observed cases PASS; explicit unrun variants below |
 | Native/Fields scalars and dropdown conversions | Installed metadata and representative writes exercised | OC/IB scoped results below; exhaustive type/field coverage NOT RUN |
 | Full flow and generic/custom-type evidence | Await integrated candidate | NOT RUN |
@@ -1120,3 +1120,126 @@ Source and observed AT01/AT02 runtime are approved. AT03 remains source-only:
 no naturally invalid genuine snapshot was available, and none was fabricated.
 No reviewer runtime request, implementation edit, deployment or repeated
 source check occurred. Historical OB/IC results and their limits remain intact.
+
+## Senior 1(d): B returns, corrections and scope controls bounded matrix
+
+Prepared from approved spec sections4–7 and contract result/scope/Change rules.
+This checklist was prepared before part(d) source review; the completed review
+and actual results are recorded below. Both arbitration remains part(e). Use fresh Work IDs and
+real retained links/genuine immutable Pending snapshots; preserve historical
+IB/IC stage Holds rather than replaying their terminal records. Use the same
+native Work POST/GET and exact Change GET/PUT resources defined above, plus
+the approved scoped local worker. No direct metadata SQL or fake queue/link
+identities. A's handling is explicitly simulated where an acknowledgement is
+needed; no A implementation or outbound connection is exercised.
+
+The coordinator clarified `retry_count` as actual correction processing
+attempts: the first validated correction attempt counts1. Polling, missing
+IDs and wrong-scope references do not mutate attempts/errors. Failed coverage
+on an actual validated attempt leaves a visible Pending reason. Record exact
+per-row before/after metadata, payload and original field times to separate
+attempt bookkeeping from immutable genuine edit evidence.
+
+| ID | Bounded part(d) manual scenario and required evidence | Result |
+|---|---|---|
+| ID01 | Existing verified Active asset with source B fields different from A: B remains unchanged; Work Done returns exact current scalar/label values in b_values_for_a and ReturnToA outcomes. Genuine per-field evidence uses original captured +08:00 seconds, never Work/poll/sync time. Native/Fields/custom representatives and dropdown label conversions use actual metadata; equal supplied values cause no redundant local save. Record the actual return/equality outcome and returned evidence. | PASS representative Work71–74 native/Fields/custom values/labels/times; Computer+Fields READ1 Work73/equal returns no save; custom read-only-right reduction NOT RUN |
+| ID02 | B-source return without a reliable genuine field snapshot still follows B ownership; changed_at/reliable honestly represent unavailable evidence without inventing a timestamp. Genuine saved evidence for unrelated fields or whole asset date_mod is not borrowed. Invalid/unreadable field/option returns a visible field reason rather than foreign option ID or false reliable value. | PASS initial absent evidence null/false and no borrowed asset timestamp — Work71/72/87; unreadable/foreign option variants NOT RUN in this pass |
+| ID03 | A-start return covers only exact Pending snapshots whose every saved field value/time is represented by the Work's returned B values under current route/type/entity/identity/mapping rules. Verify covered_change_ids, leave those rows Pending until simulated A save+exact ack. A snapshot mixing returned and uncovered fields stays outside coverage; separate native/Fields snapshots are independent. | PASS Work73 covered exactly19/20, mixed18 excluded; Work74 covers21; Pending/attempt0 until simulated A ack19/20 curl21 |
+| ID04 | Two genuine sequential edits to same field give separate immutable IDs. Current return must not claim a stale older value/time or a newer/unseen snapshot merely because asset/mapping matches. Preserve original snapshots even if no longer covered; exact returned coverage and current value/time are reread. Work polling changes neither rows nor attempts. | PASS actual17/18/19 immutable distinct edits, current19 only full coverage, poll exact queue unchanged — curl16/18/20 |
+| ID05 | Valid correction Work with handled_change_ids for a genuine A-owned edited snapshot: prevalidate all referred route/entities/type/identity/current settings/mappings/scope and original times before any asset write, apply A value locally with reread, then complete exactly fully covered IDs. Work reports exact handled_change_ids_done; no second external acknowledgement required and no sync echo. First validated attempt increments retry_count0→1. | PASS native/Fields corrections79/80 verify actual local values, exact eligible Done IDs, validated attempt0→1, no sync echo |
+| ID06 | Mixed handled IDs containing valid plus missing/wrong-route/wrong-entity/wrong-type/wrong-identity reference Hold before asset writes or attempt/error mutation on any unrelated row. Use genuine available mismatches; nonexistent harmless ID is allowed. Omitted/Done references follow current approved correction semantics; do not fabricate snapshots or relink assets. | PASS missing/wrong-route/type/identity mixed references75–78 Held before writes/attempt/error mutation — curl27–29/local7; separate wrong-entity fixture NOT RUN |
+| ID07 | One correction snapshot contains multiple fields but Work omits one required winning value, mapping becomes disabled/unavailable, or a field fails/skips: row remains Pending with visible actual coverage failure, no false whole-row Done. Verified partial writes/outcomes remain honest. retry_count reflects only actual validated attempt; original snapshot values/times/identity stay immutable. New fresh Work is needed after reconciliation; no terminal Work reset. | PASS missing contact on multi-field23 Pending/error/retry1, Work79 partial evidence — curl30–31; newly disabled/unavailable mapping variants NOT RUN |
+| ID08 | Multiple selected snapshots with independent full/partial coverage: only fully verified eligible snapshots may become Done, unselected/newer rows remain Pending. Already Done IDs may be reported as covered by a successful correction without rewrite or extra attempt; ordinary external Done→Done still rejects. Record exact response/readbacks, not inferred batch completion. | PASS partial23 vs full24/26, unselected25; fresh80 finishes23 retry2, already Done24/26 exact unchanged retry1 — curl31/33; external Done→Done prior OB |
+| ID09 | Actual definite save/reread failure or safe correction-completion persistence failure leaves Pending evidence and visible Work Failed/Held according to certainty; no handled ID reported Done without confirmed transition. No automatic retry or fabricated rollback. Unsafe injection stays NOT RUN unless an approved real hook exists; prior IB/IC failures are separate evidence. | NOT RUN/source-only — no safe save/persistence failure injector; actual missing-field coverage79 is not a false-save proof; prior IB/IC failures remain separate |
+| ID10 | Valid Suspend Work on existing verified Active link uses empty values/times/handled IDs: Done records same b_items_id with Suspended, no asset move/update/add/reseed, no queue acknowledgement or payload mutation. Retained Work remains durable. Asset History and queue count unchanged by control. | PASS Suspend81 same155/Suspended with no asset/storage/History/queue changes — local10–12, curl49 |
+| ID11 | After Suspend, ordinary Sync Holds without asset writes/first copy and cannot reactivate; a genuine mapped native/Fields/custom edit for that relationship creates no Change. Existing Pending rows remain readable, but external ack and correction reject while Suspended without invalid attempt mutations. Other independent active routes remain scoped to their own links. | PASS suspended native/Fields captures suppressed, Sync84/correction85 Held, ack27 native400 ASB_CHANGE_LINK_SUSPENDED/attempt0; independent custom5 captures28 |
+| ID12 | Valid Resume rechecks link/current route/type/entity/submitter rights, records same verified asset Active and Done with no asset save/reseed or immediate value exchange. Fresh subsequent Sync reuses link; immediate genuine edit queues again with original evidence. No cooldown. | PASS Resume86 same155 Active/no writes or exchange; Sync87 reuses, unavailable evidence honest; immediate genuine29/30 — local14–17/curl42–45 |
+| ID13 | Suspend/Resume with no retained verified link, unverified claimed B ID, competing ownership, unavailable/deleted/wrong-entity asset, stale/disabled route/type or revoked current rights Holds with visible reason and no asset/queue mutation. Use safe real cases; destructive asset movement/deletion or fake retained records NOT RUN. Failed control cannot change effective prior Active/Suspended state. | PASS no-link82/unverified83/stale88 Holds; deletion/movement/revoked-control-rights/competing-control variants NOT RUN |
+| ID14 | Latest successful control determines state across intervening Sync/Held/Failed records. Suspend then later Sync cannot reactivate; Resume then ordinary Sync retains Active. Historical queue completion under merely disabled/newer settings remains compatible with OB, while actual Suspended scope blocks it. Retained links survive all outcomes. | PASS Suspend81→Held84/85 remains suspended, Resume86→Sync87 Active, stale88 cannot override; historical disabled ack prior OB/AT not rerun |
+| ID15 | Changed A/B entity pair uses separate immutable route; no move/delete/archive or automatic relink. Returning to original pair verifies/reuses original B copy without first-copy seed. Distinct A identities routed many-to-one do not share a B asset, and custom-type system criteria plus acknowledgement guard remain intact. Reuse existing safe scope fixtures; unexercised transfer variants stay NOT RUN. | NOT RUN new transfer/entity-pair/many-to-one variants; prior competing ownership/custom type scope evidence retained, no automatic move/relink observed |
+| ID16 | Single bounded worker uses captured current user/profile and restores caller context for returns, corrections and controls. Results/attempts are durable and terminal records never reopen on polls or duplicate POST. Both mappings remain visibly Held/not installed in this part; no invented time winner. No queue time replaced by sync/ack/attempt metadata. | PASS observed captured context restoration, immutable inputs/evidence and terminal records; Both89 stage Held; duplicate/global admission prior evidence, unsafe injection NOT RUN |
+
+This matrix adds only new part(d) boundaries. Earlier admission, first-copy,
+scalar-writer and external acknowledgement successes are not scheduled for
+blanket reruns. Record source approval and full operator ledger separately;
+source-only/unsafe/unavailable fixture variants must remain visibly unrun.
+
+### Senior 1(d) completed source review
+
+The completed six-file staged candidate was read: `process.php`, `write.php`,
+`fields.php`, `change.class.php`, new `results.php` and `scope.php`. No actionable
+source blocker was found. Existing first-copy/Work code and the separately
+merged concrete custom-type acknowledgement guard are retained. No unfinished
+candidate, runtime request, deployment or implementation edit was involved.
+
+The new read descriptor mode checks current asset and Fields-container READ
+rights while retaining hidden/entity/scalar restrictions; default writer
+permission/readonly behavior remains unchanged. B-return values use local
+scalar/label reread and the latest applicable genuine field snapshot, without
+falling back to an older coincidentally matching value or inventing evidence.
+Returned coverage checks every field in each exact Pending snapshot.
+
+Correction references are fully scoped and permission-checked before asset
+writes and revalidated before each mapped write. Actual Pending attempts use
+trusted local metadata methods; polls and already Done rows do not increment.
+Whole-snapshot completion rereads current locked asset/field storage, confirms
+every winning field outcome, then saves the exact Done transition and Work
+progress within the transaction. Partial/failure reasons stay visible; input
+ID lists alone never prove completion. Current Change READ/UPDATE and entity
+checks precede trusted metadata/completion actions. Unsafe persistence failure
+injection remains a runtime limitation to record honestly, not a source pass.
+
+Suspend/Resume requires retained verified link evidence and current scope/
+permissions; control state and Work Done save together with no asset save.
+Latest successful control takes precedence for normal Sync, so a newer Held
+Sync does not reactivate Suspended state. Both arbitration remains visibly
+Held/not installed for part(e). Source is approved for the first bounded
+ID01–ID16 runtime pass; all actual matrix results remain NOT RUN until the
+operator ledger is independently reviewed. No code or runtime commit by reviewer.
+
+### Senior 1(d) executed evidence review
+
+The independent reviewer inspected all 53 manual curl entries and 19 native
+operator invocations in [inbound-d-runtime.md](inbound-d-runtime.md), copied
+verbatim with redacted credentials. No implementation blocker was found in
+observed execution. All 21 submitted Work inputs and original immutable
+snapshot columns reconcile exactly. The reviewer performed no runtime replay,
+deployment or code edit. Source and observed part(d) runtime are approved.
+
+The operator's invalid dropdown destination mode was correctly rejected at
+curl6; admitted69/70 then Held unavailable route with no write/link. Corrected
+Setting14 and fresh71/72 provide actual return proof. These fixture mistakes
+are preserved. Native/Fields/custom current B values and readable labels are
+returned, with original genuine field times where available and honest
+null/false otherwise. Computer and new Fields rights were reduced to READ1
+for Work73, with exact History/queue unchanged; custom return was exercised
+under its existing rights, not a custom-readonly runtime claim. Work73 covers
+exactly19/20 and Work74 covers21, with mixed/older snapshots excluded. Polls
+leave queue bytes unchanged and returned coverage stays Pending until A's
+explicit simulated save and exact acknowledgement.
+
+Mixed invalid correction references75–78 Hold before writes or attempt/error
+mutation. Actual79 applies native/Fields A values, keeps partial23 Pending
+with visible missing-contact error/retry1, and completes exact24/26 retry1.
+Fresh80 reconciles and completes23 retry2 while already Done24/26 preserve
+all bytes including original done_at/retry1. Newer unselected25 stays Pending.
+No immutable snapshot payload, identity or genuine field time is rewritten.
+
+Suspend81 records retained155/Suspended without asset/storage/History/queue
+mutation; no-link82 and unverified83 Hold. Genuine suspended native/Fields
+edits create no snapshot, independent Active custom5 still captures28, and
+ack27 returns exact ASB_CHANGE_LINK_SUSPENDED with unchanged Pending/attempt0.
+Sync84/correction85 cannot reactivate. Resume86 retains155/Active with no
+asset/value exchange, Sync87 reuses without reseeding, and immediate genuine
+edits queue29/30. Stale88 cannot override Active;89 honestly Holds at the
+future Both boundary. These real controls fill previously unrun suspension
+boundaries in OC/OB without retroactively changing those historical ledgers.
+
+Final Works69–89 are 8 Done/13 Held, zero Accepted. Exactly 14 genuine captures
+add17–30; every worker return/correction/control and suspended native/Fields
+edit adds no echo. Setting14 is disabled/version3, Computer rights restored7,
+new Fields associations restricted to profile14 right4, caller context restored
+and the session closed. No Work created an asset in this pass. Unsafe native/
+persistence failure injection, new entity transfers, destructive scope/control
+fixtures and remaining ID variants stay explicitly NOT RUN/source-only.
+Both arbitration and full product flows still await part(e).
