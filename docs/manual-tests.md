@@ -326,7 +326,7 @@ value/time return, and resulting Work status. `AppliedToB`, `ReturnToA`,
 | T04 | Both unequal values: equal time, missing A time, missing B time, null time, or explicitly unreliable evidence each leaves field unchanged and reports Conflict/reason. Malformed timestamp/evidence shape rejects at admission; no invented winner. | NOT RUN |
 | T05 | Values already equal under each source (including missing time evidence): AlreadyEqual, no redundant update/History/Change. Compare normalized values, never unrelated dropdown IDs. | NOT RUN |
 | T06 | Genuine edit to field X, later edit to unrelated field Y, later sync write: X retains its own genuine time. Both comparison never uses whole-asset date_mod, Work timestamps, poll/ack times or sync save time. | NOT RUN |
-| T07 | Back-to-back genuine edits inside one second or directly after sync: exercise approved precision/equality policy; no cooldown drops either edit. Two genuine saves produce two snapshots under the approved snapshot policy. Record actual clock/timezone evidence without fabricated times. | NOT RUN |
+| T07 | Back-to-back genuine edits inside one second or directly after sync: exercise approved precision/equality policy; no cooldown drops either edit. Each genuine underlying storage save produces its own snapshot; native and Fields storage saves within one UI action are separate snapshots under the revised approved policy. Record actual clock/timezone evidence without fabricated times. | NOT RUN |
 | T08 | Native text/number/Yes-No/date/datetime scalars and supported Fields counterparts preserve typed values and obey validation/length. Invalid values/overlong text leave targets unchanged with reason, no silent truncation/default. Verify +08:00 wire versus DATETIME storage/read semantics against agreed policy. | NOT RUN |
 | T09 | Unmapped/disabled input and fields absent on this type stay unchanged. Unsupported/not writable mapping receives Skipped with exact reason; valid sibling fields still process according to approved partial status. Mapping cannot change generated IDs, entity, delete/archive/clear fields or presentation/relationship-only values. | NOT RUN |
 | T10 | Work with successful, equal, return, conflict, skipped and failed fields has truthful per-field results and approved overall Held/Failed/Done semantics; completed_at only when Done. Definite failure and uncertain write are distinguishable; no false completed queue coverage. | NOT RUN |
@@ -531,3 +531,274 @@ fixture was created. All five new sessions were closed.
 | Completed part | Source result | Runtime result | Remaining scope |
 |---|---|---|---|
 | Senior 1(a), Work admission | Complete changed file reviewed; no actionable blocker | Independent evidence review PASS for the observed WA01–WA14 admission subcases; 173-call ledger preserved | Explicit NOT RUN subcases above; later worker and outbound parts pending |
+
+## Senior 2(a): outbound capture source review and manual matrix
+
+Complete four-file candidate reviewed: `setup.php`, `inc/change.class.php`,
+`inc/capture.php`, and `inc/fields.php` in the outbound-a worktree. Installed
+GLPI 11.0.7 CommonDBTM/custom-asset behavior and Fields 1.24.4 hook ordering,
+generated storage, field metadata and container rights were consulted. No
+runtime deployment or curl was performed by this reviewer.
+
+Initial source approval was **WITHHELD** for a material failure-visibility gap:
+`capture_collect` catches unsupported/unreadable/changed-before-verification
+mapped values and emits only a session redirect message; `capture_flush`
+discards in-memory capture state before queue creation and converts a queue
+save/verification failure to the same message channel. REST/CLI/shutdown paths
+can therefore save a genuine edit with no durable record of its failed field
+or reason. A's normal Change GET cannot see or retry it. The user subsequently chose rejection of unsupported enabled B mappings,
+without empty/error Change rows, and immediate separate snapshots per real
+storage save. The completed targeted fix rejects unsupported metadata before
+saving, propagates post-save failures as explicit uncertain outcomes and
+retains saved fields/updates plus unsaved route rows in request-local state;
+there is no shutdown retry. That resolves the original P1 in source. Runtime
+must demonstrate the observed rejection/uncertain paths rather than promise
+durable evidence when the database itself cannot persist.
+
+One P2 admission gap remains in the new Setting capability gate: the descriptor
+is checked but its destination kind is not compared with value_mode. Text with
+text_to_dropdown, or dropdown with direct/dropdown_label_to_text, can still be
+enabled even though the existing writer rejects those known incompatibilities.
+Reject these with ASB_UNSUPPORTED_MAPPING without assuming remote A metadata.
+The completed compatibility fix was reviewed once: dropdown destinations allow
+text_to_dropdown/dropdown_label_to_dropdown, text allows direct/dropdown_label_to_text,
+and other supported scalar kinds allow direct only. Unsupported combinations
+reject ASB_UNSUPPORTED_MAPPING. No actionable source blocker remains; the
+first focused OC runtime pass is approved.
+
+These manual cases use fresh disposable routed assets and exact C4 Pending
+collection reads. Preserve IDs/field times and before/after asset/Fields values.
+Use a normal GLPI UI/native asset PUT for genuine saves and approved local GLPI
+calls for guarded saves/helper checks; never fabricate queue rows with SQL.
+Old Work admission routes remain disabled and their 22 Accepted fixtures stay
+untouched. This part still denies external Change creation/acknowledgement;
+external successful acknowledgements/corrections remain later-part cases.
+
+| ID | Manual operation and required evidence | Result |
+|---|---|---|
+| OC01 | Genuine native mapped-field save on a routed enabled type yields one Pending row per applicable route for that underlying native storage save, with exact entities/type/identity/settings version, retry_count 0, null error/done_at and original +08:00-second field time. A-owned mapped field edits queue too; source choice does not exclude capture. Read local saved value and row back. | PASS observed Computer/Monitor — curl 9–16,51 |
+| OC02 | Disabled route/type, outside entity, unmapped-only save, unchanged submitted value, or ordinary asset add yields no outbound Change. Capture starts with the cheap local enabled-type check. Do not certify all types from one Computer fixture. | PASS observed disable/unmapped/outside/add — curl 22–24,33–37; local 17; unchanged-value variant NOT RUN |
+| OC03 | Two genuine saves of the same field create separate immutable rows; later unrelated field save does not replace earlier field evidence. Back-to-back/same-second saves remain captured with no cooldown. Reading earlier row then editing again preserves the earlier snapshot and new Pending ID. | PASS observed separate same-second snapshots — curl 10–11,14,51; later unrelated-field time variant source-only |
+| OC04 | A save changing multiple native fields creates one snapshot for that route containing only actually changed enabled mappings. Multiple routes to the same B entity produce independent per-route snapshots, without merging distinct A links. | PASS native multi-field and two routes — curl 10,14,38–40,51 |
+| OC05 | Native dropdown change returns its readable local label/full metadata-defined hierarchy path, never a foreign/raw option ID. Native text/number/boolean/date/datetime values retain supported scalar types. Empty/unreadable/missing option and unsupported kinds follow durable failure handling, without a false reliable value. | PASS observed native dropdown and Fields scalars — curl 14,16,47; option failure variants NOT RUN |
+| OC06 | Existing-asset nested Fields save with native change creates separate immediate Pending snapshots for the real Fields storage save and real native save, per route. A UI save need not map to one queue row. Fields-only save with unchanged native columns/same-second date_mod still captures immediately, exactly once for that Fields save. No shutdown staging or aggregation. Verify both saved storage values and exact queue IDs; each snapshot requires its own full coverage/acknowledgement. | PASS separate immediate rows 4/5 and Fields-only row 7 — curl 15–16,20,24 |
+| OC07 | Standalone Fields tab/generated-storage update captures immediately once per real storage save. First generated storage-row add for an existing asset captures eligible submitted fields; asset creation with nested Fields storage does not queue an asset edit. Record actual hook/save boundary evidence. | PASS standalone row 6, existing first storage row 8, no nested-add echo — curl 19–24 |
+| OC08 | Fields scalar text/textarea/url/number/yesno/date/datetime and single dropdown/native-reference dropdown capture real saved values and labels. Container inactive/missing/ambiguous/out-of-entity/read denied/write denied, readonly/multiple/Header/complex definitions never become falsely supported scalar snapshots; unsupported enabled mappings are rejected at admission, and later unavailable metadata rejects visibly before saving where possible. Verify effective installed metadata/permissions, not search display alone. | PASS eight observed Fields scalar/dropdown kinds and readonly/date rejection — curl 15–18,30–32,47; broader metadata/permission variants NOT RUN |
+| OC09 | Registered custom asset: core column and virtual custom_* scalar changes capture independently, and only changed JSON-backed field mappings queue when several custom values share custom_fields. Record real definition/type/options and reread virtual value. Include custom dropdown label and profile readonly/hidden restrictions; unavailable fixture remains NOT DEMONSTRATED. | Initial FAIL curl 13/17; targeted fix PASS curl 41–45,48,51; custom date-only/number/boolean/hidden variants NOT RUN |
+| OC10 | Approved local sync_guard around native/Fields/custom saves yields no outbound rows; nested guards stay active until outer exit. A thrown/false save releases guard through finally; immediately following genuine edit queues normally. No REST payload flag may activate internal guard. | PASS representative native nested guard/finally — local 9; Fields/custom guarded saves source-only |
+| OC11 | Retained verified Work Active link provides correct A identity; Suspended suppresses genuine edit capture. Most recent successful control determines scope, ordinary Sync does not reactivate. Competing verified A identities for one B asset reject visibly with a reason before saving where possible, not arbitrary linking or silent omission. Control-processing fixtures require later worker support or an explicitly authorized local GLPI fixture; no raw DML. | NOT RUN — no trusted worker link/control completion boundary deployed |
+| OC12 | Normal A Change POST is denied by rights/add entry point; client internal/bypass flags cannot call trusted createCapturedChange. Local trusted entry rejects invalid scope/identity/empty or malformed changed fields/times, initializes Pending and rereads every saved field. Guard resets after failure. Use a controlled real capture rather than pretending external POST creates a trusted fixture. | PASS empty trusted snapshot rejection — local 16; other malformed trusted inputs NOT RUN, external create denial from foundation only |
+| OC13 | Induce an approved safe unsupported/changed-metadata preflight failure: operation rejects before saving where possible. Induce approved post-save queue persistence/reread failure: response explicitly reports unknown asset/capture outcome, saved fields/updates/original edit time and unsaved route rows stay in request state, further eligible capture mutations reject, and no automatic retry occurs. Never claim asset rollback or durable failed row without proof; no empty/error snapshot. Session-only message does not pass. | PASS presave date/readonly rejection — curl 30–32,47; post-save queue/reread failure injection NOT RUN (no safe approved hook) |
+| OC14 | Once genuine Pending rows exist, manually call exact-ID markQueueRowsDone with approved fully handled fixture IDs plus leave another Pending/newer row unselected. Verify exact transitions/readback, untouched fields/unselected rows, empty/invalid input behavior and no sync echo. This fills the foundation's deferred helper-transition proof without enabling the later external ack validator. | PASS exact selected helper row 1 Done/row 2 unchanged — local 11 and curl 51; external ack/correction NOT RUN |
+
+This source review does not certify safe local mapped writers, A-side saves,
+field winner comparisons, correction coverage or product completion. No source
+or runtime check already passed in foundation/Work admission is rerun here.
+
+## Senior 1(b): existing-asset A-source worker source review and manual matrix
+
+Complete staged candidate read in inbound-b: `inc/work.class.php`,
+`inc/process.php`, `inc/write.php`. It depends on the separately reviewed
+shared field descriptors/capture guard from Senior 2(a); do not deploy it
+until that dependency's complete fix has passed review. Source review checked
+actual GLPI 11.0.7 Session profile/entity rebuilding, current rights and
+CommonDBTM behavior, plus installed Fields local update behavior. No runtime
+calls or implementation edits were performed by this reviewer.
+
+Initial source approval was **WITHHELD** for transaction failure classification:
+`write.php` commits after a local save at line 181; commit/rollback exceptions
+escape without the `Save failed:` or `Hold:` prefix used by `process.php`
+lines 215–224. That per-field catch otherwise keeps the default Skipped
+outcome and can finish the Work Done. An attempted write with uncertain
+transaction completion must instead be Held with a visible reason and retained
+partial evidence. A confirmed field validation skip must remain distinguishable
+from a possible committed write. No further actionable source finding was
+identified in this completed three-file candidate. The completed targeted fix
+was reviewed: transaction start/completion, rollback, unexpected save and final
+route-lock release failures now propagate explicit Hold reasons instead of
+becoming default skips. Confirmed false-save/reread failure remains Failed
+only after successful rollback. The final lock-release guard was reviewed
+separately after the first fix left that escape path. Senior 1(b) source is
+approved after these fixes; runtime approval still awaits the shared dependency.
+
+Use new disposable enabled routes and already-existing assets, fresh C3 Work
+IDs prefixed `review-ib-`, and the normal registered automatic action. Old
+admission fixture routes remain disabled; their Accepted rows may become Held
+when encountered, without asset writes. Record the exact processed batch IDs.
+Do not repeat earlier admission/schema/auth tests. Local failure injection or
+control-link fixtures require coordinator approval and normal GLPI methods;
+no raw DML, destructive commands or fake production evidence.
+
+| ID | Bounded manual scenario and required evidence | Result |
+|---|---|---|
+| IB01 | Existing unique serial in routed entity, A-source native text mapping: Accepted before runner; runner locally updates intended field, rereads, records AppliedToB and verified B link Active, then Done/completed_at. Asset History attributes the original submitting user. No asset creation, Change echo, or outbound/self REST. | NOT RUN |
+| IB02 | A-source already-equal value yields AlreadyEqual with no redundant update/History. Unmapped, disabled and absent A values leave other asset fields unchanged, with exact enabled-mapping outcomes/reasons. Source B/Both mappings remain unchanged and make this stage visibly Held with not-installed reason; no fabricated return/winner. | NOT RUN |
+| IB03 | Verify retained confirmed link is reused after serial changes; arbitrary claimed B ID with no evidence, mismatching retained ID, multiple retained B IDs, linked missing/wrong-entity/deleted/template asset, or competing route/A source ownership all hold visibly without writes. Valid A ID never becomes B lookup ID. | NOT RUN |
+| IB04 | No link: one exact permitted serial match inside routed entity is eligible. Duplicate serial, absent/blank serial, no serial field, inaccessible lookup and zero matches each Hold without create. Case/whitespace-different serial never silently identifies an asset. First-copy zero-match reason explicitly states later-stage unavailability. | NOT RUN |
+| IB05 | Disabled/missing route/type, stale version, wrong A/B entity or settings changed after acceptance Hold before write. Before each subsequent mapping current route/version/mapping/identity are checked again; previous verified writes remain honest partial evidence. | NOT RUN |
+| IB06 | Worker invoked from normal cron rebuilds captured user/profile from current database authorization, clears cron/inventory privileges and requires current Work READ/CREATE, routed entity and asset rights. Revoke profile/entity/asset/Fields permission after admission: no cron-admin escalation. Inactive/deleted/expired user and active permission-bypass context Hold. Context restores after both success and exception. | NOT RUN |
+| IB07 | Single worker lock prevents overlap; at most 20 Accepted rows per pass, ascending IDs, volume reflects processed rows. Already started Accepted Work becomes Held as uncertain with its previous partial evidence and never replays. Held/Failed/Done rows are not reopened by another runner. Use approved safe interrupted fixture; do not change Work processing columns through REST/SQL. | NOT RUN |
+| IB08 | Multiple A mappings with successful and invalid/skipped fields: save per-field verified result as processing progresses; final status reflects actual definite failure/uncertainty and preserves earlier link/outcomes. Interrupt after one verified field only through an approved safe mechanism; later pass Holds instead of rewriting it. | NOT RUN |
+| IB09 | Native text/finite number/integer/boolean/date/datetime destination writes validate actual bounds/precision/nullable support before save. Date YYYY-MM-DD and datetime YYYY-MM-DD HH:MM:SS are native destination values, separate from +08:00 edit evidence. Invalid/overflow/lossy/overlong values or unsupported null writer leave field unchanged with specific reason, never silent truncation/default. | NOT RUN |
+| IB10 | Required dropdown-label-to-text, text-to-dropdown and dropdown-to-dropdown mappings resolve actual local option labels/IDs; source ID deliberately differs from B ID. Exact unique permitted label/path succeeds; absent/duplicate/wrong-family/out-of-scope/unreadable/empty/null label skips visibly without option creation, trimming/case folding or default clear. Reread actual B ID/value. | NOT RUN |
+| IB11 | Fields single scalar writer uses real installed metadata/container rights and normal local Fields methods/asset History. Change one mapped scalar while retaining all unrelated scalar and multiple values byte/semantically equivalent after reread; no data loss when whole container normalizes. Current status readonly override denies mapped write. Missing/ambiguous storage and changed metadata stay visible. | NOT RUN |
+| IB12 | Registered custom asset native/virtual custom_* text/number/boolean/date/datetime/dropdown uses generic path and actual field formatter; hidden/readonly/multiple/richtext unsupported mappings never become false AppliedToB. Only intended JSON-backed custom value changes; sibling values remain intact. Record actual type/metadata and readback rather than claiming all types from Computer. | NOT RUN |
+| IB13 | Every local native/Fields/custom update is inside sync guard; no new Pending row. A genuine edit immediately afterwards queues normally once outbound capture is available. Guard releases on thrown/failed save, without cooldown. Verify queue IDs/counts around both operations. | NOT RUN |
+| IB14 | Suspend/Resume operations and correction handled IDs are explicitly Held/not installed in this stage; controls do not execute, queue stays Pending and no handled IDs are claimed Done. B-owned mappings have no return result yet; Both has no field-time winner yet. Existing verified link evidence survives later Held/Failed processing. | NOT RUN |
+| IB15 | Safely induce local save/reread failure versus transaction commit/rollback uncertainty after an attempted write. Definite failed save is Failed; unknown commit outcome is Held with reason, started marker/partial evidence retained and no blind retry/false Done. No rollback claim is made without proof. | Source fix approved; runtime uncertainty cases NOT RUN |
+
+The manual matrix is limited to this completed part. First copy, B returns,
+Both arbitration, control execution, correction completion and full flows
+remain future-stage requirements, not passing results. Shared Senior 2(a)
+capability/failure-path changes must be integrated before this runtime pass.
+
+
+Senior 1(b) targeted review history: initial transaction classification P1
+reported; first fix covered commit/rollback/save errors but left unprefixed
+RELEASE_LOCK failure after the action; second fix guarded that finally query
+with an explicit Hold reason. No source blocker remains in this part after
+targeted review. No runtime failure injection or other curl was performed.
+
+
+### Approved outbound snapshot-boundary revision
+
+The user explicitly approved separate immediate Pending rows for each real
+underlying native/Fields storage save. A single user action can therefore
+produce a native snapshot and a Fields snapshot for the same asset/route.
+Each retains its genuine per-field save time and immutable exact queue ID;
+coverage/acknowledgement applies independently to every snapshot. A parent
+asset update with unchanged native columns does not postpone its completed
+Fields capture until shutdown or a future request. Earlier combined-snapshot
+wording in the initial source review records the superseded candidate, not
+the revised acceptance rule. The metadata rejection and visible uncertain
+queue persistence requirements remain unchanged; no empty Change/error-row
+schema was approved. The completed simplified capture fix was reviewed as documented below; no
+unfinished implementation was inspected.
+
+
+Senior 2(a) targeted P1 review: completed new capture callbacks/Setting gate,
+shared descriptor permission/native date-value checks and transactional trusted
+Change creation were read. Immediate per-storage capture and explicit uncertain
+failure propagation satisfy the approved replacement for the original P1.
+OC13 now tests that approved behavior; the earlier durable-error-row proposal
+was rejected by the user and is not an acceptance requirement.
+
+| ID | Additional capability admission case | Result |
+|---|---|---|
+| OC15 | Enable actual supported native/Fields/custom scalar selectors with compatible destination modes. Missing/inactive/readonly/out-of-entity/unwritable/complex B mappings reject ASB_UNSUPPORTED_MAPPING. Known mode-kind incompatibilities (text plus text_to_dropdown/dropdown_label_to_dropdown; dropdown plus direct/dropdown_label_to_text; nontext scalar plus dropdown_label_to_text) must reject at Setting admission, not wait for Work skips. A remote selector's availability is not invented or verified over HTTP. Disabled unsupported mapping staging follows contract shape rules without enabling it. | Initial FAIL curl 46; targeted fix PASS curl 58–61 plus local 20–23; mode/missing/Fields readonly rejects curl 25–29,31; hidden/complex variants source-only |
+
+
+Senior 2(a) targeted P2 review: the completed destination-kind/value-mode gate
+was read once and matches the supported conversion contract. Source approval
+is granted after P1/P2 fixes. OC01–OC15 are ready for the first focused runtime
+pass, with separate immediate native/Fields snapshot IDs, admission rejection
+and explicit post-save uncertain outcomes as the acceptance rules. No runtime
+case has been executed or certified by this source approval.
+
+
+### Senior 2(a) initial OC09 runtime failure
+
+The operator reports OC09 failed for custom itemtype
+`Glpi\CustomAsset\AgentBOC20261024Asset`, asset ID 1, route/Setting ID 6.
+Native API PUT returned 200 and GET confirmed changed custom text/date/datetime
+values with sibling fields unchanged, but no Change row was captured. This is
+an implementation failure, not proof of custom-asset capture support. Native
+Computer/Monitor and the tested Fields values/separate immediate native row
+have independently reported success; full operator evidence is still pending.
+The builder is diagnosing the custom registry/hook/canonical class/change
+path. No unfinished fix was reviewed and the failed case has not been rerun.
+Retain the initial failure separately from its eventual targeted fix/retest.
+
+OC09 targeted source fix reviewed: `register_capture` now supplements the
+pre-custom-boot asset registry with exact class-name strings derived from
+active AssetDefinition rows, using the installed getFromResultSet and
+getCustomObjectClassName APIs without early custom-class autoloading. The
+complete list also filters Fields container hook registrations. Installed
+11.0.7 listener priorities confirm InitializePlugins 110 runs before
+CustomObjectsBoot 100, explaining the missing initial custom hooks. No
+additional finding in this changed registration function; the focused OC09
+runtime retry is approved. Preserve initial FAIL and record retest separately;
+source approval alone does not turn OC09 into PASS.
+
+### Senior 2(a) initial OC15 custom readonly admission failure
+
+Final OC15 readback found a separate GLPI custom-asset readonly gate failure:
+custom field definition 2 was saved/read back with `readonly:[14]`, then the
+restricted Setting POST unexpectedly returned 201 and created Setting 8,
+route `outbound-a-20261024-reject-custom-readonly`. This concerns GLPI custom
+asset field options, distinct from the separately tested Fields-plugin 1.24.4
+custom fields. Do not infer custom readonly enforcement from those Fields
+passes or prior source approval.
+
+The operator restored definition options to `[]` and is disabling Setting 8
+through a higher-version normal PUT/readback; main OC routes 6/7 were already
+confirmed disabled. The builder is investigating effective getOptionValues
+handling. No unfinished fix was reviewed and no failed-case retry occurred.
+Preserve this initial FAIL separately from eventual fix/retest evidence.
+
+OC15 targeted source fix reviewed: `custom_options` now rejects effective
+boolean true readonly/hidden restrictions as returned by installed GLPI
+getOptionValues, and raw profile arrays containing the current profile or
+all-profiles marker `-1`; effective false remains allowed. This addresses the
+confirmed initial failure, where only arrays were checked and true passed.
+No additional finding in this changed function. Selective current-profile,
+all-profile and permitted-false runtime retries are approved; previously
+passed Fields checks are not rerun. Setting 8 was confirmed disabled at
+version 5 and associated sessions closed; retain initial failure separately
+from pending retest results. No runtime PASS is inferred from this source fix.
+
+
+### Senior 2(a) completed independent runtime evidence review
+
+The independent reviewer inspected the complete operator report, all 62 curl
+request/response records and all 23 local native-method invocation scripts and
+outputs (compacting repeated data for reading). The full redacted ledger is
+preserved verbatim in [outbound-a-runtime.md](outbound-a-runtime.md); its
+opening READY reflects the operator's status before this independent review.
+No runtime call or source check was replayed by the reviewer. Evidence review
+passes for the observed OC cases after the two approved selective fixes.
+
+Keep both original failures visible: OC09's initial custom virtual save returned
+200 and persisted values without capture; the registry fix was then verified
+by curl 41/44 and exact snapshots 12/13. OC15's restricted custom mapping was
+initially accepted as Setting 8; the effective boolean/profile restriction fix
+was then verified by current-profile/all-profile rejection 58/59 and allowed
+false control 60/61. The missing initial custom event was not retroactively
+fabricated. Custom date-only capture after the registration fix was not
+independently exercised; Fields date/datetime capture was exercised.
+
+Representative coverage includes Computer/Monitor plus one registered GLPI
+custom asset and a separate Fields 1.24.4 container with eight scalar/dropdown
+kinds. This is not an exhaustive “all asset types/all fields” certification.
+The combined UI save yielded immediate separate Fields/native snapshots 4/5;
+standalone/Fields-only/first generated storage saves yielded 6/7/8. Original
++08:00 times stayed on immutable rows, including distinct same-second edits.
+Native guard nesting/finally passed; Fields/custom guarded runtime variants
+remain source evidence. Presave malformed date and later readonly metadata
+rejected with actual saved values unchanged. No approved safe post-save
+queue/reread failure hook existed, so that uncertainty injection is NOT RUN.
+Active/Suspended/competing verified link behavior is NOT RUN until the worker
+provides trusted completion evidence; no fake links or raw DML were used.
+
+The exact-ID helper's formerly deferred real-row proof now passes: local 11
+marked only genuine snapshot 1 Done and preserved its payload/times; snapshot
+2 remained unchanged Pending. Final curl 51 shows Change 1 Done and 2–13
+Pending. This local helper proof does not certify external acknowledgements,
+correction coverage or partial-row completion. Broad unsupported/hidden/
+plugin-unavailable/permission variants not actually exercised remain NOT RUN.
+
+Containment is confirmed by later readbacks: Setting 6 disabled/version 6,
+Setting 7 disabled/version 2, initially unexpected Setting 8 disabled/version 5,
+and allowed false-control Setting 9 disabled/version 1. Curl 55 supersedes the
+older enabled Setting 8 shown in curl 50. Custom fixture options were restored
+to []; new Fields associations were restricted to service profile 14, and
+only explicit fixture profile rights were added. All API sessions were closed.
+Admission Work 1–22 were not changed and no processor/cron ran. No deletion,
+purge, uninstall, raw DML, automatic cleanup or automated regression harness
+was run. Native local fixture bootstrap/parse/helper-name operator errors
+occurred before their intended mutations and are preserved, not hidden.
+
+| Completed part | Source result | Runtime result | Remaining scope |
+|---|---|---|---|
+| Senior 2(a), outbound capture and capability gate | Complete candidate and targeted P1/P2/OC09/OC15 fixes reviewed | PASS for observed cases; 62 curl + 23 local invocations preserved, including initial FAIL then selective PASS | Explicit NOT RUN variants above; external ack, worker/control/correction/full flow pending |
+| Senior 1(b), existing-asset worker | Source approved after transaction/finally fixes; shared dependency now reviewed | NOT RUN | First focused IB pass can begin after integration; no runtime completion claimed |
