@@ -35,7 +35,7 @@ section 4.9 fixtures for scope operations. A checklist expectation is not a runt
 | Stage | Availability | Actual result |
 |---|---|---|
 | Foundation installation, rights, Setting validation | Reviewed and exercised | Preserved foundation results/ledger below |
-| Background matching, writes, recovery | Existing A-source worker reviewed and exercised | IB observed cases PASS; uncertainty injections and future parts NOT RUN |
+| Background matching, writes, recovery | Existing A-source worker and first copy reviewed/exercised | IB/IC observed cases PASS; uncertainty injections and future parts NOT RUN |
 | Edit capture, field evidence, acknowledgements | Capture and acknowledgement reviewed/exercised | OC/OB observed cases PASS; explicit unrun variants below |
 | Native/Fields scalars and dropdown conversions | Installed metadata and representative writes exercised | OC/IB scoped results below; exhaustive type/field coverage NOT RUN |
 | Full flow and generic/custom-type evidence | Await integrated candidate | NOT RUN |
@@ -946,18 +946,18 @@ actual installed descriptors. Do not repeat passed admission/IB/OC tests.
 
 | ID | Bounded first-copy scenario and required evidence | Result |
 |---|---|---|
-| IC01 | Complete permitted exact-serial lookup positively finds no B asset; fresh Work is Accepted before execution. Background local add creates exactly one asset of enabled type in routed entity, reread confirms intended values, verified Active link and confirmed positive b_items_id/created_b_items_id, correct completed status/outcomes and submitter History. No sync Change. | NOT RUN — await complete candidate |
-| IC02 | First copy seeds enabled supported supplied A mappings once for source A, B and Both; equal/missing/unreliable time evidence never selects an existing-value winner for a new asset. Disabled/unmapped/absent A values do not fabricate writes, and missing supported values have specific outcomes. All original Work input remains immutable. | NOT RUN |
-| IC03 | Native text/scalar/dropdown, actual custom asset virtual scalar and installed Fields scalar destinations use generic descriptors/local methods. Required label conversions resolve unique permitted B options, with local IDs distinct from A. Reread raw/virtual custom values and Fields storage; unrelated defaults/siblings survive. Record representative types, not “all types.” | NOT RUN |
-| IC04 | Definite invalid/unsafe/unwritable supplied mapping or missing/duplicate/unreadable dropdown option follows approved per-field skip/failure policy with exact reason. Supported sibling values may succeed honestly. No option creation, generated bookkeeping/entity/deletion mapped write, silent truncation/default or false AppliedToB. Metadata rejection already covered by Setting admission is not rerun. | NOT RUN |
-| IC05 | Missing usable identifier, duplicate serial, inaccessible/incomplete lookup, unverified claimed B ID or contradictory retained ownership Hold and create zero assets. Use only new first-copy boundary variants not already proved by IB, and retain IB results as prior evidence. A remote ID never becomes a local B ID. | NOT RUN |
-| IC06 | Current route/version/type/entity or submitting Work/asset CREATE/field rights change after admission: Hold/skip as specified before the affected action, with no cron-admin bypass or forbidden creation. Restore only new test-profile rights through normal GLPI methods. Do not move an existing asset or infer no match from denied READ. | NOT RUN |
-| IC07 | After confirmed creation, a fresh ordinary Sync with same route/A identity verifies/reuses the retained asset even if serial changed: no second add, created_b_items_id null on reuse, no repeated first-copy seeding. Source B/Both existing-asset processing remains explicitly outside this part until implemented. | NOT RUN |
-| IC08 | Two fresh A identities or routes try the same destination identity: verified competing ownership Holds visibly, never silently links both to one asset. Two eligible fresh Works for the same source/serial cannot create duplicate assets through the one-worker/route-identity locking boundary. Use real concurrent native connections only if separately authorized/needed. | NOT RUN |
-| IC09 | Definite local add rejection/false save or reread verification failure reports Failed or Held according to actual certainty, never Done/confirmed created ID without proof. Confirm rollback only from actual readback. Preserve any verified asset/link/partial field outcomes honestly; later runner does not reopen terminal Work. | NOT RUN |
-| IC10 | Safe approved interruption after add but before Work/link completion, if a real hook exists: durable started marker and any confirmed partial evidence survive; next runner Holds uncertain instead of blindly creating again. Lost response is reconciled by original Work ID and actual asset/link reads. No destructive SQL, code damage or invented injection; absent safe hook record NOT RUN/source-only. | NOT RUN |
-| IC11 | Every native/custom/Fields first-copy save runs inside sync guard, including later seed updates. Queue count/IDs remain unchanged; immediate genuine edit afterwards queues normally with original evidence. History identifies captured submitting user; caller cron context restored after success and failure. | NOT RUN |
-| IC12 | Suspend/Resume, returned B values/Both arbitration and correction completion remain explicitly Held/not installed if absent in this part. Existing Pending Changes stay unchanged and no handled IDs are claimed Done. First-copy completion alone does not certify full product flows. Preserve all fixtures and disable only new test routes after readback; no delete/purge/cleanup. | NOT RUN |
+| IC01 | Complete permitted exact-serial lookup positively finds no B asset; fresh Work is Accepted before execution. Background local add creates exactly one asset of enabled type in routed entity, reread confirms intended values, verified Active link and confirmed positive b_items_id/created_b_items_id, correct completed status/outcomes and submitter History. No sync Change. | PASS observed — local2 positive native/requested-type zero, curl5 Accepted, Work59/60 Done with confirmed153/4 and verified Active; native History user12 |
+| IC02 | First copy seeds enabled supported supplied A mappings once for source A, B and Both; equal/missing/unreliable time evidence never selects an existing-value winner for a new asset. Disabled/unmapped/absent A values do not fabricate writes, and missing supported values have specific outcomes. All original Work input remains immutable. | PASS observed — Work59/60 seed A/B/Both despite unreliable/absent times; disabled/unmapped ignored, absent Skipped; all10 immutable inputs reconciled curl17 |
+| IC03 | Native text/scalar/dropdown, actual custom asset virtual scalar and installed Fields scalar destinations use generic descriptors/local methods. Required label conversions resolve unique permitted B options, with local IDs distinct from A. Reread raw/virtual custom values and Fields storage; unrelated defaults/siblings survive. Record representative types, not “all types.” | PASS representative — native text/dropdown, custom text/dropdown/datetime and grouped mandatory Fields containers8/9; actual two-definition shared serial assets3/4 distinct; other scalar permutations NOT RUN |
+| IC04 | Definite invalid/unsafe/unwritable supplied mapping or missing/duplicate/unreadable dropdown option follows approved per-field skip/failure policy with exact reason. Supported sibling values may succeed honestly. No option creation, generated bookkeeping/entity/deletion mapped write, silent truncation/default or false AppliedToB. Metadata rejection already covered by Setting admission is not rerun. | PASS observed — missing option65 Skipped with siblings created154, mandatory64 Failed; optional omitted Fields default columns remain null (no default-application claim); other invalid combinations prior IB/source-only |
+| IC05 | Missing usable identifier, duplicate serial, inaccessible/incomplete lookup, unverified claimed B ID or contradictory retained ownership Hold and create zero assets. Use only new first-copy boundary variants not already proved by IB, and retain IB results as prior evidence. A remote ID never becomes a local B ID. | PASS competing source62 and unverified claimed B3 Work66; local10 wrong-concrete helper rejects; two-definition lookup isolates requested type. Missing/duplicate/general denial prior IB; no fabricated retained link |
+| IC06 | Current route/version/type/entity or submitting Work/asset CREATE/field rights change after admission: Hold/skip as specified before the affected action, with no cron-admin bypass or forbidden creation. Restore only new test-profile rights through normal GLPI methods. Do not move an existing asset or infer no match from denied READ. | PASS current CREATE67 and stale settings68 Held/no assets — local6–10, curl17; other after-admission field/profile/entity variants NOT RUN/prior IB |
+| IC07 | After confirmed creation, a fresh ordinary Sync with same route/A identity verifies/reuses the retained asset even if serial changed: no second add, created_b_items_id null on reuse, no repeated first-copy seeding. Source B/Both existing-asset processing remains explicitly outside this part until implemented. | PASS actual reuse61/63 asset153 after genuine serial change, created ID null, B/Both seeds unchanged — curl10–13,18; stage Held remains honest |
+| IC08 | Two fresh A identities or routes try the same destination identity: verified competing ownership Holds visibly, never silently links both to one asset. Two eligible fresh Works for the same source/serial cannot create duplicate assets through the one-worker/route-identity locking boundary. Use real concurrent native connections only if separately authorized/needed. | PASS sequential source boundary59→61 creates once, other source62 Held; concurrent creation SOURCE ONLY/NOT RUN |
+| IC09 | Definite local add rejection/false save or reread verification failure reports Failed or Held according to actual certainty, never Done/confirmed created ID without proof. Confirm rollback only from actual readback. Preserve any verified asset/link/partial field outcomes honestly; later runner does not reopen terminal Work. | PASS definite mandatory add rejection64 with no asset/orphan Fields storage — local10; no confirmed link/created ID. Other add/reread/transaction failure injections NOT RUN |
+| IC10 | Safe approved interruption after add but before Work/link completion, if a real hook exists: durable started marker and any confirmed partial evidence survive; next runner Holds uncertain instead of blindly creating again. Lost response is reconciled by original Work ID and actual asset/link reads. No destructive SQL, code damage or invented injection; absent safe hook record NOT RUN/source-only. | NOT RUN/source-only — no safe after-add interruption or commit-failure hook; prior IB before-write started-marker proof does not establish after-add crash recovery |
+| IC11 | Every native/custom/Fields first-copy save runs inside sync guard, including later seed updates. Queue count/IDs remain unchanged; immediate genuine edit afterwards queues normally with original evidence. History identifies captured submitting user; caller cron context restored after success and failure. | PASS representative no sync echoes, immediate genuine Change16, native/Fields History user12 and restored worker context — curl20/local3–5,7,9–10; concrete custom History query empty, attribution unproved |
+| IC12 | Suspend/Resume, returned B values/Both arbitration and correction completion remain explicitly Held/not installed if absent in this part. Existing Pending Changes stay unchanged and no handled IDs are claimed Done. First-copy completion alone does not certify full product flows. Preserve all fixtures and disable only new test routes after readback; no delete/purge/cleanup. | PASS observed B/Both stage Held61/63, empty returned/covered/handled outputs, earlier Pending unchanged; Suspend/Resume/correction execution NOT RUN |
 
 Source approval and actual IC evidence will be appended separately after the
 completed candidate and operator report. Unsafe recovery injection, unsupported
@@ -994,3 +994,107 @@ execution, destructive missing/wrong-entity asset fixtures, other contradictory
 same-route link variants and unsafe persistence/verification failure injection
 remain NOT RUN, as specified in OB01–12. Source and observed runtime are
 approved for this part; the original P2 finding and targeted fix stay visible.
+
+### Senior 1(c) initial source review
+
+The complete four-file staged candidate (`process.php`, `write.php`,
+`work.class.php`, new `firstcopy.php`) was read. Atomic asset/link evidence,
+all-source seed planning, grouped Fields writes, local History/loop guard,
+explicit transaction uncertainty and no-replay start marker are present.
+Approval is withheld for a concrete custom-type identity scope defect.
+
+**P1:** `firstcopy.php` lines31–35 and the shared serial lookup in
+`process.php` query the physical table by entity/serial without the concrete
+asset type's system criteria. Installed GLPI11.0.7
+`CustomObjectTrait::getTable()` returns the shared base asset table, while
+`getSystemSQLCriteria()` adds the concrete definition foreign key.
+`CommonDBTM::getFromDB()` does not add that criterion itself. A different
+custom definition with the same serial can incorrectly prevent requested-type
+first copy, or the existing path can retain a wrong-type link before a later
+update rejects the definition mismatch. The complete/locking lookup must
+respect the requested type's real system criteria, and reread/retained asset
+identity must verify the concrete definition. Do not add per-type architecture.
+
+IC03/IC05 must include a fresh requested custom type whose serial exists only
+under a different custom definition: the other asset stays unchanged and is
+never linked, while the correct type's complete zero-match proof allows its
+own first copy. A retained wrong-concrete-type asset must Hold, not become
+verified under the requested type. Until fixed and reviewed, do not deploy
+this candidate or claim the prepared IC matrix passed. No reviewer runtime
+request or implementation change was performed.
+
+Senior 1(c) targeted custom-type fix reviewed once after the completed ready
+notice. Shared `serial_criteria()` now includes the requested type's actual
+`getSystemSQLCriteria()` in both normal complete lookup and the locking
+FOR UPDATE query. Central `check_asset()` checks the exact requested class
+and a physical row matching its system criteria before retained/result link
+verification or writes. This uses installed generic GLPI APIs with no per-type
+branch. No actionable defect remains in these affected changes. Source approval
+is restored for the first IC runtime pass; the two-definition same-serial
+runtime case remains required and NOT RUN until the operator records it.
+The original P1 finding is preserved above. No deployment, curl or implementation
+edit was performed by this reviewer.
+
+## Acknowledgement integration: concrete custom-type scope fix
+
+The completed isolated `inc/change.class.php::checkAcknowledgementScope()`
+change was reviewed once. Its lookup now combines the table-qualified actual
+index with the requested type's installed `getSystemSQLCriteria(table)` via
+`getFromDBByCrit()`. A missing/mismatched concrete asset rejects with
+`ASB_CHANGE_SCOPE_MISMATCH: reason=asset_identity` before link validation;
+entity, retained scope and exact Pending-to-Done rules are unchanged. No
+source blocker found. This source approval alone is not runtime evidence.
+
+| ID | Bounded manual proof | Result |
+|---|---|---|
+| AT01 | Using two real installed custom definitions/assets already authorized for IC, inspect their definition IDs/shared physical table and generated system criteria read-only. The right type+actual ID lookup succeeds; the other type+same ID lookup returns no row with the new criteria. No persisted snapshot identity is changed. | NOT RUN |
+| AT02 | A genuine captured Pending snapshot for the correct custom type is explicitly fully handled by simulated A; native exact-ID acknowledgement succeeds and GET confirms Done with all payload/identity/original times unchanged. Asset/History and unselected Pending rows stay unchanged. Use a new eligible real snapshot or one existing unhandled fixture, and record exact type/ID. | NOT RUN |
+| AT03 | Wrong-concrete-type snapshot acknowledgement must reject asset_identity if a safe genuine fixture naturally exists. Do not fabricate a persistent Change identity, move/redefine an existing asset, or use raw SQL to reach it. If no real fixture exists, the external rejection path remains source-only/NOT RUN; AT01 read-only criteria evidence does not count as an actual invalid acknowledgement. | NOT RUN/source-only pending safe fixture |
+
+The earlier OB ledger and P2 ownership finding remain historical evidence.
+Deploy/run this isolated fix only when the coordinator schedules it after the
+ongoing IC pass. No runtime/deploy, implementation edit or commit by reviewer.
+
+### Senior 1(c) executed evidence review
+
+The independent reviewer inspected the complete 23 manual curl requests and 10
+native local operations, including Work/asset/custom/Fields/History/queue
+readbacks. No implementation blocker was found in observed execution. The
+full redacted ledger is preserved verbatim in
+[inbound-c-runtime.md](inbound-c-runtime.md). All 10 submitted Work inputs match
+final call17 byte-for-byte. No reviewer runtime request, mutation or source
+replay was performed during evidence review.
+
+Work59/60/65 are Done with confirmed new IDs153/4/154; Work64 is Failed after
+mandatory Fields input caused native add rejection, with no failure-serial
+asset or orphan Fields storage. Work61/63 reused153 without reseeding and
+remain Held for later B-return/Both processing; Work62 competing source,
+66 unverified B claim,67 revoked CREATE and68 stale settings are Held.
+The requested custom definition3's true zero-match lookup creates asset4
+while other definition4 same-serial asset3 remains unchanged/unlinked.
+The read-only wrong-loaded-type helper check rejects actual definition4
+loaded through requested definition3's class, providing focused P1 fix proof.
+It does not fabricate or certify a persisted contradictory retained link.
+
+Two actual mandatory Fields containers seed together within their own local
+saves, including grouped initial-container values. Native/custom A/B/Both
+mappings seed once regardless missing/unreliable times. Omitted optional
+Fields storage remains null; metadata default text is not claimed applied.
+Representative custom datetime raw UTC09:18:19 rereads virtual native
+17:18:19 as intended. This proves the exercised metadata, not every type,
+scalar permutation or installation option.
+
+Queue count15 becomes16 solely from the immediate genuine native name/serial
+edit, linked A944001/B153; later sync does not rewrite its original evidence.
+Native/Fields History identifies user12. The exact custom-type Log query is
+empty, so custom History attribution remains unproved by this pass. Worker
+caller user2/profile4/cron is restored after success and rejection; volumes
+are 4/4/1/1 and task ready state1. Setting13 is disabled/version3, Computer
+rights restored7, fresh container rights restricted to profile14 with4, and
+the one session closed. Fixtures and all historical ledgers are preserved.
+
+Source and observed runtime are approved for first-copy(c). No safe after-add
+interruption/uncertain-commit injection was available and no concurrent-create
+race was executed; those paths remain source-only/NOT RUN. First-copy success
+does not certify B returns, Both arbitration, scope controls, correction
+completion, exhaustive generic support or full product flows.
