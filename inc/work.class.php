@@ -262,15 +262,47 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         plugin_agentbdmosassetsync_fail('ASB_WORK_IMMUTABLE');
     }
 
+    /** Called by local processing code only; REST still reaches the forbidden update(). */
+    public function saveProcessorFields(int $id, array $values): bool
+    {
+        global $DB;
+
+        plugin_agentbdmosassetsync_check_fields($values, [
+            'processing_started_at', 'b_items_id', 'link_state', 'status', 'result_json', 'error', 'completed_at',
+        ]);
+        $DB->beginTransaction();
+        try {
+            $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
+            if (!$this->getFromDB($id) || $this->fields['status'] !== 'Accepted') {
+                $DB->rollBack();
+                return false;
+            }
+            if (isset($values['status']) && !in_array($values['status'], ['Accepted', 'Done', 'Held', 'Failed'], true)) {
+                throw new RuntimeException('Invalid internal Work status');
+            }
+            $saved = parent::update(['id' => $id] + $values);
+            if (!$saved) {
+                $DB->rollBack();
+                return false;
+            }
+            $this->verifyCreated($id, $values);
+            $DB->commit();
+            return true;
+        } catch (Throwable $e) {
+            $DB->rollBack();
+            throw $e;
+        }
+    }
+
     public static function cronInfo($name)
     {
         return $name === 'processWork'
-            ? ['description' => 'Agent-B-DMOS-AssetSync foundation task (no processor yet)'] : [];
+            ? ['description' => 'Process a bounded batch of Agent B Work records'] : [];
     }
 
     public static function cronProcessWork(CronTask $task)
     {
-        // The foundation explicitly registers an empty task. Processing is a later part.
-        return 0;
+        require_once __DIR__ . '/process.php';
+        return plugin_agentbdmosassetsync_process_batch($task);
     }
 }
