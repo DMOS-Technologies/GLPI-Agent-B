@@ -24,15 +24,16 @@ function plugin_agentbdmosassetsync_asset_types(): array
 }
 
 /** A descriptor identifies an actual scalar storage column, never a joined search value. */
-function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass $selector): array
+function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass $selector, bool $forWrite = true): array
 {
     global $DB;
-    if (!$asset::canUpdate() || ($asset->isEntityAssign() && !Session::haveAccessToEntity($asset->getEntityID()))) {
-        throw new RuntimeException('Asset field write permission denied');
+    $permitted = $forWrite ? $asset::canUpdate() : ($asset->getID() > 0 && $asset->can($asset->getID(), READ));
+    if (!$permitted || ($asset->isEntityAssign() && !Session::haveAccessToEntity($asset->getEntityID()))) {
+        throw new RuntimeException($forWrite ? 'Asset field write permission denied' : 'Asset field read permission denied');
     }
     if ($selector->kind === 'native' && $asset instanceof \Glpi\Asset\Asset
         && str_starts_with($selector->name, 'custom_')) {
-        return plugin_agentbdmosassetsync_custom_descriptor($asset, $selector->name);
+        return plugin_agentbdmosassetsync_custom_descriptor($asset, $selector->name, $forWrite);
     }
     $column = $selector->name;
     $class = $asset::class;
@@ -58,8 +59,9 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
             throw new RuntimeException('Fields container is outside asset entity scope');
         }
         $profileId = (int) ($_SESSION['glpiactiveprofile']['id'] ?? 0);
-        if ($profileId < 1 || PluginFieldsProfile::getRightOnContainer($profileId, $containerId) <= READ) {
-            throw new RuntimeException('Fields container write permission denied');
+        $containerRight = PluginFieldsProfile::getRightOnContainer($profileId, $containerId);
+        if ($profileId < 1 || ($forWrite ? $containerRight <= READ : $containerRight < READ)) {
+            throw new RuntimeException($forWrite ? 'Fields container write permission denied' : 'Fields container read permission denied');
         }
         $rows = iterator_to_array($DB->request(['FROM' => PluginFieldsField::getTable(), 'WHERE' => [
             'plugin_fields_containers_id' => $containerId, 'name' => $column, 'is_active' => 1]]));
@@ -67,7 +69,7 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
             throw new RuntimeException('Fields definition missing or ambiguous: ' . $column);
         }
         $field = reset($rows);
-        if ((int) $field['is_readonly'] || (int) $field['multiple']) {
+        if (($forWrite && (int) $field['is_readonly']) || (int) $field['multiple']) {
             throw new RuntimeException('Fields definition is read-only or multiple');
         }
         $kinds = ['text' => 'text', 'textarea' => 'text', 'url' => 'text', 'number' => 'number',
@@ -84,7 +86,7 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
         if ($asset instanceof \Glpi\Asset\Asset) {
             foreach ($asset::getDefinition()->getDecodedFieldsField() as $definition) {
                 if ($definition['key'] === $column) {
-                    plugin_agentbdmosassetsync_custom_options($definition['field_options'] ?? []);
+                    plugin_agentbdmosassetsync_custom_options($definition['field_options'] ?? [], $forWrite);
                 }
             }
         }
@@ -189,10 +191,13 @@ function plugin_agentbdmosassetsync_field_value(array $descriptor, $value)
 }
 
 
-function plugin_agentbdmosassetsync_custom_options(array $options): void
+function plugin_agentbdmosassetsync_custom_options(array $options, bool $forWrite = true): void
 {
     $profile = (int) ($_SESSION['glpiactiveprofile']['id'] ?? 0);
     foreach (['readonly', 'hidden'] as $restriction) {
+        if ($restriction === 'readonly' && !$forWrite) {
+            continue;
+        }
         $profiles = $options[$restriction] ?? [];
         // GLPI getOptionValues() resolves profile restrictions to booleans; core definitions retain ID lists.
         $restricted = $profiles === true;
@@ -210,7 +215,7 @@ function plugin_agentbdmosassetsync_custom_options(array $options): void
 }
 
 /** GLPI 11 definitions expose virtual custom_* inputs backed by the custom_fields JSON column. */
-function plugin_agentbdmosassetsync_custom_descriptor(\Glpi\Asset\Asset $asset, string $name): array
+function plugin_agentbdmosassetsync_custom_descriptor(\Glpi\Asset\Asset $asset, string $name, bool $forWrite = true): array
 {
     global $DB;
     foreach ($asset::getDefinition()->getCustomFieldDefinitions() as $definition) {
@@ -218,7 +223,7 @@ function plugin_agentbdmosassetsync_custom_descriptor(\Glpi\Asset\Asset $asset, 
             continue;
         }
         $type = $definition->getFieldType();
-        plugin_agentbdmosassetsync_custom_options($type->getOptionValues());
+        plugin_agentbdmosassetsync_custom_options($type->getOptionValues(), $forWrite);
         $kinds = [
             \Glpi\Asset\CustomFieldType\StringType::class => 'text',
             \Glpi\Asset\CustomFieldType\TextType::class => 'text',

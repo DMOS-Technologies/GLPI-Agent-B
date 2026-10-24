@@ -212,6 +212,56 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
         return $this->internalDone ? $input : false;
     }
 
+    /** Local processing attempt metadata; never available through REST update(). */
+    public function recordCorrectionAttempt(int $id): bool
+    {
+        return $this->saveCorrectionMetadata($id, true, null);
+    }
+
+    public function recordCorrectionFailure(int $id, string $reason): bool
+    {
+        return $this->saveCorrectionMetadata($id, false, $reason);
+    }
+
+    private function saveCorrectionMetadata(int $id, bool $increment, ?string $error): bool
+    {
+        global $DB;
+        if (!plugin_agentbdmosassetsync_is_uint($id, 1)) {
+            throw new RuntimeException('Invalid local correction snapshot ID');
+        }
+        $DB->beginTransaction();
+        try {
+            $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
+            if (!$this->getFromDB($id) || $this->fields['status'] !== 'Pending') {
+                $DB->rollBack();
+                return false;
+            }
+            $before = $this->fields;
+            $count = (int) $before['retry_count'] + ($increment ? 1 : 0);
+            if ($count > 4294967295) {
+                throw new RuntimeException('Correction attempt counter is exhausted');
+            }
+            $this->internalDone = true;
+            if (!parent::update(['id' => $id, 'retry_count' => $count, 'error' => $error])
+                || !$this->getFromDB($id) || (int) $this->fields['retry_count'] !== $count
+                || $this->fields['error'] !== $error) {
+                throw new RuntimeException('Correction metadata save could not be verified');
+            }
+            foreach ($before as $field => $value) {
+                if (!in_array($field, ['retry_count', 'error', 'date_mod'], true) && $this->fields[$field] !== $value) {
+                    throw new RuntimeException('Correction metadata changed an immutable snapshot field');
+                }
+            }
+            $DB->commit();
+            return true;
+        } catch (Throwable $e) {
+            $DB->rollBack();
+            throw $e;
+        } finally {
+            $this->internalDone = false;
+        }
+    }
+
     /** Local correction code proves exact snapshot coverage before calling this method. */
     public function markDoneInternally(int $id): bool
     {

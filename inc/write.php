@@ -137,6 +137,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
             try {
                 $route = plugin_agentbdmosassetsync_current_route($work);
                 $asset = plugin_agentbdmosassetsync_find_existing($work);
+                plugin_agentbdmosassetsync_validate_corrections($work, $route, $asset);
                 if ((int) $asset->getID() !== $assetId
                     || !in_array($mapping, json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR))) {
                     throw new RuntimeException('Current link or mapping no longer matches');

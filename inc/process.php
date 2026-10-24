@@ -2,6 +2,8 @@
 
 require_once __DIR__ . '/write.php';
 require_once __DIR__ . '/firstcopy.php';
+require_once __DIR__ . '/results.php';
+require_once __DIR__ . '/scope.php';
 
 function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
 {
@@ -107,7 +109,8 @@ function plugin_agentbdmosassetsync_current_route(array $work): array
     return $route;
 }
 
-function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissing = false): ?CommonDBTM
+function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissing = false,
+    bool $allowSuspended = false, bool $requireRetained = false): ?CommonDBTM
 {
     global $DB;
     $type = $work['itemtype'];
@@ -125,7 +128,14 @@ function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissin
     }
     if ($links) {
         $link = reset($links);
-        if ($link['link_state'] === 'Suspended') {
+        $state = $link['link_state'];
+        foreach ($links as $evidence) {
+            if ($evidence['status'] === 'Done' && in_array($evidence['operation'], ['Suspend', 'Resume'], true)) {
+                $state = $evidence['link_state'];
+                break;
+            }
+        }
+        if ($state === 'Suspended' && !$allowSuspended) {
             throw new RuntimeException('Retained link is Suspended; Sync cannot reactivate it');
         }
         $id = (int) $link['b_items_id'];
@@ -136,6 +146,9 @@ function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissin
             throw new RuntimeException('Retained B asset is missing');
         }
     } else {
+        if ($requireRetained) {
+            throw new RuntimeException('Scope control requires an existing verified retained link');
+        }
         if ($identity->b_items_id !== null) {
             throw new RuntimeException('Claimed B ID has no retained verified link evidence');
         }
@@ -201,18 +214,25 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
         'covered_change_ids' => [], 'handled_change_ids_done' => [], 'field_outcomes' => []];
     $status = 'Done';
     $reason = null;
+    $correctionAttempted = false;
     try {
         if ($work['operation'] !== 'Sync') {
-            throw new RuntimeException('Suspend/Resume processing is not installed yet');
+            plugin_agentbdmosassetsync_process_control($record, $result);
+            return;
         }
-        [$route, $asset] = plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work) {
+        $handledIds = json_decode($work['handled_change_ids_json'], true, 512, JSON_THROW_ON_ERROR);
+        [$route, $asset] = plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $handledIds) {
             $route = plugin_agentbdmosassetsync_current_route($work);
-            return [$route, plugin_agentbdmosassetsync_find_existing($work, true)];
+            $asset = plugin_agentbdmosassetsync_find_existing($work, $handledIds === []);
+            if ($handledIds !== []) {
+                plugin_agentbdmosassetsync_validate_corrections($work, $route, $asset);
+            }
+            return [$route, $asset];
         });
         if ($asset === null) {
             plugin_agentbdmosassetsync_first_copy($record, $result);
-            $status = json_decode($work['handled_change_ids_json'], true, 512, JSON_THROW_ON_ERROR) === [] ? 'Done' : 'Held';
-            $reason = $status === 'Held' ? 'Correction snapshot processing is not installed yet; queue remains Pending' : null;
+            $status = 'Done';
+            $reason = null;
             if (!$record->saveProcessorFields((int) $work['id'], ['status' => $status, 'error' => $reason,
                 'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
                 'completed_at' => $status === 'Done' ? Session::getCurrentTime() : null])) {
@@ -224,16 +244,30 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
         if (!$record->saveProcessorFields((int) $work['id'], ['b_items_id' => $result['b_items_id'], 'link_state' => 'Active'])) {
             throw new RuntimeException('Cannot persist verified existing link');
         }
+        if ($handledIds !== []) {
+            $correctionAttempted = true;
+            plugin_agentbdmosassetsync_begin_corrections($work, $asset);
+        }
         $values = json_decode($work['a_values_json'], false, 512, JSON_THROW_ON_ERROR);
         foreach (json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR) as $mapping) {
             if (!$mapping->enabled || $mapping->itemtype !== $work['itemtype']) {
                 continue;
             }
             $outcome = ['mapping_id' => $mapping->mapping_id, 'outcome' => 'Skipped', 'reason' => null];
-            if ($mapping->source !== 'A') {
+            if ($mapping->source === 'Both') {
                 $status = $status === 'Failed' ? 'Failed' : 'Held';
-                $reason = $mapping->source === 'B' ? 'B return processing is not installed yet' : 'Both conflict processing is not installed yet';
+                $reason = 'Both conflict processing is not installed yet';
                 $outcome['reason'] = $reason;
+            } elseif ($mapping->source === 'B') {
+                try {
+                    $result['b_values_for_a']->{$mapping->mapping_id} = plugin_agentbdmosassetsync_return_value($work, $mapping,
+                        $result['b_items_id']);
+                    $outcome['outcome'] = 'ReturnToA';
+                } catch (RuntimeException $e) {
+                    $outcome['reason'] = $e->getMessage();
+                    $status = $status === 'Failed' ? 'Failed' : 'Held';
+                    $reason = $e->getMessage();
+                }
             } elseif (!property_exists($values, $mapping->mapping_id)) {
                 $outcome['reason'] = 'A supplied no value for this enabled mapping';
             } else {
@@ -258,13 +292,27 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
                 throw new RuntimeException('Cannot persist partial verified field outcomes');
             }
         }
-        if (json_decode($work['handled_change_ids_json'], true, 512, JSON_THROW_ON_ERROR) !== []) {
-            $status = $status === 'Failed' ? 'Failed' : 'Held';
-            $reason = 'Correction snapshot processing is not installed yet; queue remains Pending';
+        $result['covered_change_ids'] = plugin_agentbdmosassetsync_covered_returns($work, $result);
+        if ($handledIds !== []) {
+            $failures = plugin_agentbdmosassetsync_finish_corrections($record, $result);
+            if ($failures !== []) {
+                $status = $status === 'Failed' ? 'Failed' : 'Held';
+                $reason = implode('; ', $failures);
+            }
+            $result['covered_change_ids'] = array_values(array_diff($result['covered_change_ids'], $result['handled_change_ids_done']));
         }
     } catch (Throwable $e) {
         $status = $e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Save failed:') ? 'Failed' : 'Held';
         $reason = $e instanceof RuntimeException ? $e->getMessage() : 'Processing interrupted; outcome requires review';
+        if ($correctionAttempted) {
+            foreach ($handledIds as $id) {
+                try {
+                    plugin_agentbdmosassetsync_note_correction_failure($work, $id, $reason);
+                } catch (Throwable $metadataError) {
+                    $reason .= '; correction metadata could not be verified for snapshot ' . $id;
+                }
+            }
+        }
     }
     if (!$record->saveProcessorFields((int) $work['id'], ['status' => $status, 'error' => $reason,
         'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
