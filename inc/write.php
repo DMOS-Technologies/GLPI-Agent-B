@@ -240,6 +240,12 @@ function plugin_agentbdmosassetsync_current_value(CommonDBTM $asset, array $fiel
 /** Fields 1.24.4 validates values and uses generated local add/update plus asset History. */
 function plugin_agentbdmosassetsync_write_fields(CommonDBTM $asset, array $field, $value): bool
 {
+    return plugin_agentbdmosassetsync_write_fields_values($asset, $field, [$field['value_column'] => $value]);
+}
+
+/** A first-copy container receives all mapped mandatory fields in one validated local save. */
+function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array $field, array $values): bool
+{
     global $DB;
     $type = $field['storage_class'];
     $storage = new $type();
@@ -262,7 +268,7 @@ function plugin_agentbdmosassetsync_write_fields(CommonDBTM $asset, array $field
         'WHERE' => ['plugin_fields_containers_id' => $field['container_id'], 'is_active' => 1]]) as $definition) {
         $column = $definition['type'] === 'dropdown'
             ? 'plugin_fields_' . $definition['name'] . 'dropdowns_id' : $definition['name'];
-        if ($column === $field['value_column']) {
+        if (array_key_exists($column, $values)) {
             foreach ($overrides as $override) {
                 if ((int) $override['plugin_fields_fields_id'] === (int) $definition['id'] && $override['is_readonly']) {
                     throw new RuntimeException('Fields value is read-only for the asset current status');
@@ -277,7 +283,7 @@ function plugin_agentbdmosassetsync_write_fields(CommonDBTM $asset, array $field
     $data['items_id'] = $asset->getID();
     $data['itemtype'] = $asset::class;
     $data['entities_id'] = $asset->getEntityID();
-    $data[$field['value_column']] = $value;
+    $data = array_replace($data, $values);
     $data[$status] = $statusValue;
     return (new PluginFieldsContainer())->updateFieldsValues($data, $asset::class);
 }
