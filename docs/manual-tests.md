@@ -8,9 +8,10 @@ Target supplied by the build coordinator: Docker `assetsync2-glpib`, GLPI
 resources below are in scope. Ignore OLD AssetSync plugins/resources.
 Production transport must use HTTPS; localhost HTTP is the supplied isolated
 review target. No curl or runtime case in this checklist has been executed by the reviewer.
-The complete eight-file foundation and updated primary contract/spec were
-submitted for source review; review found no actionable foundation blocker.
-Stage-specific operator evidence and its limits are recorded below; no full product flow is certified.
+Foundation and completed admission/capture/worker/acknowledgement parts were
+source reviewed and their scoped operator evidence reviewed as recorded below.
+Final Both source and scoped runtime evidence are reviewed. Historical
+findings and unrun variants are preserved.
 
 Read sources: root [spec-b-agent.md](../spec-b-agent.md),
 [api-contract.md](api-contract.md), and both flowchart images in this directory.
@@ -35,16 +36,41 @@ section 4.9 fixtures for scope operations. A checklist expectation is not a runt
 | Stage | Availability | Actual result |
 |---|---|---|
 | Foundation installation, rights, Setting validation | Reviewed and exercised | Preserved foundation results/ledger below |
-| Background matching, writes, recovery | Existing A-source worker and first copy reviewed/exercised | IB/IC/ID observed cases PASS; uncertainty injections and Both/full-flow requirements remain |
+| Background matching, writes, recovery | Existing A-source worker and first copy reviewed/exercised | IB/IC/ID/IE representative cases PASS; explicit fault/race/type limits remain |
 | Edit capture, field evidence, acknowledgements | Capture and acknowledgement reviewed/exercised | OC/OB observed cases PASS; explicit unrun variants below |
 | Native/Fields scalars and dropdown conversions | Installed metadata and representative writes exercised | OC/IB scoped results below; exhaustive type/field coverage NOT RUN |
-| Full flow and generic/custom-type evidence | Await integrated candidate | NOT RUN |
+| Full flow and generic/custom-type evidence | Integrated representative B workflows source/evidence reviewed | A implementation/exhaustive installed-type proof NOT RUN |
 
 The runtime operator executes relevant cases once per completed candidate.
 The reviewer reads that complete candidate's diff once, then inspects the
 operator's redacted evidence. Record failures without broadening the task.
 No automated tests, shell test harness, database mutation, delete, purge,
 uninstall, or cleanup command is authorized by this checklist.
+
+## Current evidence index
+
+The ledger for each part records the deployed scope, exact manual requests,
+operator fixture mistakes, initial failures/selective fixes and unrun variants.
+Historical stage Holds describe that stage; they are not current product
+placeholders. The reviewer inspected operator evidence without replaying curl.
+Final Both source and scoped IE runtime are approved after targeted source fixes.
+No exhaustive installed-type/field, unsafe fault-injection or other-patch
+certification is implied by representative passes.
+
+| Completed scope | Preserved evidence | Review status |
+|---|---|---|
+| Install, schema, profile rights, Setting | [foundation-runtime.md](foundation-runtime.md) | Coordinator-preserved initial foundation pass; protected-target initial failure and fix retained |
+| Work admission | [inbound-a-runtime.md](inbound-a-runtime.md) | Independently reviewed 173 curl entries |
+| Genuine capture and capability gate | [outbound-a-runtime.md](outbound-a-runtime.md) | Independently reviewed 62 curl/23 local entries; custom hook/readonly initial failures retained |
+| Existing A-owned local writes | [inbound-b-runtime.md](inbound-b-runtime.md) | Independently reviewed 48 curl/31 local entries |
+| External exact acknowledgements | [outbound-b-runtime.md](outbound-b-runtime.md) | Independently reviewed 70 curl/5 local entries |
+| First copy and concrete custom types | [inbound-c-runtime.md](inbound-c-runtime.md) | Independently reviewed 23 curl/10 local entries |
+| Custom-type acknowledgement integration | [ack-type-runtime.md](ack-type-runtime.md) | Independently reviewed 7 curl/2 read-only local entries |
+| B returns, correction coverage, Suspend/Resume | [inbound-d-runtime.md](inbound-d-runtime.md) | Independently reviewed 53 curl/19 local entries |
+| Both arbitration and faithful numeric equality | [inbound-e-runtime.md](inbound-e-runtime.md) | Independently reviewed 40 curl/18 native entries; targeted source fixes and limits retained |
+
+Current setup is in [setup.md](setup.md); exact schemas, the five original API
+contract deliverables and native wrappers remain in [api-contract.md](api-contract.md).
 
 ## Evidence and private environment
 
@@ -803,16 +829,15 @@ occurred before their intended mutations and are preserved, not hidden.
 | Senior 2(a), outbound capture and capability gate | Complete candidate and targeted P1/P2/OC09/OC15 fixes reviewed | PASS for observed cases; 62 curl + 23 local invocations preserved, including initial FAIL then selective PASS | Explicit NOT RUN variants above; external ack, worker/control/correction/full flow pending |
 | Senior 1(b), existing-asset worker | Source approved after transaction/finally fixes; dependency integrated | PASS observed stage cases; 48 curl + 31 local invocations independently reviewed | Exact IB01–15 limits; first copy/B returns/Both/controls/correction and uncertainty injections NOT RUN |
 
-## Pending final product documentation review
+## Final product documentation reconciliation
 
-After all implementation parts, including inbound(e), are complete, review and
-update current-product setup documentation to match actual installed behavior.
-The coordinator identified historical foundation-only wording in setup.md:
-empty cron, rejected Work admission and Fields selectors accepted when the
-plugin is absent. Final setup must describe the completed processor/admission
-and installed Fields 1.24.4 dependency/capability gate accurately. This is a
-future assigned documentation pass; no setup.md edit is made before the full
-candidate exists. Preserve every historical runtime report and initial failure.
+After the complete source and IE runtime review, setup.md and api-contract.md
+were reconciled with the implemented processor/admission, current permissions,
+installed Fields 1.24.4 capability gate and representative evidence. Obsolete
+foundation-only setup claims were removed. Exact wire schemas, five original
+contract deliverables, historical reports, initial failures and explicit
+verification limits remain intact. Unknown conventions must be explicit
+questions; unrun fault injections are limits rather than invented failures.
 
 ## Senior 2(b): external Change acknowledgement review and bounded matrix
 
@@ -1243,3 +1268,148 @@ and the session closed. No Work created an asset in this pass. Unsafe native/
 persistence failure injection, new entity transfers, destructive scope/control
 fixtures and remaining ID variants stay explicitly NOT RUN/source-only.
 Both arbitration and full product flows still await part(e).
+
+## Senior 1(e): Both arbitration and numeric equality bounded matrix
+
+Prepared for the final implementation part from approved per-field rules and
+Q3/Q8/Q9 before source review. Completed review and actual runtime results
+are recorded below.
+Use fresh Work IDs, existing permitted/native/Fields/custom fixtures or fresh
+authorized mapped scalar fixtures, genuine local edits and exact queue IDs.
+No prior terminal Work replay, fabricated timestamp/identity SQL, custom API,
+clock manipulation, automated harness or blanket rerun of completed stages.
+A's supplied field evidence uses canonical RFC3339 seconds/+08:00; native
+mapped date/datetime values keep their separate destination format. Compare
+normalized instants without whole-asset timestamps or an edit cooldown.
+
+| ID | Bounded final-part manual scenario and required evidence | Result |
+|---|---|---|
+| IE01 | Both native field differs and trustworthy supplied A time is newer than its latest genuine B-field time: under current locks/route/identity/permissions, write A locally, reread exact canonical value, AppliedToB and Done. Original queue evidence remains immutable and sync creates no echo. Include a real Fields scalar representative of the same rule. | PASS representative mixed92 native/Fields A newer and custom93, reread/History/no echo; exact correction101 also applies |
+| IE02 | Latest genuine B-field time is newer: B remains unchanged and returns exact current canonical scalar/label plus its original time/reliability, ReturnToA. Only fully represented exact Pending snapshots enter covered_change_ids and remain Pending until simulated A save+ack. | PASS B returns92/97/99 original genuine time, custom36 exact covered/Pending102 until matching106; mixed31/32 excluded |
+| IE03 | Values already canonically equal: AlreadyEqual, no asset/storage/History/queue write even when times are equal/missing/unreliable. Do not claim an edit time from equality alone. Equal scalar versus unrelated typed value remains distinguishable. | PASS90/91 text+numeric equality without clocks,105/106 no-op corrections; typed helper bool/string remain distinct; no invented time |
+| IE04 | Unequal values with exactly equal trustworthy second-precision instants: Conflict/Held with visible field reason, no field write or returned winner. Separate native and Fields representatives; never use queue order/Work arrival to break timestamp tie. | PASS native/Fields exact reliable second tie95 Conflict/Held,34/35 Pending attempt1; no tie winner |
+| IE05 | Unequal values with missing/null A time, reliable=false A evidence, no genuine B evidence or unreliable/mismatching latest B evidence: Conflict/Held, no fabricated time/winner. Malformed admission timestamps remain earlier schema tests, not this worker pass. | PASS representative92 no B clock,96 null/unreliable A,94 current/latest mismatch; fake unreliable persisted B snapshot NOT RUN |
+| IE06 | Latest genuine edit for the same mapping has a different value from current saved value (for example a previous sync changed it): never borrow an older coincidentally matching snapshot time. Return/compare evidence stays unknown and unequal Both conflicts. Use an approved normal guard/local writer if necessary, not raw timestamp SQL; unsafe fixture remains NOT RUN. | PASS actual current/latest mismatch94 after previous sync; older coincidentally matching variation source-only/NOT RUN |
+| IE07 | Genuine later edit to another mapped field/whole asset changes date_mod but not the disputed field: arbitration uses disputed field's original genuine clock only. Untouched fields retain independent times and outcomes; Work/sync/poll times do not win. | PASS actual disputed16:52:38 < A16:53:26 < unrelated asset16:53:27;101 applies A using field clock |
+| IE08 | Both dropdown/text conversions compare readable destination labels canonically before resolving a losing A label to a B option. Newer B succeeds even if A's losing label has no local option. Newer A resolves only its own winning unique permitted label; missing/duplicate winning option skips with reason/no option creation. Never compare foreign/raw IDs. | PASS losing absent label97 Bwinner no lookup; winning absent109 Skipped, winning permitted111 resolves7; duplicate winning label prior IB, no new Both duplicate fixture |
+| IE09 | Reduce only the fresh test profile asset/Fields rights to READ: B-winner and equal comparison/return still work; A-winner requires current UPDATE/field permissions and cannot write. Hidden/unreadable fields fail visibly. Restore exact rights; custom read-only rights require actual separate fixture proof, not inference from Computer. | PASS actual Computer/Fields/custom READ1 Bwinner/equal97/99; Awrite98/100 Held, exact masks restored; hidden variants source/prior |
+| IE10 | Faithful numeric JSON1 versus1.0 and saved SQL decimal1.00 compare equal without writes. Native/Fields/custom representative where actual metadata supports it; preserve integer/finite-float semantics and reject bool/string loose equality. Zero/negative/fractional values stay faithful to actual field constraints. | PASS actual Fields varchar raw1.00 and custom JSON1.0/1.00 equality plus descriptor helper; physical writable SQL DECIMAL column NOT RUN, other numeric ranges limited |
+| IE11 | Large integers and precision-sensitive numbers do not collapse through float conversion: distinguish exact >2^53 neighboring integers when supported, and retain existing custom12.75→12 loss rejection/rollback rather than normalizing it away. Unsupported exact representation skips/Holds visibly. No broad unsupported range certification from one value. | PASS raw decimal/exponent/last-duplicate helper;104 exact firstcopy9007199254740993,107 exponentAlreadyEqual,108 neighborConflict;110 actual12.75 Failed/rollback2; exact tested values only |
+| IE12 | Mixed mapped fields choose independently: newer A AppliedToB, newer B ReturnToA, equal AlreadyEqual and unresolved Conflict may coexist; Work Held preserves verified partial writes, returned values and explicit per-field outcomes. Only eligible full snapshots are covered, never blanket all IDs because one field succeeded. | PASS92 mixed Awrite/Breturn/AlreadyEqual/Conflict with Held partial outcomes; multi-field31/32 no blanket coverage |
+| IE13 | Both correction with exact handled IDs prevalidates every reference, compares original field evidence and actual current value under lock, then marks only fully covered snapshots Done. A-winning verified correction and already-equal coverage count actual Pending attempts; unresolved tie/missing evidence leaves Pending with visible error. Already Done snapshots unchanged; fresh Work after reconciliation only. | PASS tie95 attempts1, winning101 exact34/35 Done2;102 returned36 Pending1 then106 equalDone2;105 equal completion with prior Done unchanged; operator103 bad-default attempt preserved |
+| IE14 | Separate/newer genuine snapshot for same field or one multi-field snapshot with uncovered/conflicted field stays independent Pending; returned coverage and handled_change_ids_done identify exact snapshots, not all asset/mapping rows. Attempt count reflects validated correction processing only; polls/wrong-scope references remain no mutation per prior ID proof. | PASS independent mixed31/32/unrelated39;111 only40 Done, newer41 Pending0; prior wrongscope/poll proof not rerun |
+| IE15 | Native/Fields/custom Both writes release nested sync guard after success/failure, create no Change echo and do not overwrite original evidence. Immediate genuine mapped edit afterwards queues normally. No cooldown, remote call, resumption/reseed or scope-control regression inferred from unrelated tests. | PASS native/Fields/custom no echo, genuine34/35 aftersuccess and42 after actualFailed110, guardfalse; native/Fields Historyuser12, custom History attribution not additionally certified |
+| IE16 | Final source review finds actual Both execution replacing the previous stage Hold, with no executable stage-unavailable placeholder for required behavior. Representative native/Fields/custom behavior and exact integrated A-start/B-start/correction flows are evidenced within this pass or prior ledgers. Unrun unsafe failure/race/type variants remain limits; full “all installed types/fields” certification is not inferred. | PASS exercised required Both behaviors/source reviewed boundaries; integrated representative flows across ledgers; unsafe moved-scope/transaction failure races source-only, no exhaustive type/field claim |
+
+Finish only after the entire candidate is built, one independent complete
+source review and the bounded operator pass. Record any initial failure and
+selective fix/retest; do not overwrite historical stage-boundary evidence.
+Final setup/current-contract wording cleanup follows source/runtime approval,
+with known facts stated as facts and genuine unresolved conventions phrased
+as explicit questions. Unrun fault injections are verification limits, not
+new deployment questions or evidence of failure.
+
+### Senior 1(e) initial completed source review
+
+All six staged files were read: new `both.php`, `process.php`, `write.php`,
+`results.php`, `fields.php`, and the approved narrow `firstcopy.php` numeric
+input dependency. Both dispatch/strict typed comparison, current-read genuine
+field evidence, READ-first comparison/B winner, UPDATE-only A winner, and
+full-snapshot Both coverage are implemented. Approval is withheld for two P1
+issues found in the completed candidate; no runtime or code edit by reviewer.
+
+1. `fields.php::exact_work_value()` lines253–260 validates original precision
+   only when JSON_BIGINT_AS_STRING converts an integer literal into a string.
+   Raw inner numeric literal9007199254740993.0 or9.007199254740993e15 becomes
+   float9007199254740992 in both decode modes, bypasses that guard, and can
+   become false AlreadyEqual or a successful rounded write. Validate the
+   original numeric token across decimal/exponent/integer representations;
+   canonicalizing only the already-rounded decoded value is insufficient.
+   IE11 must include these distinct raw syntaxes and preserve type strictness.
+2. `results.php::locked_value()` lines311–324 reads the current locked row but
+   consumes only its value, not current entity/concrete type/Fields ownership.
+   `finish_corrections()` lines257–264 starts its RR transaction and reads
+   route/asset before waiting for the actual asset lock; later getFromDB and
+   check_asset can remain on the pre-wait consistent snapshot. A current row
+   moved to another entity/definition while waiting must never authorize Done
+   from stale old scope. Validate/hydrate actual current locked asset scope,
+   concrete type and current rights, plus current Fields owner/container/entity,
+   before arbitration/write/completion. Do not require destructive movement or
+   fabricated invalid identities for runtime proof; unsafe race fixtures remain
+   source-only unless the coordinator approves a real safe mechanism.
+
+Custom locked-value raw JSON lookup/default/formatValueFromDB follows the
+installed GLPI virtual-field read shape in the completed source. No additional
+actionable defect was found in this read. Preserve both initial findings and
+review only completed targeted fixes before the first IE runtime deployment.
+
+Senior 1(e) completed targeted fixes reviewed once: `exact_work_value()` now
+reads original raw numeric scalar tokens across integer/decimal/exponent
+syntax and normalizes that token before comparison/write. Actual JSON strings
+stay strings. The coordinator caught an intermediate duplicate-key selection
+mismatch before this targeted review; the final parser selects the last
+matching raw member, consistent with validated json_decode semantics. Include
+raw large decimal/exponent and duplicate-final-member variants in IE11.
+
+Current asset locking now constrains concrete type criteria and hydrates the
+actual SELECT FOR UPDATE result through installed getFromResultSet plus
+post_getFromDB before entity/lifecycle/current-right checks. Retained ownership
+is checked by locking current rows. Current Fields storage checks actual
+owner/itemtype/container/entity and actual container availability/type/scope;
+the writer preserves that locked full storage row. Correction completion and
+current genuine-time permission checks use hydrated locked rows, and required
+call signatures were read. No actionable defect remains in these affected
+changes. Both P1 source findings are resolved for the first IE runtime pass;
+unsafe scope-race/persistence injection remains explicitly unrun unless a
+real safe fixture is authorized. No reviewer runtime, code edit or deployment.
+
+### Senior 1(e) executed evidence review and final documentation status
+
+The independent reviewer inspected the complete 40 raw curl requests and 18
+native invocations in [inbound-e-runtime.md](inbound-e-runtime.md), preserved
+verbatim. No implementation blocker was found in observed final-part runtime.
+All 22 immutable Work inputs and original snapshot columns reconcile exactly;
+credential fields are redacted. Large precision evidence uses original raw
+bodies/native PHP stdout, not rounded JavaScript projections. No reviewer
+runtime replay, deployment, code edit or automated test was performed.
+
+Work90–111 finish 12 Done/9 Held/1 expected Failed. Both executes actual native,
+Fields and custom writes/returns/equality/conflicts. Trusted field times, exact
+second ties, null/unreliable evidence, genuine current/latest mismatch and an
+unrelated later whole-asset edit select no invented clock. READ-only Computer,
+Fields and actual custom rights allow B winners/equality; A winners require
+UPDATE. Losing missing dropdown labels do not trigger lookup; missing winning
+label skips, and valid winning label resolves permitted7.
+
+The numeric fix has real helper proof for decimal/exponent/final-duplicate
+members and strict scalar types. Actual first-copy104 stores exact
+9007199254740993, exponent107 reuses the same asset with equality, and adjacent
+108 stays distinct. Actual configured custom integer-step12.75 save110 fails
+reread and rolls back to2; Pending38 retains attempt1/error. The following
+genuine numeric3 edit queues42 and guard is false. Actual Fields number raw
+1.00 uses varchar storage, not physical SQL DECIMAL; only descriptor-level
+DECIMAL-style text canonicalization was exercised. Other precision/range and
+physical DECIMAL write variants remain explicitly unrun.
+
+Exact Both corrections cover34/35,36/37 and40 only after verified winning or
+matching handling. Partial mixed31/32 remain Pending; returned36 stays Pending
+until simulated A matches it, then106 completes it. Newer unlisted41 remains
+Pending0, as does independent genuine overlapping-route39. Operator103 carried
+old helper defaults and correctly Held; fresh105 is the real no-op completion.
+That mistake/validated attempt remains visible, with no reset/replay. Prior
+Done rows retain original attempts/done_at.
+
+Exactly 12 genuine rows31–42 increase the queue; sync/firstcopy/correction adds
+no echo. Rights are restored, routes15/16 disabled/version2, session closed
+and Accepted count0. The separately approved hook description-only integration
+changes task51 comment/date_mod only; itemtype/name/frequency/external mode/
+state remain exact. All scheduling facts in setup reflect the implemented task.
+
+Source and observed runtime are approved for the final part. Unsafe moved-
+entity/concrete-type/Fields-owner races, transaction/crash injection, exhaustive
+installed-type/field combinations, custom History attribution and physical
+DECIMAL writes are limits, not asserted failures. Setup and API-contract
+current-status wording now match implemented/reviewed behavior while preserving
+all five contract deliverables, schemas, native caveats, historical ledgers and
+initial findings. A remains outside this B-only project; its real saves are not
+certified by local simulated handling.

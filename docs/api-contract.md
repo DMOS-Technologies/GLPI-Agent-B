@@ -3,7 +3,8 @@
 **Target:** GLPI 11, built-in REST API **V1** (the legacy, low-level API).
 **Scope:** B only. A initiates every request. No custom routes, authentication,
 HTTP responses, or outbound calls from B. This file defines the required
-record and processing behavior. Implementation is being delivered in reviewed parts.
+record and processing behavior. The plugin implementation is present; reviewed
+runtime evidence and remaining verification limits are indexed below.
 
 ## Contract status and sources
 
@@ -16,11 +17,16 @@ The user selected GLPI 11, the display name, and deployment name below. The
 remaining recommendations were explicitly approved on 24 October 2026; section 7
 records those decisions. Local curl probes confirmed GLPI **11.0.7** on
 `http://localhost:8081`, native V1 login, and native missing-resource responses
-before installation of this plugin. HTTP is restricted to that disposable
+before installation of this plugin. Subsequent manual passes installed and
+exercised its record classes, local processor, capture, corrections and controls
+against GLPI 11.0.7 with active Fields 1.24.4. Final Both source and scoped
+runtime evidence have been reviewed.
+HTTP is restricted to that disposable
 local development instance; deployed integrations use HTTPS.
 
 Initial protocol research used the official **11.0.0 tag**. Implementation and
-manual checks must use the installed **11.0.7** source and behavior.
+manual checks use the installed **11.0.7** source and behavior. Other patches
+are not certified by these local passes.
 The relevant sources are linked beside the protocol sections. The normative
 rules for this plugin are the schemas and validation rules in this document;
 examples use illustrative IDs and values.
@@ -128,10 +134,12 @@ Field-selector objects:
 
 - Native: `{"kind":"native","name":"name"}`. `name` is the actual field,
   not a numeric search-option ID.
-- Fields plugin, **selector shape; actual installed Fields metadata must be verified**:
+- Fields plugin, **actual configured container/field names**:
   `{"kind":"fields","container":"assetextra","name":"customcode"}`.
-  Both strings identify configured Fields-plugin metadata; their exact
-  correspondence to that plugin's installed version must be confirmed.
+  `container` is the stored container name and `name` the stored field name.
+  Enabled mappings require an active plugin and actual supported metadata,
+  scalar storage and permissions. Installed Fields 1.24.4 was exercised;
+  these illustrative names are not preinstalled fixtures.
 
 `direct` carries a native scalar value (string, number, boolean, or null),
 subject to the destination field's supported type. `dropdown_label_to_text`
@@ -146,7 +154,9 @@ proof that a field is writable.
 
 The user explicitly requires text-to-dropdown lookup as well as the spec's
 dropdown-to-text and dropdown-to-dropdown conversions. These are required
-contract capabilities, not reasons to call a field unsupported. Implementation must be delivered and verified in the relevant inbound/outbound parts.
+contract capabilities, not reasons to call a field unsupported. The implementation
+and representative conversion evidence are recorded in the linked part ledgers;
+unsupported metadata/options remain subject to the explicit capability gate.
 
 ### Field support and conversion boundary
 
@@ -190,7 +200,7 @@ GLPI itself cannot write these fields:
 | Entity/scope control | Asset `entities_id` and equivalent scope-control fields | Set the B entity from the route during first copy only. Never use a field mapping to transfer an existing asset. |
 | Destructive/lifecycle operations | Deletion markers such as `is_deleted`, or any field write that deletes, archives, or clears an asset | Prohibited by the spec; not an ordinary field conversion. |
 | Calculated, aggregate, or presentation-only values | Counts, joined search results without a verified writable target, display headers | Not direct mapped write targets. A Fields Header has no asset value to sync. |
-| Unavailable or unwritable target | Field absent on this type; required plugin/container unavailable; field read-only; service account cannot write it | Report the exact condition. This does not make the whole field kind unsupported. |
+| Unavailable or unwritable target | Field absent on this type; required plugin/container unavailable; field read-only; service account cannot write it | Reject an enabled unsupported B mapping at Setting admission; report later runtime unavailability visibly. This does not make the whole field kind unsupported. |
 | Complex value format not yet defined in this contract | Multi-selects, lists of linked users/groups, relationship collections, files/documents, or nested values requiring more than a scalar | Require an explicit payload, identity resolution, and verified local save behavior under Q7 before enabling. Do not flatten to arbitrary text or call all references ordinary dropdowns. |
 | Invalid value for a supported conversion | Destination option missing/ambiguous, invalid number/date, text exceeding destination limits | Visible per-field validation/conversion failure; leave the target unchanged. |
 | Unmapped or disabled field | No enabled mapping for this route/type | Leave unchanged; this is excluded by configuration, not an unsupported field. |
@@ -206,8 +216,10 @@ headers, so a displayed field is not automatically a writable scalar.
 
 An exhaustive installed-field list cannot be inferred from the three plugin
 record schemas. It requires the actual asset types, GLPI patch, installed
-plugins, field definitions, and permissions. No such live inventory has been
-supplied. Q8 concerns what happens when individual fields cannot complete;
+plugins, field definitions, and permissions. Actual installed metadata was
+inspected and representative native/custom/Fields fixtures were exercised on
+GLPI 11.0.7/Fields 1.24.4; no exhaustive installed-field inventory is claimed.
+Q8 concerns what happens when individual fields cannot complete;
 contract Q11 concerns durable links and per-asset suspension/resumption, not
 a second list of unsupported field types. Spec section 11 question 11, by
 contrast, concerns a mapping naming an absent field.
@@ -404,6 +416,11 @@ column and no A-generated queue identifier.
 | `Pending` | Genuine B edit awaiting A handling or a successful B correction; includes failures/conflicts still needing retry/review |
 | `Done` | A acknowledged its completed local handling, or B successfully applied correction work covering this exact snapshot |
 
+An actual validated Pending correction attempt increments `retry_count`,
+including its first attempt (`0 -> 1`). Polling, missing/wrong-scope references
+and already Done snapshots do not increment it. Failed full-snapshot coverage
+leaves Pending with a visible B-recorded error; original values/times stay immutable.
+
 The only status transition is `Pending -> Done`. `Done -> Done` is rejected
 under the literal spec rule; after a lost acknowledgement response A reads
 back the IDs instead of assuming a repeat PUT is accepted. `Done -> Pending`
@@ -421,9 +438,9 @@ Sync writes never create a Change row.
 
 ## 2. A service account profile rights (deliverable 2)
 
-These are **plugin-defined rights**, to be registered and exposed by B's
-future profile UI. The right keys below are contract identifiers; they are
-not pre-existing GLPI core rights.
+These **plugin-defined rights** are registered and exposed in B's
+Agent-B-DMOS-AssetSync profile tab. The right keys below are implemented plugin
+identifiers, not pre-existing GLPI core rights.
 
 | Record type | Profile right key | Grant | Do not grant |
 |---|---|---|---|
@@ -1258,14 +1275,17 @@ Age alone does not make work stale. Approved Q9 defines recovery behavior.
 
 ## 6. Enable GLPI V1 and create the service account (deliverable 5)
 
-These are administrator setup instructions, not actions performed by this
-documentation task. The administrator account is separate from A's restricted
-service account.
+These are administrator setup instructions. The supplied disposable B has
+been installed and manually exercised; a deployment administrator still
+configures that deployment. The administrator account is separate from A's
+restricted service account. See [setup.md](setup.md) for implemented task,
+permissions and field-capability details.
 
 1. Confirm the exact GLPI 11.x patch, HTTPS base URL, and routed B entities.
-   Install/enable the future plugin under `plugins/agentbdmosassetsync`; the
-   three resource classes, tables, entity checks, and profile rights must exist
-   before the record examples can work. This file does not implement them.
+   Install/enable the implemented plugin under `plugins/agentbdmosassetsync`;
+   installation registers its three resource tables, classes, entity checks,
+   profile tab/rights and automatic action. The reviewed target is 11.0.7;
+   use the actual configured HTTPS Legacy base for the deployment.
 2. In **Setup/Configuration > General > API**, use the **Legacy API** section.
    Set **Enable Legacy REST API** to Yes and accept GLPI's built-in warning.
    Save. Enabling only the newer API does not enable V1. Copy the displayed
@@ -1303,13 +1323,16 @@ service account.
    confirm the intended context. An expired session is replaced by normal
    login; an app token alone does not identify the service user. Preserve
    object IDs/work IDs when reconciling an interrupted mutation.
-9. Configure B's normal GLPI automatic-action runner for the future background
-   task. POST acceptance will otherwise remain Accepted. B must process locally
-   and check the submitting service permissions (Q10), never call itself/A
-   over HTTP. Use reliable clocks and Brunei-offset genuine field evidence
-   according to approved Q3. No asset deletion/purge command is part of setup.
+9. Configure B's normal GLPI automatic-action runner for `processWork` on
+   `PluginAgentbdmosassetsyncWork`, registered at 60 seconds in external/CLI
+   mode, initially waiting. The worker handles at most 20 Accepted rows per
+   pass under one worker lock. Without the runner, acceptance stays Accepted.
+   B processes locally under the captured submitting user's current profile,
+   entity/asset/field permissions (Q10), never through self/A HTTP. Use reliable
+   clocks and Brunei-offset genuine field evidence per Q3. No deletion/purge
+   command is part of setup.
 
-### Manual curl checklist for the reviewer (not executed here)
+### Manual curl protocol and review evidence
 
 Use a disposable development GLPI B and the actual Legacy base URL. Commands
 below expect shell variables already populated privately; the values are not
@@ -1352,7 +1375,7 @@ curl --silent --show-error --include --request PUT \
   "${B_V1_BASE}/PluginAgentbdmosassetsyncChange"
 ```
 
-Reviewer observations required after implementation:
+Scoped manual observations and recorded evidence:
 
 - Read Setting back; check increasing and stale versions, route uniqueness,
   entity restrictions, and unsupported mappings. Verify that changing an existing
@@ -1372,8 +1395,10 @@ Reviewer observations required after implementation:
   and safe read/admission attempts. Do not run DELETE/PURGE or destructive
   database commands for this checklist.
 
-No automated tests, live calls, database commands, commit, or push were run
-for this documentation task.
+These are manual commands, not an automated test harness. Actual operator
+requests, safe native-method invocations and readbacks are preserved in
+[the evidence index](manual-tests.md#current-evidence-index), including failures
+and unrun variants. Historical ledgers are not overwritten by current wording.
 
 ## 7. Approved decisions and remaining implementation verification
 
@@ -1397,7 +1422,7 @@ These are now requirements rather than unapproved defaults.
 | Q12 | Local target is GLPI 11.0.7, confirmed from its running source. A must reconcile acknowledgement responses by actual ID keys and read back omitted/uncertain results. The observed missing-ID omission and no-ID collection response are recorded in section 3.2 and the OB ledger; never override GLPI HTTP handling. |
 | Q13 | Local disposable test base is `http://localhost:8081/api.php/v1`. Production uses B's configured HTTPS Legacy API base. |
 | Q14 | One A consumer per B. Use discovered numeric search options and ascending queue IDs for bounded passes; revisit unresolved IDs without starving later rows. Never treat offset pages as an immutable snapshot. |
-| Q15 | Verify implementation hooks, bookkeeping, field writes, permissions, and native API exposure against installed GLPI11.0.7 source. These are engineering checks, not permission to invent APIs. |
+| Q15 | Verify implementation hooks, bookkeeping, field writes, permissions, and native API exposure against installed GLPI 11.0.7 source. These are engineering checks, not permission to invent APIs. |
 
 Dropdown matching is conservative: preserve source readable label/text without
 implicit trimming or case folding, match exactly in the destination's locally
@@ -1409,9 +1434,19 @@ never implicitly select zero/default or clear a field: leave unchanged with a
 visible reason. Compatible direct scalar nulls remain subject to the actual
 field's supported validation; no destructive scope operation is inferred.
 
-Outstanding implementation facts must be reported rather than guessed:
-actual Fields-plugin version and safe metadata/save hooks when installed;
-the exact installed-field capability inventory; verified native missing-ID
-responses; and representative core/custom/Fields processing evidence. If an
-installed type or field lacks reliable metadata or safe local write behavior,
-reject/hold it visibly and report the gap; do not mark that support tested.
+Verified installation facts are GLPI 11.0.7, active Fields 1.24.4, native V1
+record exposure and the exact missing-ID/no-ID behavior in section 3.2.
+Representative native/custom/Fields processing, metadata permissions,
+conversions, first copy, exact acknowledgements, B returns, corrections and
+scope controls have source/runtime ledgers in
+[the evidence index](manual-tests.md#current-evidence-index). Final Both source
+and scoped runtime evidence are reviewed in the IE ledger.
+
+Verification limits are distinct from protocol questions: the fixture set is
+not an exhaustive installed-field inventory, other patches were not exercised,
+and unsafe crash/commit/rollback/race injections remain explicitly unrun.
+Do not label these limits as observed failures or invent a new policy for them.
+Unsupported enabled mappings remain rejected; later unavailable field metadata
+or uncertain outcomes stay visible. A genuinely unknown convention or fact
+must be stated as an explicit question before promising behavior; do not guess
+an answer. The approved wire schemas and section 7 decisions remain unchanged.
