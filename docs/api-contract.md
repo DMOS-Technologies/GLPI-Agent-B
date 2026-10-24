@@ -156,7 +156,7 @@ contract capabilities, not reasons to call a field unsupported. Implementation m
 | Dropdown -> text | Resolve the source option to its readable label; save that string | `dropdown_label_to_text` |
 | Text -> dropdown | Look up the text in the destination field's own option set; save the uniquely matched local ID | `text_to_dropdown` |
 | Dropdown -> dropdown | Resolve the source label, then look up the destination's own option ID | `dropdown_label_to_dropdown` |
-| Compatible number, Yes/No, date, or datetime -> same field kind | Preserve the typed value and validate the supported field kind; datetime follows the agreed time policy | `direct` |
+| Compatible number, Yes/No, date, or datetime -> same field kind | Preserve the typed value and validate the supported field kind; date is `YYYY-MM-DD`, datetime is `YYYY-MM-DD HH:MM:SS` already in the destination GLPI native convention | `direct` |
 
 For example, source dropdown ID `17` with label `Dell` becomes text `Dell`.
 Source text `Dell` mapped to a destination Manufacturer dropdown becomes that
@@ -211,6 +211,24 @@ supplied. Q8 concerns what happens when individual fields cannot complete;
 contract Q11 concerns durable links and per-asset suspension/resumption, not
 a second list of unsupported field types. Spec section 11 question 11, by
 contrast, concerns a mapping naming an absent field.
+
+Unsupported enabled B mappings must be rejected during Setting creation or
+replacement with `ASB_UNSUPPORTED_MAPPING: mapping_id=<id>`, as the user
+explicitly decided on 24 October 2026. Check actual installed field metadata,
+supported scalar storage, and applicable entity/field permissions; native and
+Fields-plugin text/dropdown conversions remain required supported capabilities.
+A's remote field availability cannot be verified by B through outbound calls.
+If a configured B mapping later becomes unavailable, capture must reject the
+operation visibly before saving where possible, rather than silently omit a
+mapped genuine edit. A post-save queue persistence failure must be visible as
+an uncertain outcome; do not claim rollback of the asset, successful capture,
+or silently discard the in-memory evidence. Empty Change snapshots are not
+authorized. Review/fix the unsupported mapping explicitly before enabling it.
+
+Mapped date/time VALUES are separate from genuine edit timestamps. Dates use
+`YYYY-MM-DD`; datetimes use `YYYY-MM-DD HH:MM:SS` in the destination GLPI native
+convention, validated without silent timezone conversion. Genuine edit
+evidence continues to use explicit RFC 3339 Brunei `+08:00` timestamps.
 
 Settings must explicitly describe mapping direction. There is no per-field
 settings GET and no remote lookup by B.
@@ -1361,7 +1379,7 @@ These are now requirements rather than unapproved defaults.
 | Q4 | Reject duplicate Work IDs; A reads the existing row. Reject non-increasing Setting versions, including identical retries. Enforce unique/version checks safely under concurrency. |
 | Q5 | One immutable Change snapshot per genuine save per applicable route; no merging and no cleanup of Done evidence. |
 | Q6 | Reject malformed admission payloads; save structurally valid Work then Hold scope/settings/type mismatches visibly without asset writes. |
-| Q7 | Generic installed GLPI asset registry, including registered custom asset classes; no per-type implementation. Validate field-kind support and actual safe local writes. Native and Fields-plugin scalar mappings plus the four documented text/dropdown conversions are required. Missing Fields support is reported visibly. Complex non-scalar fields remain rejected until a payload/save contract exists. |
+| Q7 | Generic installed GLPI asset registry, including registered custom asset classes; no per-type implementation. Validate field-kind support and actual safe local writes. Native and Fields-plugin scalar mappings plus the four documented text/dropdown conversions are required. Unsupported enabled mappings, including unavailable Fields support, are rejected during Setting admission for later review/fix. Complex non-scalar fields remain rejected until a payload/save contract exists. |
 | Q8 | Process supported fields and record exact skipped-field reasons. Done may contain documented skips; unresolved conflicts are Held; definite save failures are Failed. Preserve verified partial outcomes. An entire Change snapshot must be covered before it can become Done. |
 | Q9 | One background worker; durable start marker and partial evidence; no blind replay of interrupted/uncertain writes, especially first copy. Held/Failed are not automatically reopened. Reconcile before any necessary new Work. Queue age alone does not expire work. |
 | Q10 | Capture submitting user/profile as B-owned metadata and recheck their current authorizations for local processing. Never inherit cron administrator privileges or store session credentials. |

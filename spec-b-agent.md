@@ -142,7 +142,8 @@ Additional rules:
 - **Dropdown mapped to text:** A sends the readable label, and B stores it as text.
 - **Dropdown to dropdown:** B looks up the destination option itself, because IDs differ between A and B. Option not found means no write and a visible reason.
 - **Text to dropdown:** required. B looks up the text as an exact, unique permitted local option and writes its B ID. No match or ambiguous match means no write and a visible reason; never create an option automatically.
-- **Field support:** native fields and Fields-plugin custom fields. Each field kind needs explicit support. A field showing in GLPI search options is not proof it is safe to write. Unsupported mapping means reject visibly.
+- **Field support:** native fields and Fields-plugin custom fields. Each field kind needs explicit support. A field showing in GLPI search options is not proof it is safe to write. Unsupported enabled B mappings are rejected at Setting admission for explicit review/fix. A mapping becoming unavailable later must not silently lose genuine edit evidence.
+- **Mapped date/time values:** date uses `YYYY-MM-DD`; datetime uses `YYYY-MM-DD HH:MM:SS` already in the destination GLPI native convention. These values are separate from Brunei-offset genuine edit timestamps.
 
 ---
 
