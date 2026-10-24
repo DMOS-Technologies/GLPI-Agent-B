@@ -87,10 +87,10 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
             sort($invalid, SORT_STRING);
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=' . $invalid[0]);
         }
-        $this->validateMappings($decoded['enabled_itemtypes_json'], $decoded['field_mappings_json']);
+        $this->validateMappings($decoded['enabled_itemtypes_json'], $decoded['field_mappings_json'], $input['entities_id']);
     }
 
-    private function validateMappings(array $types, array $mappings): void
+    private function validateMappings(array $types, array $mappings, int $entity): void
     {
         global $CFG_GLPI;
 
@@ -150,6 +150,22 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
                     plugin_agentbdmosassetsync_fail('ASB_INVALID_MAPPING: mapping_id=' . $id);
                 }
                 $targets[] = $target;
+                try {
+                    $asset = new ($mapping->itemtype)();
+                    $asset->getEmpty();
+                    $asset->fields['entities_id'] = $entity;
+                    $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+                    $allowedModes = match ($descriptor['kind']) {
+                        'dropdown' => ['text_to_dropdown', 'dropdown_label_to_dropdown'],
+                        'text' => ['direct', 'dropdown_label_to_text'],
+                        default => ['direct'],
+                    };
+                    if (!in_array($mapping->value_mode, $allowedModes, true)) {
+                        plugin_agentbdmosassetsync_fail('ASB_UNSUPPORTED_MAPPING: mapping_id=' . $id);
+                    }
+                } catch (Throwable $e) {
+                    plugin_agentbdmosassetsync_fail('ASB_UNSUPPORTED_MAPPING: mapping_id=' . $id);
+                }
             }
         }
     }

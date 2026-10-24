@@ -4,6 +4,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
 {
     public static $rightname = 'plugin_agentbdmosassetsync_change';
     private bool $internalDone = false;
+    private bool $internalCreate = false;
 
     public static function getTypeName($nb = 0)
     {
@@ -37,7 +38,76 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
 
     public function add(array $input, $options = [], $history = true)
     {
-        plugin_agentbdmosassetsync_fail('ASB_CHANGE_CAPTURE_UNAVAILABLE: foundation_stage');
+        plugin_agentbdmosassetsync_fail('ASB_CHANGE_CREATE_FORBIDDEN');
+    }
+
+    public function prepareInputForAdd($input)
+    {
+        return $this->internalCreate ? $input : false;
+    }
+
+    /** A standard REST request can call add(), never this trusted local capture entry point. */
+    public function createCapturedChange(array $input): int
+    {
+        global $DB;
+        $required = ['route_id', 'settings_version', 'a_entities_id', 'entities_id', 'itemtype',
+            'identity_json', 'changed_fields_json'];
+        plugin_agentbdmosassetsync_check_fields($input, $required);
+        plugin_agentbdmosassetsync_require_fields($input, $required);
+        if (!plugin_agentbdmosassetsync_is_key($input['route_id'])
+            || !plugin_agentbdmosassetsync_is_uint($input['settings_version'], 1)
+            || !plugin_agentbdmosassetsync_is_uint($input['a_entities_id'])
+            || !plugin_agentbdmosassetsync_is_uint($input['entities_id'])
+            || !in_array($input['itemtype'], plugin_agentbdmosassetsync_asset_types(), true)) {
+            plugin_agentbdmosassetsync_fail('ASB_CAPTURE_INVALID_SCOPE');
+        }
+        $identity = plugin_agentbdmosassetsync_json('identity_json', $input['identity_json']);
+        if (!plugin_agentbdmosassetsync_object_keys($identity, ['a_items_id', 'b_items_id', 'serial'])
+            || ($identity->a_items_id !== null && !plugin_agentbdmosassetsync_is_uint($identity->a_items_id, 1))
+            || !plugin_agentbdmosassetsync_is_uint($identity->b_items_id, 1)
+            || ($identity->serial !== null && (!is_string($identity->serial) || $identity->serial === ''))) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=identity_json');
+        }
+        $fields = plugin_agentbdmosassetsync_json('changed_fields_json', $input['changed_fields_json']);
+        if (!$fields instanceof stdClass || !get_object_vars($fields)) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=changed_fields_json');
+        }
+        foreach (get_object_vars($fields) as $mapping => $field) {
+            if (preg_match('/\A[a-z][a-z0-9_]{0,63}\z/D', $mapping) !== 1
+                || !plugin_agentbdmosassetsync_object_keys($field, ['value', 'changed_at', 'reliable'])
+                || !(is_scalar($field->value) || $field->value === null)
+                || (is_float($field->value) && !is_finite($field->value))
+                || $field->reliable !== true || !is_string($field->changed_at)) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=changed_fields_json');
+            }
+            $time = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:sP', $field->changed_at);
+            if (!$time || $time->format('Y-m-d\TH:i:sP') !== $field->changed_at
+                || !str_ends_with($field->changed_at, '+08:00')) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=changed_fields_json');
+            }
+        }
+        $input += ['status' => 'Pending', 'retry_count' => 0, 'error' => null, 'done_at' => null];
+        $DB->beginTransaction();
+        $this->internalCreate = true;
+        try {
+            $id = parent::add($input);
+            if (!$id || !$this->getFromDB((int) $id)) {
+                plugin_agentbdmosassetsync_fail('ASB_CAPTURE_SAVE_FAILED');
+            }
+            foreach ($input as $field => $value) {
+                if (($value === null && $this->fields[$field] !== null)
+                    || ($value !== null && (string) $this->fields[$field] !== (string) $value)) {
+                    plugin_agentbdmosassetsync_fail('ASB_CAPTURE_VERIFY_FAILED: field=' . $field);
+                }
+            }
+            $DB->commit();
+            return (int) $id;
+        } catch (Throwable $e) {
+            $DB->rollBack();
+            throw $e;
+        } finally {
+            $this->internalCreate = false;
+        }
     }
 
     public function update(array $input, $history = true, $options = [])

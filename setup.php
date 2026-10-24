@@ -8,6 +8,9 @@ function plugin_init_agentbdmosassetsync()
 
     $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['agentbdmosassetsync'] = true;
     require_once __DIR__ . '/inc/functions.php';
+    require_once __DIR__ . '/inc/fields.php';
+    require_once __DIR__ . '/inc/capture.php';
+    $PLUGIN_HOOKS[Hooks::POST_INIT]['agentbdmosassetsync'] = 'plugin_agentbdmosassetsync_register_capture';
     Plugin::registerClass(PluginAgentbdmosassetsyncSetting::class);
     Plugin::registerClass(PluginAgentbdmosassetsyncWork::class);
     Plugin::registerClass(PluginAgentbdmosassetsyncChange::class);
