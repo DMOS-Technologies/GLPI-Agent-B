@@ -1047,9 +1047,9 @@ source blocker found. This source approval alone is not runtime evidence.
 
 | ID | Bounded manual proof | Result |
 |---|---|---|
-| AT01 | Using two real installed custom definitions/assets already authorized for IC, inspect their definition IDs/shared physical table and generated system criteria read-only. The right type+actual ID lookup succeeds; the other type+same ID lookup returns no row with the new criteria. No persisted snapshot identity is changed. | NOT RUN |
-| AT02 | A genuine captured Pending snapshot for the correct custom type is explicitly fully handled by simulated A; native exact-ID acknowledgement succeeds and GET confirms Done with all payload/identity/original times unchanged. Asset/History and unselected Pending rows stay unchanged. Use a new eligible real snapshot or one existing unhandled fixture, and record exact type/ID. | NOT RUN |
-| AT03 | Wrong-concrete-type snapshot acknowledgement must reject asset_identity if a safe genuine fixture naturally exists. Do not fabricate a persistent Change identity, move/redefine an existing asset, or use raw SQL to reach it. If no real fixture exists, the external rejection path remains source-only/NOT RUN; AT01 read-only criteria evidence does not count as an actual invalid acknowledgement. | NOT RUN/source-only pending safe fixture |
+| AT01 | Using two real installed custom definitions/assets already authorized for IC, inspect their definition IDs/shared physical table and generated system criteria read-only. The right type+actual ID lookup succeeds; the other type+same ID lookup returns no row with the new criteria. No persisted snapshot identity is changed. | PASS read-only local1/2 — actual definitions3/4 share table; requestedID4/otherID3 found and crossIDs rejected by qualified system criteria |
+| AT02 | A genuine captured Pending snapshot for the correct custom type is explicitly fully handled by simulated A; native exact-ID acknowledgement succeeds and GET confirms Done with all payload/identity/original times unchanged. Asset/History and unselected Pending rows stay unchanged. Use a new eligible real snapshot or one existing unhandled fixture, and record exact type/ID. | PASS curl2–6/local1–2 — genuine custom Change12 exact200 then Done; only status/date_mod/done_at changed, Pending13/assets/queue16 unchanged; custom History query empty, no population claim |
+| AT03 | Wrong-concrete-type snapshot acknowledgement must reject asset_identity if a safe genuine fixture naturally exists. Do not fabricate a persistent Change identity, move/redefine an existing asset, or use raw SQL to reach it. If no real fixture exists, the external rejection path remains source-only/NOT RUN; AT01 read-only criteria evidence does not count as an actual invalid acknowledgement. | NOT RUN/source-only — no safe genuine mismatched snapshot; no invalid external acknowledgement attempted or inferred from read-only criteria proof |
 
 The earlier OB ledger and P2 ownership finding remain historical evidence.
 Deploy/run this isolated fix only when the coordinator schedules it after the
@@ -1098,3 +1098,25 @@ interruption/uncertain-commit injection was available and no concurrent-create
 race was executed; those paths remain source-only/NOT RUN. First-copy success
 does not certify B returns, Both arbitration, scope controls, correction
 completion, exhaustive generic support or full product flows.
+
+### Acknowledgement concrete-type fix executed evidence review
+
+The independent reviewer read all 7 actual curl requests/responses and 2
+read-only native operations in [ack-type-runtime.md](ack-type-runtime.md),
+preserved verbatim. No implementation blocker was found in the observed
+integration pass. Real definition3/4 criteria find each correct ID and reject
+cross-definition IDs. This is read-only lookup proof; it does not certify an
+invalid external acknowledgement that was never attempted.
+
+Genuine custom Pending12 under definition1 was explicitly fully handled by
+simulated A, acknowledged with native200 exact-ID true, and read back Done.
+Only status/date_mod/done_at differ; original snapshot identity, payload,
+creation and field-evidence times remain exact. Pending13 and all other
+unselected Pending rows, selected/shared custom assets and queue count16
+remain unchanged. The selected custom History query stays empty, so no
+positive History population claim is made. The session closed successfully.
+
+Source and observed AT01/AT02 runtime are approved. AT03 remains source-only:
+no naturally invalid genuine snapshot was available, and none was fabricated.
+No reviewer runtime request, implementation edit, deployment or repeated
+source check occurred. Historical OB/IC results and their limits remain intact.
