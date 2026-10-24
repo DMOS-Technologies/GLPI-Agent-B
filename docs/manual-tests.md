@@ -448,3 +448,86 @@ admission/processing and Change capture/acknowledgement remain intentionally
 unavailable. No end-to-end product completion is claimed. Real Pending row
 helper transitions await outbound fixtures. Both subsequent build parts were
 interrupted before implementation; their worktrees were preserved.
+
+## Senior 1(a): Work admission candidate review and focused runtime matrix
+
+Complete candidate: staged `inc/work.class.php` in the inbound-a worktree,
+reviewed against baseline `3de7950` and the approved contract. Source review
+found no actionable blocker. This part implements admission only: the normal
+cron remains empty; matching, asset writes, controls, coverage and correction
+completion belong to later parts. Accepted scope operations have not yet
+suspended/resumed anything. No existing foundation curl case is repeated for
+this candidate; use fresh Work IDs and record this part's evidence separately.
+
+Use C3's exact Work POST/GET URLs and headers, with authorized entity IDs and
+a fresh key prefix such as `review-wa-`. For negative cases, submit the stated
+single fault in an otherwise valid fixture. Check both response and exact
+work-ID readback; rejected rows must not exist. JSON_TEXT remains an outer
+JSON string. Test operators populate credentials privately and redact responses.
+These are manual fixture variations, not a shell test harness.
+
+| ID | Targeted manual fixture / required evidence | Result |
+|---|---|---|
+| WA01 | POST one valid Work object with optional `operation` and `handled_change_ids_json` omitted. Expect native 201 singleton object; GET by returned ID and exact work ID has `operation=Sync`, handled `[]`, status Accepted, normalized A ID derived from identity, B ID/link_state/processing_started_at/result/error/completed_at null. Verify B-owned submitter user/profile match the authenticated active session; date metadata uses native GLPI conventions. | PASS — calls 5–6,159,162–163 |
+| WA02 | POST one-element array and multi-element all-valid array. Use A values of string, integer, finite decimal, boolean and null; `{}` times; null B identity and serial. Expect native 201 array, exact saved JSON strings and distinct IDs. Missing usable identity evidence is accepted for later background holding, not guessed during POST. | PASS — calls 9,142,162–163 |
+| WA03 | Add each B-owned top-level key individually, including id, date_creation/date_mod, submitted_users_id/submitted_profiles_id, a_items_id/b_items_id, link_state, processing_started_at, status, result_json, error and completed_at. Even null/unchanged/default values reject `ASB_B_OWNED_FIELD`; verify none can forge internal state or credentials. Nested identity's A/B ID keys remain the declared A-owned identity input, not the normalized top-level fields. | PASS — calls 15–26,36,162 |
+| WA04 | Client `_add`, `_no_history`, `_from_api`, other bypass/unknown key; missing entities_id; owned+unknown+missing combined. Require original-client validation, no acceptance of native injected defaults as supplied required content. Expected categories are owned first, unknown second, required third, then shape/business; within category lexical order. Native profile/entity denial can occur before plugin validation. | PASS observed precedence/bypass cases — calls 27–34,40 |
+| WA05 | Required keys omitted individually; string/float/bool/negative/out-of-uint IDs/version; version zero; empty or invalid/overlength route/work key; nonstring/empty/over-255-character itemtype. Expect stable `ASB_REQUIRED_FIELD` or `ASB_INVALID_FIELD` in the native wrapper with no saved row. Preserve distinct valid case-sensitive keys; do not rerun foundation Setting-key cases. | PASS observed cases — calls 37–62,127–130; native permission precedes shape for some target entities |
+| WA06 | Each JSON_TEXT field as nested object/array, malformed JSON string, outer null or wrong inner root shape. `identity_json`, values and times require inner objects; handled IDs require an inner array. Identity requires exactly a_items_id, b_items_id and serial: missing/additional keys, zero/string A/B IDs and empty/nonstring serial reject; null B ID/serial are accepted. | PASS observed cases — calls 63–78,84–87,116–120,132 |
+| WA07 | Values object: valid mapping IDs and scalar/null values accept; invalid/overlength mapping key, array/object value or non-finite numeric JSON decode result reject. Unmapped but structurally valid scalar entries are admitted unchanged for the later worker to ignore. No POST-time option lookup, metadata matching or asset mutation. | PASS — calls 9,79–83,162 |
+| WA08 | Times object accepts missing mapping evidence, `{}`, `changed_at:null` with boolean reliability, and reliable false. Reject missing/additional time-object keys, string/integer reliability and nonstring/non-null timestamp. Valid exact `2026-10-24T12:00:00+08:00` accepts; UTC Z, another offset, fractions, absent offset, bad day/month/leap day/hour/second or malformed text rejects. No timestamp is invented or compared during admission. | PASS — calls 5,10–12,88–102,131,162 |
+| WA09 | Explicit Sync/Suspend/Resume exact case accepted; omitted defaults Sync. Null, lowercase, unknown, scalar other than string and structured operation reject `field=operation`. Suspend and Resume must have values/times exactly `{}` and omitted/empty handled IDs; nonempty values, nonempty times, `[]` object substitutes, or handled IDs reject the relevant field. Successful POST remains Accepted and link_state null until later control processing. | PASS admission — calls 13–14,35,103–115,162; control execution NOT RUN |
+| WA10 | Handled IDs omitted/`[]` or distinct positive integer array accept under Sync; duplicate IDs, zero/negative/string/float/overflow ID, inner object or null reject. Admission never acknowledges any referenced row, even when the IDs exist. | PASS admission — calls 13,35,116–126; existing-row ack side effects NOT RUN |
+| WA11 | Repeat the same accepted Work ID with identical payload, then changed payload/route under that ID. Expect `ASB_WORK_EXISTS` and one unchanged saved row. Submit the same new ID from two manual clients concurrently: one accepted row, other duplicate/busy as observed, no overwrite. Read exact ID after an uncertain response; do not replace correlation key to hide a retry. | PASS — calls 138–141,155–160; one concurrent pair, lock-busy timeout NOT RUN |
+| WA12 | Mixed bulk: valid unique row + duplicate + B-owned field + malformed JSON. Expect 207 ERROR_GLPI_PARTIAL_ADD with one native result per submitted row; only valid row persists. All-invalid array uses 400 ERROR_GLPI_ADD with false IDs. Single invalid object uses its native scalar-message wrapper. | PASS — calls 142–144,162 |
+| WA13 | Well-formed unknown route/type, disabled type, old settings version or identity lacking usable B identifiers: authorized schema-valid payload stays Accepted for later worker holding. Before/after asset values, Change IDs/count and ordinary asset History remain unchanged after admission and empty cron. Missing submitter/profile context fails visibly if safely available through a local GLPI manual context; do not forge a REST account context or claim unexecuted proof. | PASS admission/collection boundary — calls 7–8,133–137,164–165; History, cron, missing-auth-context and later Holds NOT RUN |
+| WA14 | A PUT to the saved Work stays denied by rights or ASB_WORK_IMMUTABLE if validation is reached, including attempted status/result/payload changes. Read original row unchanged. Verify unauthorized entity or absent Work CREATE right rejects admission with native permission behavior. Delete/purge remains source/rights proof; no destructive request. | PASS rights/unchanged row — calls 148–154,159; deletion/purge NOT RUN |
+
+The reviewer performed no curl calls, runtime mutations, automated tests or
+implementation edits for Senior 1(a). Source approval and the independently reviewed runtime evidence both support
+this admission part. The result cells above reference exact calls in
+[inbound-a-runtime.md](inbound-a-runtime.md), which preserves the complete
+redacted 173-call request/response ledger. Unexecuted subcases remain explicit. Foundation evidence remains
+in [foundation-runtime.md](foundation-runtime.md), including its initial F05
+failure and focused fix results; real Pending helper transitions are still
+NOT RUN until outbound fixtures exist.
+
+
+### Senior 1(a) executed evidence review
+
+The independent reviewer inspected the operator's report, every recorded
+request/response (with repetitive request/row data compacted for reading),
+exact-ID/collection readbacks and limitations. No implementation failure was
+observed in this admission pass. The full operator ledger is preserved verbatim
+in [inbound-a-runtime.md](inbound-a-runtime.md); its opening “READY” is the
+operator's status before this evidence review. The reviewer made no curl calls
+and did not repeat any source or runtime check.
+
+The 173 calls created 22 Accepted Work fixtures: root IDs 1–20 and 22 have
+submitter user 12/profile 14, child ID 21 has user 14/profile 14. All verified
+B-link, processing, result/error and completion columns remain null. The
+concurrent pair used independent sessions: calls 156–157 yielded one 201
+(Work 22) and one duplicate error; call 160 confirmed one exact matching row.
+Calls 143–144 demonstrated native mixed/all-denied wrappers and final fixture
+inventories showed no rejected Work rows. Calls 164–165 showed the visible
+Computer collection and empty Change collection unchanged from calls 7–8.
+This proves the observed admission boundary, not all assets or asset History.
+
+WA05's negative/float/overflow B entity requests encountered native permission
+denial before plugin validation. Those are safe denials, not proof of the
+plugin's shape message for those inputs. Other recorded uint cases reached
+plugin validation. Actual existing Change-row handling, missing authenticated
+user/profile context, lock-busy timeout, concurrent stress, cron execution,
+History before/after, background Holds and all matching/creation/conversion/
+control/recovery/correction/full-flow behavior are **NOT RUN**. No delete,
+purge, destructive database command, automatic cleanup or automated test ran.
+
+Containment: calls 171–172 disabled only disposable Setting 1 using native PUT
+at version 3. Settings 3/4 were already disabled; the other named route is
+absent. Preserve all 22 Accepted fixtures and do not reenable their old routes
+for later processing checks. No Work status was altered and no asset/Change
+fixture was created. All five new sessions were closed.
+
+| Completed part | Source result | Runtime result | Remaining scope |
+|---|---|---|---|
+| Senior 1(a), Work admission | Complete changed file reviewed; no actionable blocker | Independent evidence review PASS for the observed WA01–WA14 admission subcases; 173-call ledger preserved | Explicit NOT RUN subcases above; later worker and outbound parts pending |
