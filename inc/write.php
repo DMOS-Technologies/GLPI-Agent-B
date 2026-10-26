@@ -185,12 +185,12 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     $DB->commit();
                     return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
                 }
-                $writeAttempted = true;
                 try {
-                    $saved = plugin_agentbdmosassetsync_sync_guard(static function () use ($asset, $field, $local) {
+                    $saved = plugin_agentbdmosassetsync_sync_guard(static function () use ($asset, $field, $local, &$writeAttempted) {
                         if ($field['container_id'] !== null) {
-                            return plugin_agentbdmosassetsync_write_fields($asset, $field, $local);
+                            return plugin_agentbdmosassetsync_write_fields($asset, $field, $local, $writeAttempted);
                         }
+                        $writeAttempted = true;
                         return $asset->update(['id' => $asset->getID(), $field['value_column'] => $local]);
                     });
                     if (!$saved || !$asset->getFromDB($assetId)
@@ -198,7 +198,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                         throw new RuntimeException('Save failed: local write or reread did not confirm the intended value');
                     }
                 } catch (Throwable $e) {
-                    if ($e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Save failed:')) {
+                    if (!$writeAttempted || ($e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Save failed:'))) {
                         throw $e;
                     }
                     throw new RuntimeException('Hold: local asset write outcome is uncertain; reconcile before new Work', 0, $e);
@@ -252,13 +252,14 @@ function plugin_agentbdmosassetsync_current_value(CommonDBTM $asset, array $fiel
 }
 
 /** Fields 1.24.4 validates values and uses generated local add/update plus asset History. */
-function plugin_agentbdmosassetsync_write_fields(CommonDBTM $asset, array $field, $value): bool
+function plugin_agentbdmosassetsync_write_fields(CommonDBTM $asset, array $field, $value, bool &$writeAttempted): bool
 {
-    return plugin_agentbdmosassetsync_write_fields_values($asset, $field, [$field['value_column'] => $value]);
+    return plugin_agentbdmosassetsync_write_fields_values($asset, $field, [$field['value_column'] => $value], $writeAttempted);
 }
 
 /** A first-copy container receives all mapped mandatory fields in one validated local save. */
-function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array $field, array $values): bool
+function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array $field, array $values,
+    ?bool &$writeAttempted = null): bool
 {
     global $DB;
     $data = plugin_agentbdmosassetsync_locked_fields_row($asset, $field) ?? [];
@@ -288,5 +289,7 @@ function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array
     $data['entities_id'] = $asset->getEntityID();
     $data = array_replace($data, $values);
     $data[$status] = $statusValue;
+    // Everything above is pre-save validation; only the local writer can make the outcome uncertain.
+    $writeAttempted = true;
     return (new PluginFieldsContainer())->updateFieldsValues($data, $asset::class);
 }

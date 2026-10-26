@@ -11,7 +11,11 @@ review target. No curl or runtime case in this checklist has been executed by th
 Foundation and completed admission/capture/worker/acknowledgement parts were
 source reviewed and their scoped operator evidence reviewed as recorded below.
 Final Both source and scoped runtime evidence are reviewed. Historical
-findings and unrun variants are preserved.
+findings and unrun variants are preserved. The additional R0/R1/R2 review
+found a **P2 Fields status-readonly diagnostic defect**. The user-authorized
+narrow fix and affected RF retest now supersede that failure for the exercised
+A/Both/correction paths; Work173 and its original failure remain historical.
+Other pilot-critical gaps below remain open.
 
 Read sources: root [spec-b-agent.md](../spec-b-agent.md),
 [api-contract.md](api-contract.md), and both flowchart images in this directory.
@@ -36,16 +40,21 @@ section 4.9 fixtures for scope operations. A checklist expectation is not a runt
 | Stage | Availability | Actual result |
 |---|---|---|
 | Foundation installation, rights, Setting validation | Reviewed and exercised | Preserved foundation results/ledger below |
-| Background matching, writes, recovery | Existing A-source worker and first copy reviewed/exercised | IB/IC/ID/IE representative cases PASS; explicit fault/race/type limits remain |
-| Edit capture, field evidence, acknowledgements | Capture and acknowledgement reviewed/exercised | OC/OB observed cases PASS; explicit unrun variants below |
-| Native/Fields scalars and dropdown conversions | Installed metadata and representative writes exercised | OC/IB scoped results below; exhaustive type/field coverage NOT RUN |
+| Background matching, writes, recovery | Worker, first copy and bounded R1/R2 cases reviewed/exercised | Historical IB/IC/ID/IE passes retained; R1 interruptions/recovery and R2 current authorization pass within their exact boundaries; critical unrun fault/race limits remain |
+| Edit capture, field evidence, acknowledgements | Capture, acknowledgement and bounded failure/scope evidence reviewed | OC/OB history retained; R1 real queue INSERT denial and R2 moved-scope rejection/date captures proved; further fault/metadata variants remain unrun |
+| Native/Fields scalars and dropdown conversions | Representative metadata, conversions, dates and physical DECIMAL exercised | R2 adds real DECIMAL/hierarchy/custom History evidence; historical readonly diagnostic FAIL superseded by bounded RF fix PASS; exhaustive type/field coverage NOT RUN |
 | Full flow and generic/custom-type evidence | Integrated representative B workflows source/evidence reviewed | A implementation/exhaustive installed-type proof NOT RUN |
 
 The runtime operator executes relevant cases once per completed candidate.
 The reviewer reads that complete candidate's diff once, then inspects the
 operator's redacted evidence. Record failures without broadening the task.
-No automated tests, shell test harness, database mutation, delete, purge,
-uninstall, or cleanup command is authorized by this checklist.
+Earlier implementation-stage checklists did not authorize automated tests,
+shell test harnesses, arbitrary database mutation, delete/purge, uninstall or
+cleanup. For the current R0/R1/R2 readiness pass, the user authorized disposable
+fixtures through normal GLPI native/API methods and bounded process-local
+failure injection. This does not authorize raw destructive database commands,
+delete/purge/uninstall, product edits, new test software or a reusable harness.
+The reviewer performs evidence review/docs only and makes no commits this pass.
 
 ## Current evidence index
 
@@ -54,8 +63,9 @@ operator fixture mistakes, initial failures/selective fixes and unrun variants.
 Historical stage Holds describe that stage; they are not current product
 placeholders. The reviewer inspected operator evidence without replaying curl.
 Final Both source and scoped IE runtime are approved after targeted source fixes.
-No exhaustive installed-type/field, unsafe fault-injection or other-patch
-certification is implied by representative passes.
+No exhaustive installed-type/field, unrun fault-injection or other-patch
+certification is implied by representative passes. Bounded additional fault
+and concurrency evidence is separately indexed in the R0/R1/R2 section.
 
 | Completed scope | Preserved evidence | Review status |
 |---|---|---|
@@ -68,9 +78,194 @@ certification is implied by representative passes.
 | Custom-type acknowledgement integration | [ack-type-runtime.md](ack-type-runtime.md) | Independently reviewed 7 curl/2 read-only local entries |
 | B returns, correction coverage, Suspend/Resume | [inbound-d-runtime.md](inbound-d-runtime.md) | Independently reviewed 53 curl/19 local entries |
 | Both arbitration and faithful numeric equality | [inbound-e-runtime.md](inbound-e-runtime.md) | Independently reviewed 40 curl/18 native entries; targeted source fixes and limits retained |
+| Additional local B readiness gaps | [b-side-readiness-runtime.md](b-side-readiness-runtime.md) with full R0/R1/R2 ledgers | Independently reviewed 4/55/105 curls and 2/41/67 local entries, plus 15 owned R1 PHP processes; R2-11 historical safety PASS / diagnostic FAIL; later RF fix PASS; critical unrun boundaries remain |
+| Fields status-readonly diagnostic correction | [fields-readonly-fix-runtime.md](fields-readonly-fix-runtime.md) | Completed source review and independent review of30 curl invocations (27 HTTP/3 local syntax failures) plus34 native invocations; RF01a–RF06 bounded PASS, historical173 retained |
 
 Current setup is in [setup.md](setup.md); exact schemas, the five original API
 contract deliverables and native wrappers remain in [api-contract.md](api-contract.md).
+
+## Remaining B-side readiness review — R0/R1/R2
+
+This consolidation uses the main AGENTS/spec/approved contract, both flowcharts
+and all historical ledgers above. It records additional local Docker tests
+requested after implementation. It is not a blanket pilot approval. Historical
+NOT RUN labels remain as records of their original pass; a later result closes
+only the exact variant its actual evidence proves. Real A integration and
+remote HTTPS/network behavior are outside this local B certification.
+
+Statuses: **CLOSED PRIOR** means scoped evidence already exists; **OPEN** means
+required new evidence is pending; **SOURCE ONLY** is not a runtime pass;
+**CONDITIONAL** applies before enabling the named mapping/deployment feature.
+An observed failure is a blocker until explicitly resolved/retested. Missing
+safe crash/commit/capture-persistence proof remains pilot-critical; it is not
+automatically moved into a before-scale bucket because injection is difficult.
+R0/R1/R2 exact behavioral ledgers are independently reviewed. The runtime
+lease passed from R1 to R2 serially; both runs are finished. R2 used fresh
+entity/service/asset/metadata fixtures, recorded rights restoration and retained
+fixture-only move/return evidence. Natural session expiry was not repeated as
+though R0 had proved it. The P2 diagnostic failure below is historical; the
+subsequent RF pass closes only its exercised variant.
+
+| Gap ID | Timing / boundary | Prior exact evidence and remaining proof | Current result / new owner |
+|---|---|---|---|
+| BR01 | Before any pilot — authentication/session invalidation | Foundation/native login and restricted profile recorded. R0 creates its own session, reads profile, kills it, then attempts Setting GET with that invalidated session. This proves invalidation only, not natural idle expiry or lost network transport. | PASS R0:200/200/200/401 ERROR_SESSION_TOKEN_INVALID; full ledger in b-side-readiness-runtime.md |
+| BR02 | Before any pilot — current account/profile authorization | IB revoked Work CREATE/asset READ and exact caller restoration; ID/IE READ-only comparisons and denied A writes. Inactive/expired submitter and removed profile/entity authorization after admission still need real current-account proof, without cron-admin inheritance. | PASS bounded — R2-06–09 actual post-admission inactive, expired2000, future2030, removed-profile, disjoint-entity and recursion-withdrawal conditions Hold without target/History/queue changes. Fresh162 succeeds after restoration. Invalid2099 fixture156 Done is preserved, not a validity pass. |
+| BR03 | Before any pilot — routed entity/concrete-type/ownership | IB/IC/AT actual global conflicts and custom definition isolation; ID Suspend/Resume. Add safe actual wrong-entity linked asset, separate immutable route topology/return-to-original-link and correction/ack scope proof. No automatic move/relink/duplicate. | PASS bounded — R2-02/03 real 1:many and many:1 entities preserve163/164/165; coincident owned serial148 Held. R2-04 moved163 causes Sync150/correction151 Held before writes/attempts and ack47 rejected asset_entity; restore153 reuses163 with no reseed. Deletion/trash and adverse type/owner lock races remain unrun. |
+| BR04 | Before any pilot — scope controls after permission/scope change | ID no-link/unverified/stale control and actual Suspended ack/capture/write rejection pass. Additional current-authorization/changed-entity/competing control variants are unrun; failed controls cannot override prior successful state. | PASS bounded — R2-05 moved Suspend152, revoked-entity Suspend159 and moved Resume164 Held; earlier successful state retained. Suspend163/returned Resume165 Done without mapped write/reseed. Other competing-control permutations not exhaustively exercised. |
+| BR05 | Before any pilot — preflight and post-save capture persistence | OC real capture/gates and no-echo passes; visible queue-persistence failure path source-reviewed only. Safely prove changed metadata preflight rejection and actual queue-persistence failure visibility/retained evidence without false successful capture or silent retry. | PARTIAL — R1-06 actual queue INSERT denial1792 leaves genuine save visible, throws ASB_CAPTURE_OUTCOME_UNKNOWN, creates no empty Change and blocks same-request retry. Changed-capture-metadata preflight and further persistence failure windows NOT RUN; R2 status override proves worker safety separately in BC02. |
+| BR06 | Before any pilot — interrupted first copy after real add | IC atomically confirmed create+link and definite mandatory-add rollback; IB only safe before-write started marker. Need safe after-add/pre-link-or-completion interrupted outcome proof, reconcile no second add and no confirmed created ID without evidence. | PASS bounded — R1-02/03 actual SIGKILL before and after first-copy commit; uncommitted159 absent, committed160/link/result retained, both recover Held without another creation. Other uncertainty branches remain BR08. |
+| BR07 | Before any pilot — interrupted existing update/partial progress | IB actual definite numeric rollback/partial evidence; IE preserves it. Need actual after-save/pre-Work-completion interruption/recovery proof: Held/visible uncertainty, preserved evidence and no blind repeat/terminal reset. | PASS bounded — R1-01 actual SIGKILL after first mapping/result commit; Work115 Held with saved first effect and no second write/replay. Initial helper Works112–114 are excluded. |
+| BR08 | Before any pilot — commit/rollback/lock-release uncertainty | IB/IC/e targeted source fixes classify uncertain completion; actual definite failures pass. Commit/rollback/release/queue-completion uncertainty must not become false Done, Failed-with-guessed-rollback or automatic replay. Distinguish each safely exercised boundary from unrun ones. | PARTIAL / pilot-critical gaps remain — R1-04 killed after correction write before exact Done leaves43 Pending/attempt1; R1-05 real lock timeout1205 Holds. Wire COMMIT/lost-COMMIT-ack, ROLLBACK and RELEASE_LOCK failures NOT RUN; these are not closed by SIGKILL or a normal rollback. |
+| BR09 | Before any pilot — lost response/idempotent reconciliation | WA actual duplicate and concurrent admission; OB concurrent ack/Done-to-Done rejection; IC sequential create reuse. Add lost POST/ack response reconciliation by exact saved IDs rather than a new creation or positional/HTTP-only assumption. | PASS simulation only — R1-10 discards successful POST/ack response bodies, reconciles exact saved identity, rejects duplicate Work/Done→Done. Actual packet loss/server response timeout/transport interruption NOT RUN; real A network remains outside local proof. |
+| BR10 | Before any pilot — actual automatic action/worker concurrency | Native scoped task51 bounded20+2/global lock/context restoration pass; task registration60s/external state confirmed. Actual scheduled single-action invocation, overlapping worker/write/first-copy boundaries and no duplicate asset/History/link require exact new evidence. | PARTIAL — R1-07 real second worker returns0 while first creates only161, competing121 Held; R1-08 current-setting change and concurrent versions serialize correctly. R1-09 exact nonforced native CLI processes20 then scoped remainder1. Recurring OS scheduler tick NOT RUN. |
+| BR11 | Before any pilot — exact whole-snapshot correction and return coverage | ID/IE actual partial/full/missing/foreign refs, attempts, exact Done and newer Pending pass. Current-lock scope/ownership changes while waiting remain source-only; safe real fixtures must prove no stale scope authorizes writes/Done, or remain pilot-critical unproved. | PARTIAL / pilot-critical adverse races remain — R1-11 thread4132 waits on current asset FOR UPDATE; committed entity move yields145 Held/no mapped write. R2-04 moved correction151 and ack47 reject before attempts/completion. Concrete-definition and Fields owner/container changes during lock wait remain NOT RUN. |
+| BC01 | Conditional before enabling actual mappings — type/field capability inventory | Computer/Monitor and multiple real custom definitions/Fields scalars passed. Validate each pilot's actual selected type/selector/mandatory/default/identifier metadata; a search option or representative custom fixture is not exhaustive support proof. Type with no serial and no verified link must Hold. | CONDITIONAL — R2 new configured custom dates/History, Fields dates and native business Status/Monitor DECIMAL gates pass; this is no exhaustive inventory. Each actual pilot mapping/type/mandatory/default/identifier combination still requires validation; no-serial/no-link type variant NOT RUN. |
+| BC02 | Conditional before Fields mappings — active/absent plugin, status readonly, storage ambiguity | OC/IB native/Fields scalar/container denial/preserved multiple siblings pass. Inactive/unavailable plugin, status-specific override, missing/ambiguous storage and metadata changing after Setting need bounded actual proof where safely constructible. | HISTORICAL safety PASS / diagnostic FAIL P2 at173; bounded RF01a/02a/03b now PASS with exact readonly field reason and unchanged target/History/queue. The diagnostic blocker is closed for exercised A/Both/correction paths. Plugin inactive/absent and missing/ambiguous storage variants remain NOT RUN. |
+| BC03 | Conditional before dropdown mappings — exact label boundaries | IB all required conversions, missing/duplicate label and denied option; IE losing missing-label bypass/winning lookup pass. Add case/whitespace/full hierarchy/wrong family/out-of-scope/empty/null as real configured option metadata permits. No option creation/default clear. | PASS bounded R2-12 — full hierarchy and exact saved label apply; wrong case, ambiguous leaf-only, outside entity, whitespace mismatch, empty/null labels skip without clearing/option creation. Case-only duplicate fixture refused by native collation. Other dropdown families/metadata combinations remain conditional. |
+| BC04 | Conditional before nullable/numeric/date mappings | IB/IC/IE actual scalar types, canonical dates, large decimal/exponent tokens, varchar1.00 and true lossy rollback pass. Physical SQL DECIMAL writes, boundaries/nullability, additional native/custom date cases are not inferred from helpers or varchar storage. | PASS bounded R2-10/12 — actual custom/Fields date+datetime writes, impossible dates/times and256-character rejection; physical Monitor.size DECIMAL(5,2):1.00 versus JSON1.0 AlreadyEqual,12.75 Applied,1000 skipped range. Negative/other widths/direct nullability/exact255 acceptance remain conditional unrun variants. |
+| BC05 | Conditional before custom-asset deployment — native History capability | Real local custom add/update/reread/guard passed, but queried custom History was empty. Determine actual configured GLPI history capability and prove attributable normal History when required/enabled; do not claim custom History from native/Fields evidence. | PASS configured History-enabled custom fixture — R2-10 definition6 HasHistoryCapacity, asset8 creation/genuine date-only save/worker updates carry user15 History; typed dates/rereads and siblings correct. Old empty custom History query remains historical; validate each actual custom capacity/configuration. |
+| BC06 | Conditional before recursive or multi-entity deployment | Foundation/OB restricted root and outside-entity denial; concrete type/global ownership proven. Actual recursion,1:many/many:1 separate route identities, service child access and return-to-original-link need scoped fixtures. | PASS bounded R2-01–05/09 — actual recursive7→8/9, separate 1:many/many:1 identities, competing-source Hold, revoked recursion child GET403 and restored162 Done, move/return reuses original link. Other deployment entity trees remain conditional. |
+| BC07 | Conditional deployment convention — natural expiry/clock/HTTPS | Invalidated session R0 is closed; natural expiry and target-specific TTL remain unrun. Local evidence uses trusted Brunei genuine times and native mapped date conventions. Confirm deployment clock policy and exact transport configuration where changed; remote HTTPS/A is outside local B proof. | CONDITIONAL; no invented policy question or expiry pass |
+| BS01 | Before scale — large queue/range behavior | Bounded worker batch20 and collection200/206 exist; no immutable offset-page promise. Add Pending pagination while new edits/Done transitions occur, preserve unresolved earliest IDs and reconcile exact IDs. A consumer fairness belongs to A integration. | PASS bounded local — R1-09 real Pending keyset206/200 pages43/44→45/46 across44 Done and46 insertion; new pass revisits43. Large/sustained queue behavior remains BS02; actual A consumer fairness remains outside local proof. |
+| BS02 | Before scale — sustained volume/contention | Single concurrent admission/ack/global lock tests are scoped evidence. Long-running load, many routes/types/fields, sustained overlapping genuine edits and operational latency are not established by one batch. | NOT RUN; before-scale capacity/reliability evidence needed |
+| BS03 | Before scale — crash/fault stress beyond bounded functional proof | Any pilot-critical BR05–08 window stays critical until resolved. Repeated stress across database/server restarts and resource exhaustion is additional capacity/reliability work, not a substitute for those basic windows. | NOT RUN; distinguish from critical functional gaps |
+| BX01 | Outside local B certification — real A workflow | B-side flows simulate A fully handling returned snapshots. Actual A local save, durable progress, reverse option lookup, timeout reconciliation and fair consumption require integration evidence in A's project. | OUTSIDE LOCAL — not claimed passed |
+| BX02 | Outside local B certification — remote HTTPS/network deployment | Supplied target is isolated localhost HTTP. Remote certificate/proxy/source-IP/firewall/timeouts/network-loss behavior is not proved by local curl or explicit session invalidation. | OUTSIDE LOCAL — not claimed passed |
+
+### Historical results superseded only within their exact scope
+
+The original broad F/V/I/N/T/D/Q/G tables were prepared before implementation;
+their NOT RUN cells are historical planning labels, not a command to rerun
+all prior successes. Foundation/WA/OC/IB/OB/IC/AT/ID/IE ledgers are the actual
+stage evidence. In particular, F11 real helper transitions are later proved
+by OC14/OB12; I09 and the old OC/OB Suspended gap are proved by ID10–14;
+old B/Both stage Holds are superseded by actual ID/IE execution; no type-wide
+claim follows from those representative fixtures. R0 now supersedes only the
+invalidated-session portion of V06. R1 now supersedes bounded native interruption/first-copy/correction-before-ack,
+queue-insert-denial, timeout, concurrent-worker/settings, named CLI batching,
+keyset pagination and entity-lock-wait variants as stated above. R2 now adds actual current-account/profile/entity/recursion rejection, topology,
+move/return/control/correction/ack scope, History-enabled custom dates, Fields
+dates, physical DECIMAL and precise label boundaries. These results supersede
+only those historical variants; other variants remain open until exact evidence
+proves them. R2-11 diagnostic failure remains historical and is superseded only
+by the subsequent bounded RF source/runtime pass. All original failures, operator mistakes,
+source findings and terminal Work/Change fixtures are retained.
+
+### Additional run evidence and readiness conclusion
+
+**Finding R2-11 / P2 — historical failure; bounded fix verified.** At baseline
+main2dc0b16, Work173 safely skipped the readonly Fields target but incorrectly
+reported generic write uncertainty. The specific pre-save refusal was hidden by
+[inc/write.php](../inc/write.php#L204), contrary to contract Q8's exact skipped-field
+reasons. Its terminal row and original R2 raw ledger remain unchanged.
+
+The user then authorized the narrow actual-save-attempt marker correction.
+Completed source review and RF01a/02a/03b now verify exact
+`Fields value is read-only for the asset current status` reasons, without target
+value/History/queue mutation. Readonly equality and B-winning returns still avoid
+writes; allowed writes, exact correction coverage and grouped first copy pass.
+RF05 genuinely saved an attempted value inside the transaction, then its
+process-local hook threw the same readonly wording:193 remained generic uncertain
+Held and an independent reread confirmed value/History rollback. Thus the fix
+distinguishes pre-save refusal from actual attempted-save uncertainty without
+matching exception wording. The exercised diagnostic blocker is closed; this
+is not evidence for the other unrun failure windows. See the affected matrix
+below and [full exact RF ledger](fields-readonly-fix-runtime.md).
+
+Full reviewed evidence is in [b-side-readiness-runtime.md](b-side-readiness-runtime.md)
+and its exact R0/R1/R2 ledger links. R0 has4 curls plus2 read-only metadata
+invocations; R1 has55 curls,41 synchronous local entries and15 owned PHP
+processes (four deliberately killed exit137); R2 has105 curls and67 native PHP
+entries, plus3 separately documented read-only source inspections. The reviewer
+independently compared all34 R1 and38 R2 submitted Work
+input payloads to final records: no differences. Change43 retains its original
+snapshot with only attempt0→1; R2 Changes47–50 retain every original column,
+Pending/attempt0. Initial helper errors, the unsupported2099 timestamp fixture,
+unverified claimed IDs, unreadable State options and failed route20 containment
+attempts remain in the raw evidence with their actual corrected interpretations.
+The final route20 disable succeeds; all new routes are disabled and sessions
+closed, zero Accepted Work remains, task51 is ready, and disposable fixtures
+are retained. No broad replay, deletion or source edit occurred.
+
+**Pilot-critical unproved boundaries remain:** wire-level lost COMMIT reply,
+server COMMIT exception, ROLLBACK failure, RELEASE_LOCK failure, adverse concrete
+definition/Fields owner-container changes during lock wait, and changed-capture
+metadata preflight/further persistence-failure windows. Do not replace these
+with the passing native entity race, normal rollback, timeout or four bounded
+kill cases. Actual transport interruption, natural session expiry, recurring OS
+scheduler tick, conditional mapping/storage variants and scale evidence also
+remain explicit limits. Real A integration/remote HTTPS are outside local B.
+The coordinator separately reports15 installed PHP SHA-256 reads matching
+main2dc0b16, preserved in the evidence index as source integrity, not additional
+behavioral passes. This review does not certify pilot readiness or say all
+tests pass. No commits were made by the reviewer this pass.
+
+
+## Fields status-readonly diagnostic correction — affected manual checks
+
+The user authorized a narrow correction of R2-11/P2, independent source review,
+affected local Docker retests and these narrative updates. Source and full
+operator evidence have now been independently reviewed; the bounded RF cases
+below pass, closing this specific diagnostic variant. The historical R2
+raw ledgers and terminal Work173 remain unchanged. The reviewer owns only this
+checklist, the readiness narrative and the new exact fix-run ledger; code and
+runtime belong to separate agents. The completed narrow source diff was independently reviewed before deployment;
+the result column below records the actual affected runtime evidence. No automated test software, commit,
+push, new route/authentication mechanism or outbound A implementation is added.
+
+Use native GLPI REST `/api.php/v1/PluginAgentbdmosassetsyncWork` POST and exact
+Work GET, normal native fixture/metadata methods, and real genuine Change rows.
+Use redacted `B_APP_TOKEN`/`B_SESSION_TOKEN` variables from this checklist and
+fresh `work_id` values. Confirm the current service profile/entity context,
+verified link or complete serial match, actual State2 readonly override, full
+asset/Fields/History/queue baseline and recorded original Change values first.
+The specific readonly refusal must occur before a storage write. A mere HTTP
+201 means Accepted; inspect terminal field outcomes and actual readbacks.
+
+| ID | Bounded request / evidence | Required result | Execution status |
+|---|---|---|---|
+| RF01a | Existing linked asset, source A text mapping. Actual current State2 makes the Fields target readonly; POST fresh Work with a different text value, then bounded native worker and exact Work GET. | Specific status-readonly field reason; skipped target unchanged, no target History/queue echo, siblings unchanged. Do not call this known pre-save refusal an uncertain attempted save. | PASS —185 Done, rf_text Skipped with exact status-readonly reason; natives5/8 exact asset/storage/History/queue equal. |
+| RF01b | Same actual readonly owner, A value equals current Fields value. | AlreadyEqual with no write/History/echo; no unnecessary readonly failure for a no-op. | PASS —186 Done/AlreadyEqual; same exact no-write evidence. |
+| RF02a | Source Both with genuine B value/time evidence and a differing A value with a trustworthy later RFC3339 seconds+08 time, so A actually wins under current State2. | Specific readonly refusal before save, no false AppliedToB/coverage, no target History/echo; preserve genuine B evidence. | PASS —187 Done, exact readonly Skipped reason after genuine52 time18:41:24+08 and later A18:41:25+08; natives10/13 unchanged. |
+| RF02b | Source Both with actual B-winning genuine field evidence under the same readonly state. | ReturnToA/current B value and original genuine time; no write or unnecessary writer preflight. | PASS —188 Done/ReturnToA, original genuine52 value/time and covered52; Pending snapshot and target unchanged. |
+| RF03a | Allowed-state positive control supplies changed valid native and Fields values through the same local writer. | Verified AppliedToB, exact native/Fields rereads and submitting-user History, siblings preserved, no sync Change. | PASS —189 both values AppliedToB; native16 exact readback, History142302–142304 user17, siblings/queue preserved. |
+| RF03b | Fresh correction carries the exact ID of a genuine Pending snapshot whose target is currently readonly. | Target stays unchanged, snapshot stays Pending with visible failed coverage and exact cause; attempts increment only for actual processing. No false handled/full coverage or payload/time mutation. | PASS —190 Held; exact readonly field reason,53 Pending/attempt1 with specific coverage refusal; natives18/23 target/History/queue equal. |
+| RF03c | After restoring the fixture's permitted state, new correction Work handles the same exact snapshot. | Verified save then only fully covered selected snapshot Done with correct attempt progression; newer/unselected rows unchanged, no sync echo. | PASS —191 Done/handled_done[53],53 Done/attempt2 after verified save;51/52 unchanged. Original snapshot payload/time retained. |
+| RF04 | Representative grouped first copy spans configured containers, including a new container with two mandatory text fields; unchanged firstcopy caller omits the new optional by-reference marker. | Complete grouped mandatory values saved/verified, confirmed asset/link/result atomic evidence, siblings/defaults preserved, normal submitting-user History and no sync echo. | PASS —192 Done/new168; both mandatory fields in new container13 saved together after container12 native-add seed, omitted optional marker compatible; all A/B/Both seeds verified, no echo. |
+| RF05 | Process-local exact-fixture post-save hook throws the same readonly message after a real save-call boundary. Independent current-value/History/queue readbacks follow. | Generic uncertain-write Held remains; no message-based exemption masquerades as pre-save validation. Confirm normal rollback outcome separately; commit/rollback/release failures remain source-only/unrun. | PASS —native31 reads actual attempted storage value/user17/guardtrue then same-text exception;193 generic uncertain Held. Native30/32 exact value/History/queue equal after normal rollback, guardfalse/locksfree. |
+| RF06 | Final exact Work/Change/asset/History readbacks, route disable, own-session closure, guard/task status and permission restoration. | Historical173 unchanged; fresh inputs immutable; only authorized result/attempt/completion fields change. No Accepted left, actual final containment succeeds. | PASS —normal genuine post-fault edit creates54;10 inputs and old173/47–50 unchanged; routes25/26 disabled, new13 inactive/user17 inactive, session closed, Accepted0/task ready. |
+
+Completed source review: only `inc/write.php` changes. The marker starts false,
+is forwarded by reference through the guarded Fields writer and switches true
+immediately before the actual local update call. Native `update()` sets it at
+its call boundary. Pre-save readonly validation therefore keeps its exact
+message; post-attempt exceptions retain generic uncertainty. Commit, rollback
+and lock-release handling stay unchanged. The sole scalar helper caller passes
+the marker; grouped firstcopy omits its new optional argument compatibly. Runtime
+RF04 verifies that changed shared-helper signature. No executable source
+was edited by the reviewer; the builder's one PHP lint passed.
+
+The complete exact report is [fields-readonly-fix-runtime.md](fields-readonly-fix-runtime.md).
+Only approved `inc/write.php` was deployed, with matching host/container SHA-256
+`96739770d1958838d277a96c4789fc6cf070138e3e3ec988d1ba51a0f389703d`.
+There were30 curl invocations:27 HTTP requests and3 local bad-range syntax
+failures, not30 HTTP requests.34 native PHP invocations include one failed
+undefined-ID operator diagnostic. Incorrect `handled_change_ids` was rejected400
+without a Work; corrected contract input admitted190. These setup mistakes remain
+in the ledger, not as product failures or successful HTTP readback proof. Exact
+native record readbacks independently supply the required evidence.
+
+The reviewer directly compared all10 admitted immutable Work inputs, old173,
+old47–50 and profile16 rights: unchanged. Original51/52 full rows remain unchanged;
+53 changes only permitted completion/attempt metadata. Native31's real post-save
+value precedes the exception; native30/32 exact rollback comparison and genuine54
+after guard release prove the specific boundary. Ordinary rollback succeeded;
+COMMIT/ROLLBACK/RELEASE_LOCK failures and adverse metadata/ownership races were
+not newly tested. Credential-bearing stored User values in the full report are
+redacted as well as clear tokens. No new implementation defect was found in
+this bounded pass. No runtime replay, automated tests, product edits or commits
+were performed by the reviewer. BR05/BR08/BR11 and all other remaining readiness
+limits retain their prior scope; no blanket pilot-readiness claim follows.
 
 ## Evidence and private environment
 
