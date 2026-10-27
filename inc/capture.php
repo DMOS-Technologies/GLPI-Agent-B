@@ -112,6 +112,28 @@ function plugin_agentbdmosassetsync_capture_candidate(CommonDBTM $storage, stdCl
     return false;
 }
 
+/** Form values precede GLPI filtering; never loosen the saved-value validator. */
+function plugin_agentbdmosassetsync_capture_input_value(array $descriptor, $value)
+{
+    if (in_array($descriptor['kind'], ['date', 'datetime'], true)
+        && ($value === '' || $value === null
+            || ($value === 'NULL' && $descriptor['custom_field_id'] === null))) {
+        if ($descriptor['custom_field_id'] === null && $descriptor['sql']['Null'] !== 'YES') {
+            throw new RuntimeException('Date input cannot be empty for non-nullable storage');
+        }
+        return null;
+    }
+    if ($descriptor['kind'] === 'dropdown') {
+        if (is_string($value) && preg_match('/\A[0-9]+\z/D', $value) === 1) {
+            $value = strlen($value) <= 10 ? (int) $value : $value;
+        }
+        if (!plugin_agentbdmosassetsync_is_uint($value)) {
+            throw new RuntimeException('Dropdown input must be a local option ID');
+        }
+    }
+    return $value;
+}
+
 function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
 {
     $type = plugin_agentbdmosassetsync_capture_type($storage);
@@ -128,6 +150,7 @@ function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
     }
     $key = spl_object_id($storage);
     $GLOBALS['plugin_agentbdmosassetsync_captures'][$key] = ['asset' => clone $asset,
+        'storage_fields' => $storage->fields,
         'routes' => $routes, 'time' => plugin_agentbdmosassetsync_capture_time(), 'rows' => []];
     foreach ($routes as $route) {
         if (!$asset->isEntityAssign() || (int) $asset->getEntityID() !== (int) $route['entities_id']
@@ -147,7 +170,28 @@ function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
                 $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
                 $name = $descriptor['value_column'];
                 if (array_key_exists($name, $storage->input)) {
-                    plugin_agentbdmosassetsync_field_value($descriptor, $storage->input[$name]);
+                    $value = plugin_agentbdmosassetsync_capture_input_value($descriptor, $storage->input[$name]);
+                    // Generated Fields storage has varchar dates and no date search option to filter them.
+                    if ($descriptor['storage_class'] === $storage::class && $descriptor['custom_field_id'] === null) {
+                        $storage->input[$name] = $value;
+                    }
+                    $previous = $storage;
+                    if ($descriptor['storage_class'] !== $storage::class) {
+                        $class = $descriptor['storage_class'];
+                        $previous = new $class();
+                        $previous->getFromDBByCrit(['items_id' => $asset->getID()]);
+                    }
+                    $before = array_key_exists($name, $previous->fields)
+                        ? $previous->fields[$name] : $descriptor['sql']['Default'];
+                    if ($descriptor['kind'] === 'dropdown') {
+                        $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
+                    }
+                    // An unchanged empty selection is not a request to clear a mapped dropdown.
+                    if ($value === $before) {
+                        continue;
+                    }
+                    // The outer asset input stays intact: Fields uses isset() when forwarding it.
+                    plugin_agentbdmosassetsync_field_value($descriptor, $value);
                 }
             } catch (Throwable $e) {
                 throw new RuntimeException('ASB_CAPTURE_REJECTED: mapping_id=' . $mapping->mapping_id . ' reason=' . $e->getMessage(), 0, $e);
@@ -258,7 +302,16 @@ function plugin_agentbdmosassetsync_capture_changed(CommonDBTM $storage, array $
         $after = $descriptor['custom_type']->formatValueFromDB($values[$descriptor['custom_field_id']] ?? null);
         return $changed && ($capture['asset']->fields[$name] ?? null) !== $after;
     }
-    return $changed || (!isset($storage->input['id']) && array_key_exists($column, $storage->input));
+    if (!$changed && (isset($storage->input['id']) || !array_key_exists($column, $storage->input))) {
+        return false;
+    }
+    $before = array_key_exists($column, $capture['storage_fields'])
+        ? $capture['storage_fields'][$column] : $descriptor['sql']['Default'];
+    $after = plugin_agentbdmosassetsync_capture_input_value($descriptor, $storage->fields[$column]);
+    if ($descriptor['kind'] === 'dropdown') {
+        $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
+    }
+    return $before !== $after;
 }
 
 function plugin_agentbdmosassetsync_capture_value(CommonDBTM $storage, CommonDBTM $asset, array $descriptor)
@@ -268,7 +321,8 @@ function plugin_agentbdmosassetsync_capture_value(CommonDBTM $storage, CommonDBT
         $values = json_decode($saved, true, 512, JSON_THROW_ON_ERROR);
         $saved = $descriptor['custom_type']->formatValueFromDB($values[$descriptor['custom_field_id']] ?? null);
     }
-    $value = plugin_agentbdmosassetsync_field_value($descriptor, $saved);
+    $value = plugin_agentbdmosassetsync_field_value($descriptor,
+        plugin_agentbdmosassetsync_capture_input_value($descriptor, $saved));
     if ($value !== plugin_agentbdmosassetsync_field_read($asset, $descriptor)) {
         throw new RuntimeException('Saved field changed before capture verification');
     }

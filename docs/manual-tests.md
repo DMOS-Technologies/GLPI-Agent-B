@@ -56,6 +56,163 @@ failure injection. This does not authorize raw destructive database commands,
 delete/purge/uninstall, product edits, new test software or a reusable harness.
 The reviewer performs evidence review/docs only and makes no commits this pass.
 
+## Normal-save capture input handling — 27 October 2026
+
+Scope: local review patch for `inc/capture.php`; no Controller changes, production
+deployment, production POST, or Work processing/recovery changes. Existing Works
+1–7 are outside this patch and must not be retried, reset, resent or edited.
+
+Read-only inspection of the affected B identified GLPI **11.0.8** and active
+Fields **1.24.4**. Its current Computer form renders both reported empty date
+controls as enabled hidden inputs with value `""`; the reported dropdown renders
+selected value `"2"`, label `Laptop`. These are current DOM observations, not a
+record of the older failed POST. The original rejected POST values remain unknown.
+
+GLPI's `CommonDBTM::update()` runs `pre_item_update` before `filterValues()`.
+Date/datetime form inputs use canonical populated strings and `""` when empty;
+native-date filtering converts the supported empty date representations to
+literal `"NULL"` before SQL writes. The saved object can still contain this
+sentinel in the post-save hook, while a fresh DB read returns actual `null`.
+Fields uses the same GLPI widgets and generated CommonDBTM storage add/update
+path, but its generated date columns are nullable `varchar(255)` and the storage
+class has no date search option: core filtering alone leaves `""` unchanged.
+The hook therefore normalizes at the actual storage boundary before persistence,
+as well as for its comparison/validation view. Its outer
+`populateData()` checks `isset()`, so replacing the original form input with PHP
+null before Fields runs would silently drop an explicit clear; the patch must
+preserve that outer input until Fields forwards it to the storage object.
+
+The hook-only normalizer recognizes exact empty date forms (`""`, `"NULL"`, actual
+null, subject to the actual storage/custom-field boundary) and unsigned dropdown
+IDs. It does not convert arbitrary invalid values to null. Saved-value validation
+in `field_value()` remains unchanged; capture verifies against a fresh strict DB
+read. Unchanged empty dropdown ID 0 may pass without a Change row. Changing a
+populated mapped dropdown to 0 remains an explicit pre-save rejection under the
+existing readable-option boundary; no empty option/label or clear operation is
+invented. A broader dropdown-clear payload would require a contract decision.
+
+Manual verification must use a fresh isolated GLPI 11.0.8/Fields 1.24.4 database,
+synthetic assets/options/mappings, and no production connection or restored
+production data. Use the real Fields `updateFieldsValues()`/asset save paths and
+independent raw-storage/Change readbacks; do not call the capture helper alone
+and label that a form-save pass. Check exact eligible snapshot contents, genuine
+`+08:00` times, immutable older rows and zero Work activity after each case.
+
+Executed on 27 October 2026 in disposable containers
+`agentb-capture-20261027-5053a8-app` / `-db`, using the official GLPI 11.0.8 image,
+PHP 8.5.10, MySQL 8.4 and Fields 1.24.4. Both containers use fresh tmpfs data on an
+internal Docker network. No previous B database was restored, and no cron/Work
+worker was started. Synthetic Computers 1–3, container 1, two date fields, one
+datetime, one dropdown (Desktop 1 / Laptop 2), an unmapped text field and a native
+comment mapping were created only there. The three date/Fields mappings exercised
+sources A, Both and B. Each manual PHP invocation booted GLPI, authenticated its
+synthetic local user, initialized the installed plugins, and invoked
+`PluginFieldsContainer::updateFieldsValues()` or `Computer::update()` with normal
+form-shaped input. The latter also exercised Fields' nested pre-update save.
+These are native save-path checks, not a replay of the browser HTTP POST/redirect.
+The disposable app had no published HTTP port; a browser connection attempt to
+127.0.0.1:18081 was refused. The affected site's forms were inspected read-only.
+
+Baseline was repository HEAD `0178d8d`. An initial candidate-copy command used the
+wrong plugin path and failed, so the following attempted checks still exercised
+baseline: empty dates continued to reject; valid populated dates and a dropdown
+change created synthetic Changes 1–2. Those rows were retained. Candidate results
+below begin only after copying into the actual marketplace path and confirming
+the local/container SHA-256 matched:
+`b1cfdc366b108d1656afc0f4acdf6fdde52d06a8dbd674931bb9baafb45ecfa1`.
+
+| Case | Manual operation and required observation | Result |
+|---|---|---|
+| CF01 | Reproduce baseline rejection using the rendered empty-date and ID-string inputs, recording exact PHP input types and hook stage. | REPRODUCED: `""` dates against SQL null threw `ASB_CAPTURE_REJECTED ... Invalid stored date format` in the generated-storage pre-save hook. Dropdown string `"0"` against stored integer 0 threw `Dropdown has no readable selected option`. String `"2"` / Laptop saved successfully. Rejected calls changed neither storage nor queue; Works remained 0. This establishes the mechanism, not the original failed POST. |
+| CF02 | Edit an unrelated native/Fields field while mapped dates remain SQL null and the dropdown remains selected. Save succeeds; only genuinely changed mapped fields queue. | PASS: unmapped Fields text changed with all date inputs `""`; dates reread as null, dropdown retained, Change count stayed 3. Unmapped native name changed on Computer 2 while mapped dates were null; no queue addition. |
+| CF03 | Save unchanged empty dates using the confirmed widget representation and supported core sentinel. No date Change or duplicate row. | PASS: normal Fields saves with `""` and, separately, exact `"NULL"` returned true; all dates stayed SQL null and Change count stayed 3. |
+| CF04 | Set each mapped date/datetime to a valid canonical value. Reread the exact stored value and one eligible snapshot with genuine time. | PASS: `2026-11-01`, `2026-11-02`, `2026-11-01 14:25:30` reread exactly; Change 4 contained only the three matching mapping entries, each reliable with `2026-10-27T17:50:40+08:00`. |
+| CF05 | Explicitly clear a populated nullable date/datetime through the normal Fields path. SQL becomes actual null; exactly one eligible snapshot contains JSON null; no post-save sentinel exception. | PASS: empty-string clears of all three populated values returned true, reread as actual null and created only Change 3, with three JSON-null values. A combined outer asset/Fields save later cleared them again in Change 6, confirming Fields' `isset()` forwarding was preserved. |
+| CF06 | Save an unchanged positive dropdown ID string, then select another valid local option. No false unchanged capture; changed snapshot contains the actual readable label. | PASS: unchanged string `"1"` produced no row. Selecting string `"2"` stored integer 2 and produced only Change 5, value `Laptop`. |
+| CF07 | Save an unchanged empty dropdown ID 0. No exception or empty Change; a populated-to-0 change is visibly rejected before saving under the existing contract. | PASS: Computer 2 saved empty dates, string `"0"` and an unrelated text edit without a new Change. Computer 1's 2→0 attempt raised `ASB_CAPTURE_REJECTED ... Dropdown has no readable selected option`; the entire Fields storage row and queue stayed unchanged. |
+| CF08 | Submit malformed/impossible dates, invalid scalar shapes, malformed or nonexistent dropdown IDs. Explicit pre-save rejection; no target/queue mutation; no invalid-to-null conversion. | PASS: date `not-a-date`, `2026-02-30`, space, integer 0, false and array; datetime hour 25; dropdown `"2x"`, `"-1"`, array and absent option `"987654"` each raised mapping-specific `ASB_CAPTURE_REJECTED`. Independent storage/queue readbacks after each attempt were unchanged. No invalid value became null. |
+| CF09 | Repeat an unchanged save and edit native plus Fields values in one real save. No duplicate snapshots; separate native/Fields rows remain permitted. | PASS: one `Computer::update()` with native comment plus Fields clears produced exactly Changes 6 (three null dates) and 7 (comment). Repeating the same save added zero rows. Creating the first Fields row on existing Computer 3 with blank dates/default 0 added zero rows; its later real date edit added only Change 9. Earlier Changes 1–5 compared byte-for-byte unchanged after later saves. |
+| CF10 | Perform a guarded synthetic local save, followed by a genuine save. Zero sync feedback rows; guard releases and the genuine edit queues normally. | PASS: guarded Fields date save to `2026-12-01` added zero rows; guard read false afterward. Genuine edit to `2026-12-02` produced only Change 8 with that value. No Work execution was involved. |
+| CF11 | Read strict stored-value validator behavior and final isolated Work/Change state. Invalid stored date strings remain rejected; no Work processing or recovery claim. | PASS: unchanged `field_value()` rejected stored `""`, `"NULL"`, impossible date and arbitrary text; actual null and canonical date remained accepted. Final synthetic state: 9 Pending Changes (2 baseline, 7 candidate), 0 Works, guard false. Production Works 1–7 were never accessed or changed. |
+
+Remaining limits: the historical rejected request was not recovered; the older
+dropdown exception cannot identify today's valid Laptop selection as invalid.
+The matching Fields version was available locally, but the deployed site's PHP
+source was not downloaded/hash-verified. No production save or browser-level
+HTTP replay, other GLPI/Fields versions, exhaustive asset/custom-asset variants,
+concurrent-save fault injection, queue-failure recovery or existing Work recovery
+was tested. The patch retains the existing exception outcome for genuinely
+invalid input, including its mapping-specific log reason; it does not redesign
+GLPI's generic error page. Extending mapped dropdown clears beyond the existing
+readable-option boundary remains a separate contract decision.
+
+## Localhost deployment and save verification — 27 October 2026
+
+User explicitly approved deploying the capture patch to **localhost:8081** and
+verifying it there, keeping Works 1–7 untouched and excluding the real environment,
+commits and pushes. Target: `assetsync2-glpib`, GLPI **11.0.7**, active Fields
+**1.24.4**. Only `inc/capture.php` was copied into
+`/var/glpi/marketplace/agentbdmosassetsync/inc/capture.php`; no installation,
+migration or Work/recovery code change was needed. All 15 runtime PHP files
+(`setup.php`, `hook.php`, `inc/*.php`) compared byte-identical to the local
+candidate after deployment. Capture SHA-256:
+`b1cfdc366b108d1656afc0f4acdf6fdde52d06a8dbd674931bb9baafb45ecfa1`.
+Deployed-file PHP lint passed.
+
+The local app/database were stopped initially. Before starting the app, its local
+Supervisor configuration was backed up and `glpi-cron` autostart was disabled;
+the old worker already had autostart disabled. Apache was started, with both
+`glpi-cron` and the old worker confirmed **STOPPED / Not started**. No worker,
+cron runner, retry, resend, reset, Work update, acknowledgement or recovery call
+was executed. The local app/database remain running for review, with workers
+intentionally stopped. This local startup safeguard was not applied elsewhere;
+the database CronTask configuration was not changed.
+
+Disposable fixtures were created through normal GLPI/Fields methods in new entity
+**11**, outside the existing enabled route's entity **2**: Computers **228–230**,
+Fields container **14** (`localcfreview`), definitions **78–82**, Desktop/Laptop
+options **1/2**, Setting **33**, route `local-capture-review-20261027`. Only the new
+container's profile associations were configured for these checks. The initial
+long numeric container label returned false; the existing new fixture assets
+were reused with the shorter label, without changing the patch. Fixtures and
+their evidence remain available; nothing was deleted or purged.
+
+Native manual invocations booted GLPI, logged in its existing local administrator,
+initialized plugins, selected fixture entity 11, and exercised real
+`PluginFieldsContainer::updateFieldsValues()` / `Computer::update()` paths.
+Browser checks additionally used the actual Fields form on Computer **229**:
+`GET /front/computer.form.php?id=229`, then the Local CF review tab and normal
+`POST /plugins/fields/front/container.form.php` submissions with GLPI's own CSRF
+handling. The only curl was a read-only `GET /` availability check (HTTP 200).
+No REST Work calls were made.
+
+| Case | Observed localhost result |
+|---|---|
+| LCF01 — unrelated native/Fields edits with empty dates | PASS: Fields text saved with all three date inputs `""` and valid dropdown `"2"`; dates reread as SQL null, no Change. Unmapped native name edit also added no Change. A browser text edit with blank dates and empty dropdown `"0"` saved and reread exactly, with no Change. |
+| LCF02 — unchanged empty inputs | PASS: `""` and exact supported `"NULL"` date saves returned true, retained SQL null and added zero rows. A final unchanged browser save also succeeded; fixture queue remained nine rows. |
+| LCF03 — populated dates/datetime | PASS: `2026-11-04`, `2026-11-05`, `2026-11-04 10:11:12` reread exactly; Change **83** contained precisely those three reliable mapping values with genuine `2026-10-27T18:06:31+08:00` evidence. Browser calendar selection/saving of `2026-10-28` produced only Change **86**. |
+| LCF04 — explicit clears | PASS: clearing all three populated Fields inputs with `""` stored actual SQL null and produced only Change **84**, with three JSON-null values. Clearing the populated browser date, blurring the widget (hidden input observed `""`) and saving produced only Change **87**, `cf_date1.value = null`, at `2026-10-27T18:08:18+08:00`. The browser returned to the normal form without an unexpected-error page. |
+| LCF05 — positive dropdown IDs | PASS: unchanged string `"2"` created no row; changing to string `"1"` persisted ID 1 and produced only Change **85**, label `Desktop`. |
+| LCF06 — empty dropdown boundary | PASS: the browser's unchanged `"0"` selection allowed unrelated and unchanged saves without capture. A positive→0 attempt raised mapping-specific `ASB_CAPTURE_REJECTED ... Dropdown has no readable selected option`; full Fields row and queue stayed unchanged. Existing contract policy was retained. |
+| LCF07 — invalid inputs | PASS: arbitrary/impossible date text, space, integer 0, false, array, invalid datetime hour, dropdown `"2x"`, negative ID, array and nonexistent ID each raised explicit mapping-specific pre-save errors. Independent readbacks after each attempt showed unchanged Fields storage and zero queue additions. No invalid-to-null conversion. |
+| LCF08 — combined saves and duplicates | PASS: one outer `Computer::update()` with native comment and a Fields date produced exactly Changes **88** (date) and **89** (comment). Repeating it added zero rows. Separate native/Fields storage snapshots remain permitted. |
+| LCF09 — sync suppression | PASS: guarded synthetic Fields date save to `2026-12-01` added zero rows and released its guard. A subsequent genuine edit to `2026-12-02` produced only Change **90**. No Work was involved. |
+| LCF10 — first Fields storage row on existing asset | PASS: Computer 230's first row with empty dates/default dropdown 0 produced no Change; its subsequent real date edit produced only Change **91**. |
+| LCF11 — strict stored validation | PASS: unchanged `field_value()` rejected stored `""`, `"NULL"` and impossible date, and accepted actual null. Storage validation was not relaxed. |
+| LCF12 — protected evidence | PASS: all seven Works **1–7** compared byte-for-byte identical before/after. The entire **859-row Work table** also compared identical; no new Works. All **82 pre-existing Changes** compared identical. Exactly nine new fixture Changes **83–91** remained Pending; none were acknowledged. |
+
+Protected snapshot SHA-256 values, identical before and after:
+
+- Works 1–7: `205d2fc02640902378b364b82707cb78c82f5fd3d13821a391cf01a1a6f9e3b1`.
+- All 859 Works: `50d5a13c2cec3b64077dce14f03e1de390515698966f37160add7fb5fea7dce2`.
+- Existing Changes 1–82: `34862138c771acb50ac193923faeafd1e716dd2d0552a745db7a4010b9239d6f`.
+
+This closes the browser-POST verification gap for the exercised **local 11.0.7**
+forms. It does not establish the historical failed production POST, deployed-site
+source equality, every field/type/plugin version, concurrent/fault outcomes or
+existing Work recovery. No real-environment requests, deployment or data/config
+changes occurred during this deployment pass. No automated tests, commit or push.
+
 ## Current evidence index
 
 The ledger for each part records the deployed scope, exact manual requests,
