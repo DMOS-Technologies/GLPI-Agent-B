@@ -103,8 +103,9 @@ Enabled B mappings must have actual safe scalar metadata, storage and
 permissions. Generated identity/timestamps, scope/lifecycle fields, computed
 values and complex relationship/list payloads are not ordinary mapped targets.
 Unavailable/unsupported enabled mappings are rejected at Setting admission.
-A mapping that becomes unavailable later must remain visibly rejected/Held,
-without silently losing genuine edit evidence.
+A mapping that becomes unavailable during Work processing remains visibly
+skipped/Held as applicable. Normal-save capture follows the non-blocking rule
+below and reports omitted mappings in GLPI's existing PHP log.
 
 Fields scalar mappings require an active Fields plugin with usable actual
 container/field metadata and rights. Version 1.24.4 was exercised; this is not
@@ -155,6 +156,16 @@ Genuine mapped local edits queue immutable Pending snapshots immediately, one
 per real underlying storage save and applicable route. A single action may
 produce separate native and Fields rows. Each keeps its exact identity, saved
 values and original field times. Sync writes never queue back to A.
+
+Capture does not rewrite or validate GLPI's save input. GLPI and Fields decide
+whether a normal save is valid. Capture failures never reject that save:
+unreadable/empty dropdowns and other unsupported values are omitted, while
+verified sibling fields may still queue. Check GLPI's existing `php-errors.log`
+for `ASB_CAPTURE_SKIPPED` entries identifying the stage, asset, route and mapping
+when available. Failed queue writes are logged without automatic retries or
+new failure records. A missing field or Change requires manual reconciliation;
+an asset-save success does not prove capture succeeded. This normal-save policy
+was requested on 27 October 2026 and does not relax Setting/Work validation.
 
 Returned `covered_change_ids` stay Pending until A handles them and sends exact
 native acknowledgement. Correction Work prevalidates all handled references,

@@ -56,6 +56,127 @@ failure injection. This does not authorize raw destructive database commands,
 delete/purge/uninstall, product edits, new test software or a reusable harness.
 The reviewer performs evidence review/docs only and makes no commits this pass.
 
+## Passive normal-save capture — 27 October 2026
+
+The user explicitly required Agent B to leave normal GLPI/Fields saves alone,
+including saves containing an empty or unreadable mapped dropdown. This decision
+supersedes the earlier capture-preflight rejection expectations in CF07–CF08,
+LCF06–LCF07, NLN08, OC08/OC11/OC13 and BR05. Their original observations below
+remain historical evidence; they are not the current expected save behavior.
+Setting admission, Work processing/recovery, Change schemas and acknowledgement
+rules are unchanged. Works 1–7 and all pre-existing Work/Change records are
+protected during this local verification.
+
+The completed source diff was reviewed once. `capture_before()` now takes a
+read-only snapshot without mapping validation or input assignments, and capture
+no longer forces hook ordering. `capture_after()` isolates capture exceptions;
+`capture_collect()` logs/omits unavailable field values while retaining verified
+siblings; `capture_flush()` logs individual route persistence failures without
+retrying or rejecting the GLPI save. Capture normalization uses copies and an
+independent storage reread. The strict `field_value()` validator is unchanged;
+the follow-up `field_read()` adjustment described below normalizes only actual
+nullable Fields date/datetime/number `''` clears on a local value copy.
+No demonstrated P1/P2 defect was found in that initial source review. The
+subsequent runtime pass exposed a cleared-Fields readback compatibility issue,
+which was corrected by the narrow read follow-up and verified below. Native
+browser, standalone Fields/native-method and protected-record checks are now
+complete for the bounded cases recorded here.
+
+Standalone target: `assetsync2-glpib`, GLPI 11.0.7/Fields 1.24.4. One new
+disposable Computer **232** in entity **11** uses existing Fields container
+**14** (`localcfreview`), storage row **4**, Setting **33** and route
+`local-capture-review-20261027`. No existing asset, mapping or container
+configuration was changed by this operator. Manual invocations used the normal
+Fields `updateFieldsValues()` / native `Computer::update()` lifecycle, with
+independent storage/Change readbacks; they were not direct calls to capture
+helpers or claims about browser POSTs.
+
+Skipped mappings appear as `ASB_CAPTURE_SKIPPED` in GLPI's existing
+`php-errors.log`, with stage, itemtype, asset, route and mapping when available.
+There is no invented dropdown label, empty/error-only Change or new failure
+resource. A snapshot covers only the fields actually captured in that row;
+omitted edits or a failed queue INSERT require manual reconciliation. A normal
+GLPI success response does not prove complete capture.
+
+| Case | Manual verification | Actual result |
+|---|---|---|
+| PS01 — native form with empty mappings | Use the actual localhost native Computer tab. Save an unrelated field with empty mapped date, number and dropdown, then save unchanged. Check normal response, exact storage and no spurious Change. | PASS browser on Computer **231**, entity **12**/container **15**/Setting **34**: normal native form saves with blank mappings returned the normal success alert. Unrelated and unchanged repeats added no Change. A preparation number clear was separately captured as Change **99**, JSON null. |
+| PS02 — standalone Fields empty mappings | Save unrelated/unchanged values through the normal Fields storage path with mapped empty dates/dropdown. B must introduce neither an exception nor an input rewrite. | PASS native methods: the new row saved all three dates as `''`, dropdown 0 and an unrelated text value, with no Change. Repeating it and editing an unmapped native contact both returned true with no Change. |
+| PS03 — dropdown selection and clear | Save a valid positive option and read its captured label. Then change it to GLPI's empty ID 0 with a valid sibling edit. GLPI decides persistence; B logs/omits the uncapturable dropdown while the valid sibling may queue. | PASS standalone Fields: selecting option 2 produced readable `Laptop` in Change **100**. The 2→0 clear succeeded; Change **101** contained only three date clears, with the dropdown omitted and `ASB_CAPTURE_SKIPPED` logged for `cf_dropdown`. PASS native browser: valid selection entered Change **104** as `Laptop`; a later dropdown 1→0 and native comment edit in one save succeeded, producing only Change **107** for the comment. The standard log named asset 231/`local_native_dropdown` at stage `field`. No label/default/clear was fabricated. |
+| PS04 — date/number set and clear | Populate mapped scalar fields, then explicitly clear them through normal GLPI/Fields methods/forms. Read actual persisted representations and exact JSON-null capture where supported. Arbitrary invalid values must not become capture nulls. | PASS standalone dates: `2026-11-20`, `2026-11-21` and `2026-11-20 12:34:56` saved exactly in Change **100**. Clearing them stored `''` and produced exactly three JSON nulls in Change **101**, with `2026-10-27T22:17:10+08:00` evidence. PASS native browser: Change **104** captured number 12.5/date `2026-10-28`/`Laptop`; Change **106** captured number/date clears as JSON null while Fields retained its own raw `''` representation. Native-method number comma `1,5`, zero and clear saved successfully as Changes **108**, **109**, **110**, respectively. |
+| PS05 — genuine change/no duplicates | Repeat the same saved values and inspect exact queue IDs. A real subsequent edit produces its own immutable snapshot with genuine `+08:00` evidence; unchanged values produce none. | PASS standalone: repeating populated values and repeating clears each added no row. Genuine subsequent date/dropdown edits produced Change **103**, `2026-10-27T22:18:41+08:00`. Earlier rows stayed separate. Native browser populated/clear repeats also added no duplicate. |
+| PS06 — genuine invalid input | Submit malformed dates/numbers and an absent dropdown option through the normal local methods. Record GLPI/Fields' actual return and storage behavior, without claiming these are browser-widget submissions. Agent B must not add a blocking capture exception or fabricate a value. | PASS bounded standalone Fields: `not-a-date`, datetime hour 25 and absent dropdown 987654 were accepted by Fields and remained exactly stored, with return true and no B exception. Only the valid sibling date `2026-11-22` entered Change **102**. Existing PHP log identified `cf_date1` invalid date, `cf_datetime` invalid datetime and `cf_dropdown` missing/unreadable option. These invalid values were restored through a guarded native save afterward. Native-method number `not-a-number` returned false from GLPI, left storage unchanged and raised no B exception. No invalid-to-null coercion was claimed. |
+| PS07 — queue INSERT denial | For only the owned disposable asset/route, use the existing bounded process-local READ ONLY transaction injection. Restore the session to READ WRITE in `finally`. The native asset save survives, no false Change is reported, the standard log names queue capture failure, and a later same-request save proceeds. | PASS: actual Change INSERT denial was scoped to Computer 232/its route. First native comment save returned true/no exception and reread `Passive capture saved despite queue INSERT denial`; it created no Change. Existing PHP log recorded `ASB_CAPTURE_SKIPPED`, stage `queue`, asset 232, reason `RuntimeException`. After READ WRITE restoration in `finally`, the next same-request save returned true and only Change **105** captured `Passive capture next same-request save succeeded`, reliable `2026-10-27T22:19:20+08:00`. |
+| PS08 — sync suppression | A guarded synthetic native/Fields save produces no feedback row; the guard is released and a subsequent genuine edit captures normally. No Work processor invocation is needed. | PASS standalone Fields: guarded valid date/dropdown restoration added no row and released the guard. The next genuine date `2026-12-02`/dropdown 2 save created only Change **103**. No Work was involved. |
+| PS09 — protected records and deployment | Compare exact Works 1–7, all existing Works and pre-existing Changes before/after. Confirm deployed file hash/lint and both cron/old worker STOPPED. Do not retry, reset, resend, acknowledge or process existing records. | PASS: all **860** existing Works, Works **1–7**, and all **98** pre-existing Changes compared byte-identical before/after. Exactly **13 new Pending Changes 99–111** belong to Computers 231/232. The final native browser comment save returned a normal success alert and produced only Change **111**, `Passive Agent B final local native save verified`. Both deployed PHP files passed lint and matched the candidate hashes below. Apache stayed RUNNING; cron and old worker stayed STOPPED. |
+| PS10 — shared read compatibility for GLPI-owned clears | Read actual nullable Fields date/datetime/number storage `''` through `field_read()` and verify JSON null. Confirm malformed values, native/text/dropdown cases retain their strict behavior. Do not process any Work as a substitute for this bounded read check. | PASS bounded read checks: Computer 231's actual Fields date/number descriptors returned null/null while raw storage remained `''`/`''`. Computer 232's actual Setting33 datetime selector returned null from raw `''`. Its scalar validator still rejected impossible date `2026-02-30` and number `not-a-number`; an actual empty dropdown read still rejected the absent selection. Native/text and non-nullable exclusions are source-reviewed; no full Work lifecycle was run. |
+
+Manual readback only, if a native V1 session is already available (replace the
+fixture ID and route with the operator's actual disposable values):
+
+```sh
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" \
+  -H "Session-Token: ${B_SESSION_TOKEN}" \
+  "${B_V1_BASE}/Computer/${B_FIXTURE_ID}?get_hateoas=false"
+
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" \
+  -H "Session-Token: ${B_SESSION_TOKEN}" \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncChange?searchText%5Broute_id%5D=${B_FIXTURE_ROUTE}&range=0-49&sort=id&order=ASC&get_hateoas=false&expand_dropdowns=false"
+```
+
+These commands are a checklist, not executed results. No Work mutation or
+Change acknowledgement is part of this pass. The real site's original request
+and every GLPI/plugin version are outside this localhost verification; this
+patch makes no claim to resolve existing recovery jobs.
+
+The standalone operator created exactly five Pending rows **100, 101, 102,
+103 and 105**, selected by Computer 232 identity because other local browser
+checks ran concurrently. Final Fields row 4 has date1 `2026-12-02`, date2 `''`,
+datetime `''`, dropdown 2 (`Laptop`), and the unrelated text retained. The
+coordinator's native browser/method cases created **99, 104, 106–110** and the
+final native comment check **111**. No Change was acknowledged.
+
+Only the two reviewed runtime files were copied into
+`/var/glpi/marketplace/agentbdmosassetsync/inc/`; each passed deployed PHP lint
+and matched its local SHA-256:
+
+- `capture.php`: `d8ba15cd74b7c1ede2d5ce28b5ab9ce8c18222217bd8974e2dbe1764b646dd8c`.
+- `fields.php`: `b5bf1e4b91908bca0e7bcc7a7b1e13fdda5de55ecc177b6c4c1b6e79d54736b0`.
+
+Installed plugin metadata remains **0.1.0**, as before this runtime-only patch;
+the repository `setup.php` remains 0.1.2 and was not deployed by this pass.
+No installation, migration, worker startup or real-environment operation took
+place. The source change introduces no new tables, statuses or REST routes.
+
+Protected snapshots were identical before and after. These fingerprints use
+this pass's PHP JSON snapshots, retaining DB-iterator ID keys for whole-table
+sets and `array_values` for Works 1–7; they are not a comparison with older
+ledgers' different serialization formats:
+
+- All 860 existing Works: `1ba8f78565a8804bbdb0a82973495986ad0ea6f9f5798b57fef61e5b236998ef`.
+- Works 1–7: `3539e76a6c0d0dcc6baeb5fd1595dd309eaa937da2c0632a773a05aa00211f4c`.
+- Existing Changes 1–98: `37cd761214f85cdc11c623b1b320d4dcc84e6259f64db675768d3cddc3a28903`.
+
+Verification-discovered read boundary: GLPI/Fields stores a valid local date
+clear as `''` now that B no longer rewrites save input. Initial capture-only
+verification emitted JSON null, but unchanged strict shared `field_read()`
+would reject the raw stored date representation. The reviewed follow-up adds
+one narrow read normalization: exact stored `''`, an actual Fields descriptor,
+kind date/datetime/number, and SQL `Null = YES` become null on a local copy
+before calling the unchanged strict validator. No save input, asset value,
+Work processing/recovery policy, schema or record is changed. The follow-up
+diff was reviewed once with no P1/P2 finding, and PS10 establishes the actual
+read behavior, closing this discovered compatibility issue. An initial
+read-only datetime probe used the wrong fixture selector and failed metadata
+lookup before writes; the corrected probe used Setting33's actual selector.
+A complete Work lifecycle, other asset types, changed-metadata and
+logger-outage/race/transaction variants remain unrun. Existing recovery jobs
+are outside scope and remain untouched.
+
 ## Normal-save capture input handling — 27 October 2026
 
 Scope: local review patch for `inc/capture.php`; no Controller changes, production

@@ -230,12 +230,19 @@ explicitly decided on 24 October 2026. Check actual installed field metadata,
 supported scalar storage, and applicable entity/field permissions; native and
 Fields-plugin text/dropdown conversions remain required supported capabilities.
 A's remote field availability cannot be verified by B through outbound calls.
-If a configured B mapping later becomes unavailable, capture must reject the
-operation visibly before saving where possible, rather than silently omit a
-mapped genuine edit. A post-save queue persistence failure must be visible as
-an uncertain outcome; do not claim rollback of the asset, successful capture,
-or silently discard the in-memory evidence. Empty Change snapshots are not
-authorized. Review/fix the unsupported mapping explicitly before enabling it.
+**Normal-save decision, 27 October 2026:** Agent B observes GLPI saves; capture
+must never reject a normal asset/Fields save, rewrite its input, or override
+GLPI's validation. Before-save hooks keep read-only snapshots only. After a
+save, B queues only verified, representable mapped changes. An empty/unreadable
+dropdown or another unavailable/invalid mapped value is omitted from capture
+and reported with its route/mapping in GLPI's existing PHP log; other valid
+mapped changes may still be queued. B never invents a label, option or clear.
+A route/identity failure skips that route. A queue persistence failure is
+logged without failing the GLPI save, retrying automatically, or claiming that
+the missing Change was captured. Empty/error-only Change snapshots are not
+created. Operators must review these logs and reconcile omitted edits manually;
+A cannot infer complete capture from an asset-save success or a partial Change.
+Setting admission and Work validation remain strict and unchanged.
 
 Mapped date/time VALUES are separate from genuine edit timestamps. Dates use
 `YYYY-MM-DD`; datetimes use `YYYY-MM-DD HH:MM:SS` in the destination GLPI native
@@ -435,6 +442,18 @@ have no reliable parent completion hook in GLPI 11.0.7. Capture each row before
 that local save returns; no shutdown-only flush or mutation of an exposed
 snapshot. A later edit creates another row; B must not overwrite a row A may already have read.
 Sync writes never create a Change row.
+
+Under the normal-save decision above, a snapshot contains the fields B actually
+verified and captured. Omitted fields have no value/time entry and are not
+covered by acknowledgement of that snapshot. Capture failures have no durable
+queue record when none could be created; they are visible in the existing GLPI
+PHP log, not through a new REST status or resource. Exact known empty scalar
+representations used by GLPI/Fields may normalize to JSON null in capture-only
+copies where storage permits emptiness. Reading actual nullable Fields
+date/datetime/number storage also recognizes an exact stored empty string as
+null, so a normal Fields clear remains readable by sync. Arbitrary invalid
+values remain unsupported; normalization never changes saved asset values or
+relaxes the strict scalar validator. Work processing/recovery policy is unchanged.
 
 ## 2. A service account profile rights (deliverable 2)
 
@@ -1412,7 +1431,7 @@ These are now requirements rather than unapproved defaults.
 | Q2 | An entity-pair change uses a distinct route. Preserve old assets, links, queue/work evidence. Return-to-scope verifies and reuses the original link. |
 | Q3 | Brunei `+08:00` genuine field timestamps at second precision; trusted server clocks; compare instants; differing equal/missing/unreliable times conflict. No manual-edit cooldown. GLPI-owned metadata uses its native date conventions. |
 | Q4 | Reject duplicate Work IDs; A reads the existing row. Reject non-increasing Setting versions, including identical retries. Enforce unique/version checks safely under concurrency. |
-| Q5 | One immutable Change snapshot per genuine underlying storage save per applicable route; separate native/Fields rows from one user save are allowed. Capture immediately, with no shutdown-only flush. No merging or cleanup of Done evidence. |
+| Q5 | One immutable Change snapshot per genuine underlying storage save per applicable route; separate native/Fields rows from one user save are allowed. Capture immediately, with no shutdown-only flush. No merging or cleanup of Done evidence. On 27 October 2026 the user required normal-save capture to be non-blocking: omit/log unsupported values or failed capture, preserve valid captured fields, and never modify or reject GLPI saves. |
 | Q6 | Reject malformed admission payloads; save structurally valid Work then Hold scope/settings/type mismatches visibly without asset writes. |
 | Q7 | Generic installed GLPI asset registry, including registered custom asset classes; no per-type implementation. Validate field-kind support and actual safe local writes. Native and Fields-plugin scalar mappings plus the four documented text/dropdown conversions are required. Unsupported enabled mappings, including unavailable Fields support, are rejected during Setting admission for later review/fix. Complex non-scalar fields remain rejected until a payload/save contract exists. |
 | Q8 | Process supported fields and record exact skipped-field reasons. Done may contain documented skips; unresolved conflicts are Held; definite save failures are Failed. Preserve verified partial outcomes. An entire Change snapshot must be covered before it can become Done. |
@@ -1446,7 +1465,9 @@ Verification limits are distinct from protocol questions: the fixture set is
 not an exhaustive installed-field inventory, other patches were not exercised,
 and unsafe crash/commit/rollback/race injections remain explicitly unrun.
 Do not label these limits as observed failures or invent a new policy for them.
-Unsupported enabled mappings remain rejected; later unavailable field metadata
-or uncertain outcomes stay visible. A genuinely unknown convention or fact
+Unsupported enabled mappings remain rejected at Setting admission. Later
+unavailable capture metadata or capture failures follow the non-blocking
+normal-save decision above; Work failures remain visible in Work results.
+A genuinely unknown convention or fact
 must be stated as an explicit question before promising behavior; do not guess
-an answer. The approved wire schemas and section 7 decisions remain unchanged.
+an answer. Other approved wire schemas and decisions remain unchanged.

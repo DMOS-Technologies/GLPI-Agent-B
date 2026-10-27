@@ -116,6 +116,17 @@ The background task picks up Work records that are waiting, in a bounded batch. 
 
 ## 5. Outbound: capturing B edits (`item_update` hook)
 
+**Normal-save decision, 27 October 2026:** capture is observational. Agent B
+must not rewrite GLPI/Fields save inputs, reject a normal save, or replace
+GLPI's own validation. Before-save hooks keep read-only snapshots; post-save
+capture queues only verified supported values. Unsupported/unreadable values
+are skipped and logged with their route/mapping in GLPI's existing PHP log;
+valid sibling fields can still queue. Route/identity or queue persistence
+failures are logged without interrupting the save or retrying automatically.
+No empty/error-only Change or invented field evidence is created. Omitted
+edits require manual review/reconciliation; successful asset saves do not
+guarantee complete capture. Setting admission and Work processing stay strict.
+
 GLPI registers plugin hooks per asset type. Register the hook for every supported asset type (verify how in the installed GLPI version). Then:
 
 1. **First, a cheap local check:** is this asset type enabled in the settings copy? No: stop. This runs on every asset edit in B, so it must read only local data and make no network calls.
@@ -143,7 +154,7 @@ Additional rules:
 - **Dropdown mapped to text:** A sends the readable label, and B stores it as text.
 - **Dropdown to dropdown:** B looks up the destination option itself, because IDs differ between A and B. Option not found means no write and a visible reason.
 - **Text to dropdown:** required. B looks up the text as an exact, unique permitted local option and writes its B ID. No match or ambiguous match means no write and a visible reason; never create an option automatically.
-- **Field support:** native fields and Fields-plugin custom fields. Each field kind needs explicit support. A field showing in GLPI search options is not proof it is safe to write. Unsupported enabled B mappings are rejected at Setting admission for explicit review/fix. A mapping becoming unavailable later must not silently lose genuine edit evidence.
+- **Field support:** native fields and Fields-plugin custom fields. Each field kind needs explicit support. A field showing in GLPI search options is not proof it is safe to write. Unsupported enabled B mappings are rejected at Setting admission for explicit review/fix. A mapping becoming unavailable during normal-save capture is skipped and logged under section 5; it must not block GLPI saves or fabricate change evidence.
 - **Mapped date/time values:** date uses `YYYY-MM-DD`; datetime uses `YYYY-MM-DD HH:MM:SS` already in the destination GLPI native convention. These values are separate from Brunei-offset genuine edit timestamps.
 
 ---

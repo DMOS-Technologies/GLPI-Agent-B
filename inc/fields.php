@@ -141,7 +141,14 @@ function plugin_agentbdmosassetsync_field_read(CommonDBTM $asset, array $descrip
     if (!$found) {
         throw new RuntimeException('Field storage row is missing');
     }
-    return plugin_agentbdmosassetsync_field_value($descriptor, $stored->fields[$descriptor['value_column']]);
+    $value = $stored->fields[$descriptor['value_column']];
+    // Fields saves cleared nullable scalar controls as an empty string.
+    if ($value === '' && $descriptor['container_id'] !== null
+        && in_array($descriptor['kind'], ['date', 'datetime', 'number'], true)
+        && $descriptor['sql']['Null'] === 'YES') {
+        $value = null;
+    }
+    return plugin_agentbdmosassetsync_field_value($descriptor, $value);
 }
 
 /** Normalize a saved scalar through the same transport rules as a local reread. */

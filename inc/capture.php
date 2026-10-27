@@ -36,11 +36,6 @@ function plugin_agentbdmosassetsync_register_capture(): void
             }
         }
     }
-    // Validate the asset before Fields performs a nested save in its pre-item hook.
-    $hooks = $PLUGIN_HOOKS['pre_item_update'] ?? [];
-    $ours = $hooks['agentbdmosassetsync'] ?? [];
-    unset($hooks['agentbdmosassetsync']);
-    $PLUGIN_HOOKS['pre_item_update'] = ['agentbdmosassetsync' => $ours] + $hooks;
 }
 
 /** The first capture operation is a cheap local enabled-type check. */
@@ -88,31 +83,20 @@ function plugin_agentbdmosassetsync_capture_owner(CommonDBTM $storage, string $t
     return $asset;
 }
 
-function plugin_agentbdmosassetsync_capture_candidate(CommonDBTM $storage, stdClass $selector, bool $saved = false): bool
+function plugin_agentbdmosassetsync_capture_candidate(CommonDBTM $storage, stdClass $selector): bool
 {
     $names = [$selector->name];
     if ($selector->kind === 'fields') {
         $names[] = 'plugin_fields_' . $selector->name . 'dropdowns_id';
-    } elseif (!$saved && str_starts_with($selector->name, 'custom_') && array_key_exists('custom_fields', $storage->input)) {
-        return true;
     }
-    if ($saved) {
-        $changed = !isset($storage->input['id']) ? array_keys($storage->input) : ($storage->updates ?? []);
-        if ($selector->kind === 'native' && str_starts_with($selector->name, 'custom_')) {
-            $names[] = 'custom_fields';
-        }
-        return (bool) array_intersect($names, $changed);
+    $changed = !isset($storage->input['id']) ? array_keys($storage->input) : ($storage->updates ?? []);
+    if ($selector->kind === 'native' && str_starts_with($selector->name, 'custom_')) {
+        $names[] = 'custom_fields';
     }
-    foreach ($names as $name) {
-        if (array_key_exists($name, $storage->input)
-            && (!array_key_exists($name, $storage->fields) || $storage->input[$name] !== $storage->fields[$name])) {
-            return true;
-        }
-    }
-    return false;
+    return (bool) array_intersect($names, $changed);
 }
 
-/** Form values precede GLPI filtering; never loosen the saved-value validator. */
+/** Normalize capture copies only; GLPI and Fields own their saved input. */
 function plugin_agentbdmosassetsync_capture_input_value(array $descriptor, $value)
 {
     if (in_array($descriptor['kind'], ['date', 'datetime'], true)
@@ -130,7 +114,7 @@ function plugin_agentbdmosassetsync_capture_input_value(array $descriptor, $valu
             }
             return null;
         }
-        // Fields normally converts decimal commas after this outer pre-save hook.
+        // Match Fields' scalar representation without changing the asset input.
         if (is_string($value)) {
             return str_replace(',', '.', $value);
         }
@@ -146,94 +130,72 @@ function plugin_agentbdmosassetsync_capture_input_value(array $descriptor, $valu
     return $value;
 }
 
+/** Capture must not turn a successful GLPI save into an error response. */
+function plugin_agentbdmosassetsync_capture_log(CommonDBTM $storage, string $stage, Throwable $error,
+    ?string $routeId = null, ?string $mappingId = null): void
+{
+    global $PHPLOGGER;
+    $reason = $mappingId !== null || str_starts_with($error->getMessage(), 'ASB_')
+        ? $error->getMessage() : $error::class;
+    $type = plugin_agentbdmosassetsync_capture_type($storage);
+    $assetId = $type === $storage::class ? ($storage->fields['id'] ?? 0)
+        : ($storage->input['items_id'] ?? $storage->fields['items_id'] ?? 0);
+    $message = 'ASB_CAPTURE_SKIPPED: stage=' . $stage . ' itemtype=' . $type
+        . ' asset_id=' . (int) $assetId . ' route_id=' . ($routeId ?? '-')
+        . ' mapping_id=' . ($mappingId ?? '-') . ' reason=' . $reason;
+    try {
+        $PHPLOGGER->warning($message);
+    } catch (Throwable $loggingError) {
+        try {
+            error_log($message);
+        } catch (Throwable $fallbackError) {
+            // If both existing loggers fail, still leave the GLPI save alone.
+        }
+    }
+}
+
 function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
 {
-    $type = plugin_agentbdmosassetsync_capture_type($storage);
-    $routes = plugin_agentbdmosassetsync_capture_routes($type);
-    if (!$routes || plugin_agentbdmosassetsync_is_sync_write()) {
-        return;
-    }
-    if (isset($GLOBALS['plugin_agentbdmosassetsync_capture_failure'])) {
-        throw new RuntimeException($GLOBALS['plugin_agentbdmosassetsync_capture_failure']);
-    }
-    $asset = plugin_agentbdmosassetsync_capture_owner($storage, $type);
-    if ($asset === null) {
+    if (plugin_agentbdmosassetsync_is_sync_write()) {
         return;
     }
     $key = spl_object_id($storage);
-    $GLOBALS['plugin_agentbdmosassetsync_captures'][$key] = ['asset' => clone $asset,
-        'storage_fields' => $storage->fields,
-        'routes' => $routes, 'time' => plugin_agentbdmosassetsync_capture_time(), 'rows' => []];
-    foreach ($routes as $route) {
-        if (!$asset->isEntityAssign() || (int) $asset->getEntityID() !== (int) $route['entities_id']
-            || plugin_agentbdmosassetsync_capture_identity($asset, $route) === null) {
-            continue;
+    unset($GLOBALS['plugin_agentbdmosassetsync_captures'][$key]);
+    try {
+        $type = plugin_agentbdmosassetsync_capture_type($storage);
+        $routes = plugin_agentbdmosassetsync_capture_routes($type);
+        if (!$routes) {
+            return;
         }
-        foreach (json_decode($route['field_mappings_json']) as $mapping) {
-            if (!$mapping->enabled || $mapping->itemtype !== $type
-                || !plugin_agentbdmosassetsync_capture_candidate($storage, $mapping->b_field)) {
-                continue;
-            }
-            if ($storage::class !== $type && ($mapping->b_field->kind !== 'fields'
-                || PluginFieldsContainer::getClassname($type, $mapping->b_field->container) !== $storage::class)) {
-                continue;
-            }
-            try {
-                $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
-                $name = $descriptor['value_column'];
-                if (array_key_exists($name, $storage->input)) {
-                    $value = plugin_agentbdmosassetsync_capture_input_value($descriptor, $storage->input[$name]);
-                    // Fields' generated varchar columns do not receive core date/number filtering.
-                    if ($descriptor['storage_class'] === $storage::class && $descriptor['custom_field_id'] === null) {
-                        $storage->input[$name] = $value;
-                    }
-                    $previous = $storage;
-                    if ($descriptor['storage_class'] !== $storage::class) {
-                        $class = $descriptor['storage_class'];
-                        $previous = new $class();
-                        $previous->getFromDBByCrit(['items_id' => $asset->getID()]);
-                    }
-                    $before = array_key_exists($name, $previous->fields)
-                        ? $previous->fields[$name] : $descriptor['sql']['Default'];
-                    if ($descriptor['kind'] === 'dropdown') {
-                        $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
-                    }
-                    // An unchanged empty selection is not a request to clear a mapped dropdown.
-                    if ($value === $before) {
-                        continue;
-                    }
-                    // The outer asset input stays intact: Fields uses isset() when forwarding it.
-                    plugin_agentbdmosassetsync_field_value($descriptor, $value);
-                }
-            } catch (Throwable $e) {
-                throw new RuntimeException('ASB_CAPTURE_REJECTED: mapping_id=' . $mapping->mapping_id . ' reason=' . $e->getMessage(), 0, $e);
-            }
+        $asset = plugin_agentbdmosassetsync_capture_owner($storage, $type);
+        if ($asset === null) {
+            return;
         }
+        $GLOBALS['plugin_agentbdmosassetsync_captures'][$key] = ['asset' => clone $asset,
+            'storage_fields' => $storage->fields, 'routes' => $routes,
+            'time' => plugin_agentbdmosassetsync_capture_time(), 'rows' => []];
+    } catch (Throwable $e) {
+        plugin_agentbdmosassetsync_capture_log($storage, 'before', $e);
     }
 }
 
 /** Each actual native/Fields storage save gets its own immutable snapshot before returning. */
 function plugin_agentbdmosassetsync_capture_after(CommonDBTM $storage): void
 {
-    $type = plugin_agentbdmosassetsync_capture_type($storage);
-    $routes = plugin_agentbdmosassetsync_capture_routes($type);
-    if (!$routes || plugin_agentbdmosassetsync_is_sync_write()) {
+    if (plugin_agentbdmosassetsync_is_sync_write()) {
         return;
     }
     $key = spl_object_id($storage);
     if (!isset($GLOBALS['plugin_agentbdmosassetsync_captures'][$key])) {
         return; // Presave deliberately excluded asset creation.
     }
-    $GLOBALS['plugin_agentbdmosassetsync_captures'][$key]['saved_fields'] = $storage->fields;
-    $GLOBALS['plugin_agentbdmosassetsync_captures'][$key]['saved_updates'] = $storage->updates ?? [];
     try {
         plugin_agentbdmosassetsync_capture_collect($key, $storage);
         plugin_agentbdmosassetsync_capture_flush($key);
     } catch (Throwable $e) {
-        $reason = 'ASB_CAPTURE_OUTCOME_UNKNOWN: asset save may have completed; capture incomplete; reason=' . $e->getMessage();
-        $GLOBALS['plugin_agentbdmosassetsync_capture_failure'] = $reason;
-        // Preserve the failed request-local snapshot; never retry blindly at shutdown.
-        throw new RuntimeException($reason, 0, $e);
+        plugin_agentbdmosassetsync_capture_log($storage, 'after', $e);
+    } finally {
+        unset($GLOBALS['plugin_agentbdmosassetsync_captures'][$key]);
     }
 }
 /** Durable verified Work links, rather than a client-supplied ID, determine suspension/identity. */
@@ -273,33 +235,47 @@ function plugin_agentbdmosassetsync_capture_collect(int $key, CommonDBTM $storag
         if (!$asset->isEntityAssign() || (int) $asset->getEntityID() !== (int) $route['entities_id']) {
             continue;
         }
-        $identity = plugin_agentbdmosassetsync_capture_identity($asset, $route);
-        if ($identity === null) {
-            continue;
-        }
-        foreach (json_decode($route['field_mappings_json']) as $mapping) {
-            if (!$mapping->enabled || $mapping->itemtype !== $asset::class) {
+        try {
+            $eligible = [];
+            foreach (json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR) as $mapping) {
+                if (!$mapping->enabled || $mapping->itemtype !== $asset::class) {
+                    continue;
+                }
+                $selector = $mapping->b_field;
+                if (($selector->kind === 'fields') !== ($asset::class !== $storage::class)) {
+                    continue;
+                }
+                if ($selector->kind === 'fields'
+                    && PluginFieldsContainer::getClassname($asset::class, $selector->container) !== $storage::class) {
+                    continue;
+                }
+                if (plugin_agentbdmosassetsync_capture_candidate($storage, $selector)) {
+                    $eligible[] = $mapping;
+                }
+            }
+            if (!$eligible) {
                 continue;
             }
-            $selector = $mapping->b_field;
-            if (($selector->kind === 'fields') !== ($asset::class !== $storage::class)) {
+            $identity = plugin_agentbdmosassetsync_capture_identity($asset, $route);
+            if ($identity === null) {
                 continue;
             }
-            if ($selector->kind === 'fields'
-                && PluginFieldsContainer::getClassname($asset::class, $selector->container) !== $storage::class) {
-                continue;
+            foreach ($eligible as $mapping) {
+                try {
+                    $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+                    if (!plugin_agentbdmosassetsync_capture_changed($storage, $capture, $descriptor)) {
+                        continue;
+                    }
+                    $value = plugin_agentbdmosassetsync_capture_value($storage, $asset, $descriptor);
+                    $capture['rows'][$route['route_id']] ??= ['route' => $route, 'identity' => $identity, 'fields' => []];
+                    $capture['rows'][$route['route_id']]['fields'][$mapping->mapping_id] = [
+                        'value' => $value, 'changed_at' => $capture['time'], 'reliable' => true];
+                } catch (Throwable $e) {
+                    plugin_agentbdmosassetsync_capture_log($storage, 'field', $e, $route['route_id'], $mapping->mapping_id);
+                }
             }
-            if (!plugin_agentbdmosassetsync_capture_candidate($storage, $selector, true)) {
-                continue;
-            }
-            $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $selector);
-            if (!plugin_agentbdmosassetsync_capture_changed($storage, $capture, $descriptor)) {
-                continue;
-            }
-            $value = plugin_agentbdmosassetsync_capture_value($storage, $asset, $descriptor);
-            $capture['rows'][$route['route_id']] ??= ['route' => $route, 'identity' => $identity, 'fields' => []];
-            $capture['rows'][$route['route_id']]['fields'][$mapping->mapping_id] = [
-                'value' => $value, 'changed_at' => $capture['time'], 'reliable' => true];
+        } catch (Throwable $e) {
+            plugin_agentbdmosassetsync_capture_log($storage, 'route', $e, $route['route_id']);
         }
     }
 }
@@ -319,10 +295,8 @@ function plugin_agentbdmosassetsync_capture_changed(CommonDBTM $storage, array $
     }
     $before = array_key_exists($column, $capture['storage_fields'])
         ? $capture['storage_fields'][$column] : $descriptor['sql']['Default'];
+    $before = $before === null ? null : plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
     $after = plugin_agentbdmosassetsync_capture_input_value($descriptor, $storage->fields[$column]);
-    if ($descriptor['kind'] === 'dropdown') {
-        $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
-    }
     return $before !== $after;
 }
 
@@ -335,7 +309,16 @@ function plugin_agentbdmosassetsync_capture_value(CommonDBTM $storage, CommonDBT
     }
     $value = plugin_agentbdmosassetsync_field_value($descriptor,
         plugin_agentbdmosassetsync_capture_input_value($descriptor, $saved));
-    if ($value !== plugin_agentbdmosassetsync_field_read($asset, $descriptor)) {
+    $class = $descriptor['storage_class'];
+    $stored = new $class();
+    $found = $descriptor['container_id'] === null ? $stored->getFromDB($asset->getID())
+        : $stored->getFromDBByCrit(['items_id' => $asset->getID()]);
+    if (!$found) {
+        throw new RuntimeException('Field storage row is missing');
+    }
+    $reread = plugin_agentbdmosassetsync_field_value($descriptor,
+        plugin_agentbdmosassetsync_capture_input_value($descriptor, $stored->fields[$descriptor['value_column']]));
+    if ($value !== $reread) {
         throw new RuntimeException('Saved field changed before capture verification');
     }
     return $value;
@@ -346,14 +329,16 @@ function plugin_agentbdmosassetsync_capture_flush(int $key): void
     $capture = &$GLOBALS['plugin_agentbdmosassetsync_captures'][$key];
     foreach ($capture['rows'] as $routeId => $row) {
         $route = $row['route'];
-        $change = new PluginAgentbdmosassetsyncChange();
-        $change->createCapturedChange(['route_id' => $route['route_id'],
-            'settings_version' => (int) $route['settings_version'],
-            'a_entities_id' => (int) $route['a_entities_id'], 'entities_id' => (int) $route['entities_id'],
-            'itemtype' => $capture['asset']::class,
-            'identity_json' => json_encode($row['identity'], JSON_THROW_ON_ERROR),
-            'changed_fields_json' => json_encode((object) $row['fields'], JSON_THROW_ON_ERROR)]);
-        unset($capture['rows'][$routeId]); // Only a verified persisted row may leave capture state.
+        try {
+            $change = new PluginAgentbdmosassetsyncChange();
+            $change->createCapturedChange(['route_id' => $route['route_id'],
+                'settings_version' => (int) $route['settings_version'],
+                'a_entities_id' => (int) $route['a_entities_id'], 'entities_id' => (int) $route['entities_id'],
+                'itemtype' => $capture['asset']::class,
+                'identity_json' => json_encode($row['identity'], JSON_THROW_ON_ERROR),
+                'changed_fields_json' => json_encode((object) $row['fields'], JSON_THROW_ON_ERROR)]);
+        } catch (Throwable $e) {
+            plugin_agentbdmosassetsync_capture_log($capture['asset'], 'queue', $e, $routeId);
+        }
     }
-    unset($GLOBALS['plugin_agentbdmosassetsync_captures'][$key]);
 }
