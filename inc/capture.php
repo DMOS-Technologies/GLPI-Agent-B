@@ -123,6 +123,18 @@ function plugin_agentbdmosassetsync_capture_input_value(array $descriptor, $valu
         }
         return null;
     }
+    if ($descriptor['kind'] === 'number' && $descriptor['container_id'] !== null) {
+        if ($value === '' || $value === null) {
+            if ($descriptor['sql']['Null'] !== 'YES') {
+                throw new RuntimeException('Number input cannot be empty for non-nullable storage');
+            }
+            return null;
+        }
+        // Fields normally converts decimal commas after this outer pre-save hook.
+        if (is_string($value)) {
+            return str_replace(',', '.', $value);
+        }
+    }
     if ($descriptor['kind'] === 'dropdown') {
         if (is_string($value) && preg_match('/\A[0-9]+\z/D', $value) === 1) {
             $value = strlen($value) <= 10 ? (int) $value : $value;
@@ -171,7 +183,7 @@ function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
                 $name = $descriptor['value_column'];
                 if (array_key_exists($name, $storage->input)) {
                     $value = plugin_agentbdmosassetsync_capture_input_value($descriptor, $storage->input[$name]);
-                    // Generated Fields storage has varchar dates and no date search option to filter them.
+                    // Fields' generated varchar columns do not receive core date/number filtering.
                     if ($descriptor['storage_class'] === $storage::class && $descriptor['custom_field_id'] === null) {
                         $storage->input[$name] = $value;
                     }

@@ -213,6 +213,148 @@ source equality, every field/type/plugin version, concurrent/fault outcomes or
 existing Work recovery. No real-environment requests, deployment or data/config
 changes occurred during this deployment pass. No automated tests, commit or push.
 
+## Native-tab inserted Fields number investigation — 27 October 2026
+
+This follow-up to v0.1.1 was implemented locally for review. The affected site's plugin
+listing was inspected read-only and reported Agent B **0.1.1**, Fields **1.24.4**.
+Its native Computer form embeds an insertion-style Fields block and submits an
+optional blank numeric control, as well as dates/dropdowns. Whether that number
+is enabled in the affected route, its stored value, and the latest server
+exception remain unavailable. **The current production failure is not yet
+attributed to this defect.** No live save, configuration change or deployment
+was performed. The user was given the usual `php-errors.log` locations and asked
+for the exception/stack, with credentials omitted.
+
+Two agents traced native input handling and post-save capture independently;
+a builder changed only `capture_input_value()` and its storage-boundary comment
+in `inc/capture.php`; the reviewer approved that narrow source diff. No Controller
+code was read or changed. Neither Work processing/recovery nor schema, version,
+API contract or stored-value validation changed.
+
+Confirmed source mechanism: GLPI 11.0.8 calls `pre_item_update` before input
+filtering. B's pre-hook runs before Fields. Fields 1.24.4 `populateData()` forwards
+values using `isset()` and replaces decimal commas in numbers with periods;
+`validateValues()` permits an optional empty number. Its migration defines number
+storage as nullable `VARCHAR(255)`. B previously supplied raw `""` or `"1,5"` to
+the strict stored-number validator first, raising `Invalid stored number`.
+The new capture-only normalization recognizes exact empty string/actual null
+for nullable Fields-number storage and mirrors Fields' comma replacement.
+It preserves strings such as `"0"`; it leaves the outer input available to
+Fields and changes persistence input only on the actual storage object.
+The unchanged strict DB reread still rejects invalid saved representations.
+
+Manual checks used fresh GLPI **11.0.8**, Fields **1.24.4**, PHP **8.5.10** and
+MySQL **8.4** in `agentb-native-7febac35-app-web` / `-db-web`. No original B data
+was restored, no volume was shared with localhost:8081, and no cron/worker ran.
+HTTP was exposed only on loopback port **18083**. Disposable Computers 1–2,
+an insertion (`dom`) Fields container, number/date/dropdown/boolean mappings,
+a native-comment mapping and restricted editor profile 9 were created through
+normal GLPI methods. An initial fixture Setting add returned false until the
+fixture administrator's plugin Setting rights were granted in this fresh DB;
+that setup correction did not change the patch or any original account.
+
+The manual invocations below booted GLPI, logged in the fixture account,
+initialized plugins, and called the real `Computer::update()` path with native
+form-shaped scalar strings and the inserted Fields inputs. Nested Fields saves
+were not replaced by direct capture-helper calls. Independent asset, Fields and
+Change readbacks were inspected. Candidate host/container capture hashes matched:
+`6daefd5e88f4489f5c923ffb7f47b9eba7eaad759840fb9a08255e9307fefd8b`.
+
+| Case | Observed result |
+|---|---|
+| NR01 — v0.1.1 baseline | REPRODUCED: optional number SQL null plus native form input `""` raised `ASB_CAPTURE_REJECTED: mapping_id=native_number reason=Invalid stored number`. `"1,5"` likewise rejected before Fields' normalization. The attempted unrelated native edit did not persist; number stayed SQL null, Changes 0, Works 0. This is an isolated mechanism reproduction, not the site's recovered request. |
+| NR02 — unrelated native save with blank number | PASS candidate: native name saved, optional number remained SQL null, zero Change additions. |
+| NR03 — unchanged blank | PASS: normal native/Fields save returned true, actual SQL null retained, zero rows. |
+| NR04 — blank to zero and unchanged zero | PASS: browser-shaped string `"0"` persisted as stored `"0"`, Change 1 contained JSON number 0 with reliable genuine `+08:00` time. Repeating string `"0"` added zero rows. No `empty()` coercion or integer conversion was used. |
+| NR05 — zero to explicit blank | PASS: input `""` stored actual SQL null; only Change 2, number value JSON null. |
+| NR06 — decimal and clear | PASS: `"12.5"` stored exactly and created Change 3 with numeric 12.5; clearing created Change 4 with null and SQL null. |
+| NR07 — Fields decimal comma | PASS: native outer input `"1,5"` passed, Fields stored `"1.5"`, Change 5 carried number 1.5. Repeating canonical `"1.5"` added zero rows. |
+| NR08 — invalid inputs | PASS: `bad`, space, `1,2,3`, literal `NULL`, `NaN`, non-finite `1e999`, false and array each raised mapping-specific pre-save rejection. Asset, complete Fields row and queue remained unchanged after each attempt. None became null. |
+| NR09 — sync guard | PASS: guarded native/Fields number save to `"18"` added zero rows and released the guard. The next genuine value was captured in NR12. |
+| NR10 — first inserted storage row on existing asset | PARTIAL / separate pre-existing finding: number/date null and dropdown default 0 caused no spurious entries, but a mapped boolean at default 0 created Change 6 with false. Source: `capture_changed()` compares SQL default string `"0"` with saved integer 0. This does not cause the number rejection and is outside this patch; it was not concealed or fixed. |
+| NR11 — strict stored-value validation | PASS: unchanged `field_value()` rejected stored `""`, `"1,5"` and `"NULL"`; accepted actual null, stored `"0"` as JSON 0, and `"1.5"` as JSON 1.5. |
+| NR12 — ordinary editor | PASS: profile 9 had Computer UPDATE but no Change READ/UPDATE or Setting CREATE. A genuine number `"19"` plus native comment save succeeded and produced exactly Changes 7 (number) and 8 (comment). No plugin rights were added to that editor. |
+| NR13 — mixed existing scalar regression | PASS: native comment plus number `"20"`, canonical date, valid dropdown and boolean produced exactly Changes 9 (four Fields values) and 10 (native comment). Number/date clears and boolean true→false produced Change 11 with null/null/false. Sibling text and dropdown selection were preserved. Final fresh state: Works 0, 11 Pending Changes, guard false. |
+| NR14 — full native browser POST | PASS: after Chrome ceased blocking automation, the actual native Computer form was submitted through `POST /front/computer.form.php`, including its inserted Fields controls and GLPI CSRF/read-date handling, under profile 9. An unrelated Name edit with number blank saved and reread exactly, kept SQL null and left the queue at 11. Browser string `"0"` stored `"0"` and produced only Change 12 (JSON number 0, `21:02:31+08:00`). Clearing the number stored actual SQL null and produced only Change 13 (JSON null, `21:02:48+08:00`). An unchanged full form save added no row; final queue 13, Works 0. Each returned to the normal asset form. The initial password-manager panel interruption required no extension setting changes. |
+
+Isolated candidate PHP lint and repository whitespace check passed. The disposable
+verification containers were stopped afterward. The original
+localhost:8081 database and all original Works, including Works 1–7, were not
+accessed or changed by this investigation. No commit, push, release update or
+real-environment deployment was performed.
+
+Other source findings remain separate: capture currently resolves retained-link
+identity before checking whether a route has any eligible mapped candidate, so
+competing links can reject even an unrelated save. Production involvement is
+unknown without its exception. No change to link handling or recovery is part
+of this patch. Direct-method typed integer zero also needs separate verification;
+the zero results above cover actual form-shaped strings, not arbitrary callers.
+
+## Localhost native-tab deployment — 27 October 2026
+
+User explicitly authorized deploying the reviewed Fields-number fix to
+**localhost:8081** and verifying native-tab saves, keeping Works 1–7 unchanged
+and excluding commits, pushes and the real environment. Target
+`assetsync2-glpib`: GLPI **11.0.7**, Fields **1.24.4**, Agent B active.
+Only `inc/capture.php` was replaced; its local/container SHA-256 matched:
+`6daefd5e88f4489f5c923ffb7f47b9eba7eaad759840fb9a08255e9307fefd8b`.
+Installed plugin version metadata remains **0.1.0** as before this deployment;
+this was a capture-file patch, with no plugin installation, metadata update,
+migration, Work/recovery change or worker invocation. The initial non-root
+staging command could not preserve the existing file owner and stopped before
+replacement. Container root then completed the atomic replacement, preserving
+the original mode/owner; the failed staging file was removed.
+
+GLPI cron and the old worker were **STOPPED / Not started** before and after;
+Apache remained running. Before any fixture writes, read-only snapshots of
+Works 1–7, all 860 existing Works and all 92 existing Changes were retained.
+No Work records were created, retried, reset, resent or updated. No Change
+acknowledgements or correction jobs were submitted.
+
+New disposable fixtures, created with normal GLPI/Fields methods: entity **12**,
+Computer **231**, insertion (`dom`) Fields container **15** (`nativelocalreview`),
+definitions **83–87**, dropdown option **1**, Setting **34**, route
+`native-local-review-20261027`. The route is confined to entity 12; existing
+enabled routes target entities 2 and 11. Only the new container's profile
+associations were configured. The fixture already had a Fields storage row
+before the Setting was enabled; no first-row default-boolean pass is implied.
+
+Browser cases used the actual native **Computer** tab, not the separate Fields
+tab: `GET /front/computer.form.php?id=231`, then ordinary
+`POST /front/computer.form.php` submissions with the inserted Fields controls
+and GLPI's CSRF/read-date handling. DOM input observations confirmed optional
+number `""`, date `""` and empty dropdown `"0"`. Independent native/Fields/Change
+readbacks were inspected after the cases. Additional native-method checks
+booted GLPI and used `Computer::update()` through the same insertion hooks;
+no reusable harness or automated tests were added.
+
+| Case | Observed localhost result |
+|---|---|
+| NLN01 — unrelated native save with blank mapped number | PASS browser: Name changed to `Local native unrelated save passed`; number/date stayed SQL null and fixture Change count stayed 0. Returned to normal native form. |
+| NLN02 — unchanged blank form | PASS browser: complete native form saved unchanged, number remained SQL null, zero new snapshots. |
+| NLN03 — blank to zero | PASS browser: string `"0"` persisted as `"0"`; only Change **93**, numeric value 0, reliable `2026-10-27T21:13:12+08:00`. |
+| NLN04 — unchanged zero | PASS browser: repeating the full native save retained zero and left fixture Change count 1. |
+| NLN05 — explicitly clear zero | PASS browser: blanking the number persisted actual SQL null; only Change **94**, JSON-null value, `2026-10-27T21:13:45+08:00`. |
+| NLN06 — mixed native and inserted Fields edit | PASS browser: number `12.5`, native comment and an unmapped inserted note saved and reread exactly. Exactly Changes **95** (number 12.5) and **96** (native comment), both with genuine `+08:00` time. The note was preserved and was not included in a snapshot. |
+| NLN07 — Fields comma normalization | PASS native method: outer input `"1,5"` saved as `"1.5"`; only Change **97**, numeric value 1.5. This is source-verified Fields normalization, not a claim about browser locale entry. |
+| NLN08 — invalid number inputs | PASS native method: `bad`, space, `1,2,3`, literal `NULL`, false and array each raised mapping-specific `ASB_CAPTURE_REJECTED ... Invalid stored number`. Full native asset, Fields row and queue were unchanged after each rejection; no invalid-to-null coercion. |
+| NLN09 — guard and next genuine edit | PASS native method: guarded number `"30"` saved with zero queue additions and guard false afterward. Genuine edit to `"31"` produced only Change **98**. No Work was involved. |
+| NLN10 — protected records and runtime | PASS: all seven Works **1–7**, all **860 pre-existing Work rows**, and all **92 pre-existing Changes** compared byte-for-byte identical before/after. Final fixture queue: exactly **six Pending Changes 93–98**, with no acknowledgement. Deployed PHP lint passed; capture file matched the reviewed local candidate; both workers stayed stopped. |
+
+Identical protected snapshot SHA-256 values:
+
+- Works 1–7: `205d2fc02640902378b364b82707cb78c82f5fd3d13821a391cf01a1a6f9e3b1`.
+- Existing Works 1–860: `1997d0ab6c1c98e066dfa616d1aa3e02a714893a98d116bb05a1f4d604627c6c`.
+- Existing Changes 1–92: `9ee39d1872e740064e1877ab8783468e7f35e30563f8e9d58a76deda3f01e999`.
+
+Local B remains online with cron/workers stopped and disposable fixtures retained
+for review. Final fixture number is `"31"`, date SQL null, empty dropdown 0,
+boolean 0, and the sibling note remains intact. No Controller access, commit,
+push, release update, real-environment request or deployment occurred in this
+pass. The real site's current error still requires its server exception; this
+localhost pass does not resolve existing recovery jobs or the separate findings
+recorded above.
+
 ## Current evidence index
 
 The ledger for each part records the deployed scope, exact manual requests,
