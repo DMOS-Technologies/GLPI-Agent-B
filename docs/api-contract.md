@@ -11,8 +11,30 @@ runtime evidence and remaining verification limits are indexed below.
 and content edits through these same three REST resources. Text and formatting
 are supported; files, deletion and automatic capability changes are excluded.
 It defines the subject discriminator, note payloads, internal association table,
-permissions, equality/adoption rules and exact completion. Earlier runtime
-evidence below covers Asset subjects; it does not certify the new Notes path.
+permissions, equality/adoption rules and exact completion. The later bounded
+[Notes local run](manual-tests.md#native-notes-local-runtime-verification--28-october-2026)
+records its own observed results and remaining variants.
+
+**Scalar field-isolation extension (0.3.0, 28 October 2026):** the normative
+[field-sync contract](field-sync-contract.md) adds explicit per-request selection
+and durable structured field certainty for new Asset Sync Work on verified
+Active links. It is opt-in through `field_sync_json`; omission or null retains
+the legacy request/result rules below. The original
+[FI01–FI35 source checklist](manual-tests.md#scalar-field-isolation-source-only-candidate--28-october-2026)
+is historical; the later bounded 0.4.0 local run covers representative version 1
+and legacy behavior without certifying every FI variant.
+
+**Automatic scalar reconciliation extension (0.4.0, 29 October 2026):**
+[reconciliation-contract.md](reconciliation-contract.md) defines version 2 of
+the existing `field_sync_json` option. A creates a distinct targeted Work with
+a terminal same-link Work reference and fresh current values/evidence. B can
+verify or repair current state while retaining the earlier Work's exact
+Held/Failed/Unknown or damaged evidence. Current equality is not historical
+completion. Version 1, legacy, Notes and control requests keep their existing
+shapes and behavior. The authorized
+[local reconciliation run](manual-tests.md#automatic-scalar-reconciliation-local-runtime-verification--29-october-2026)
+records RC01–RC22 results, fixes and remaining variants. It does not certify
+Controller A integration or another deployment.
 
 ## Contract status and sources
 
@@ -274,6 +296,7 @@ settings GET and no remote lookup by B.
 | `work_id` | `KEY128` | Required; unique, immutable | A at creation only |
 | `subject` | `VARCHAR(16)` / `Asset`, `Note` | Optional; default `Asset` | A at creation only |
 | `note_json` | nullable `JSON_TEXT` | Asset: omitted/null; Note: required Sync/Inventory payload from Notes contract | A at creation only |
+| `field_sync_json` | nullable `JSON_TEXT` / hidden from native GET/collection/search rows | Optional; omitted/null retains legacy behavior; version 1 selects linked Asset Sync fields; version 2 adds a terminal same-link Work reference for fresh current-state reconciliation; parsed request echoed in extended `result_json` | A at creation only |
 | `operation` | `VARCHAR(16)` | Optional; default `Sync`; Asset allows Sync/Suspend/Resume; Note allows Sync/Inventory | A at creation only |
 | `route_id` | `KEY128` | Required | A at creation only |
 | `a_entities_id` | `ID`, allowing `0` | Required | A at creation only |
@@ -291,13 +314,18 @@ settings GET and no remote lookup by B.
 | `link_state` | nullable `VARCHAR(16)` / `Active`, `Suspended` | Initially `null`; verified durable evidence | B only |
 | `processing_started_at` | nullable `TIME` | Initially `null`; durable start marker before processing | B only |
 | `status` | `VARCHAR(16)` / string enum below | B initializes `Accepted` | B only |
-| `result_json` | nullable `JSON_TEXT`, result object below | Initially `null` | B only |
+| `result_json` | nullable `JSON_TEXT`, result object below | Initially `null` for legacy Work; initialized Pending/Excluded journal for opted-in field-sync Work | B only |
 | `error` | nullable `TEXT` | Initially `null` | B only |
 | `date_creation` | `TIME` | Set on acceptance | B/GLPI only |
 | `date_mod` | `TIME` | Set on acceptance and B updates | B/GLPI only |
 | `completed_at` | nullable `TIME` | Initially `null`; set only on `Done` | B only |
 
 The remaining Asset processing/result examples below apply to subject Asset.
+Unless an example explicitly supplies non-null `field_sync_json`, it uses the
+legacy shape. This new property is stored unchanged, is immutable with the
+rest of the request, and adds no raw-row GET key because native GLPI hides it
+through Work's undisclosed-fields list. See the extension for its exact schema,
+validation, capability requirement and echoed readback.
 Note Work retains all required parent/scope fields, uses empty scalar objects,
 and follows [the Notes contract](notes-contract.md). Note Work never supplies
 retained parent-link/control evidence: b_items_id/link_state stay null, and the
@@ -345,8 +373,22 @@ of a public `Processing` status does not permit two workers to apply it twice.
 
 #### Work result object
 
-`result_json` is `null` until B has evidence to report. When present, it has
-exactly these properties:
+For Work without non-null `field_sync_json`, `result_json` is `null` until B has
+evidence to report and, when present, has exactly these properties. Opted-in
+Asset Sync uses the explicitly versioned additional `field_sync` member and
+extended field outcomes defined in [the extension](field-sync-contract.md).
+Version 2 adds only its explicit reconciliation reference to that versioned
+member as defined in [reconciliation-contract.md](reconciliation-contract.md).
+Legacy field outcomes never gain certainty/error-code keys.
+If an opted-in started Work's retained journal is missing/unreadable, B preserves
+its exact `result_json` bytes and immutable request, changing only status/error
+to Held/`ASB_FIELD_JOURNAL_UNREADABLE`. No reconstructed result or per-field
+certainty is available; all selected missing effects require reconciliation,
+without automatic version 1 catch-up or replay. A distinct explicit version 2
+Work can reconcile current mapped state after this Work is terminal under
+[its own rules](reconciliation-contract.md), without altering the damaged prior
+evidence. See the version 1 extension's exceptional recovery rule; native REST
+does not reveal the hidden original selection column.
 
 | Property | Inner JSON type | Meaning |
 |---|---|---|
@@ -412,7 +454,10 @@ before work can cause an asset write. If a process crashes and leaves started
 Accepted work, hold it as uncertain on the next run rather than replaying its
 writes. Store per-field verified outcomes as processing progresses. A person
 must reconcile an uncertain local outcome before issuing any necessary new
-Work ID. Polling does not increment attempts. Work does not expire merely
+legacy/version 1 Work ID. Version 2 instead permits automatic fresh scalar
+convergence under the explicit [reconciliation contract](reconciliation-contract.md);
+it never reopens the earlier Work or certifies its unknown historical effects.
+Polling does not increment attempts. Work does not expire merely
 because it is old; stale settings/scope/evidence are rechecked before writes.
 
 Before every local asset action, establish the recorded submitting user's
@@ -1240,6 +1285,10 @@ case (`operation` omitted defaults to Sync); unknown values produce
   **only enabled mappings** for this type in the current settings. Extra
   unmapped values are ignored as required by spec section 4, never written;
   this is different from forbidden extra top-level record fields.
+  This is the legacy rule: non-null `field_sync_json` instead rejects values
+  or time entries outside its explicit selection. A/B/Both exclusions, empty
+  selection, exact Setting references and first-copy restrictions are normative
+  in [field-sync-contract.md](field-sync-contract.md#request-and-compatibility).
 - `a_change_times_json` must have the specified evidence shape. Missing or
   explicitly unreliable evidence is permitted so conflicts can stay visible.
   A malformed timestamp is a schema error; missing evidence is not a license
@@ -1250,6 +1299,12 @@ case (`operation` omitted defaults to Sync); unknown values produce
 - Admission is bounded validation and saving only. Matching assets, dropdown
   lookups, add/update, reread verification, and correction completion happen
   in the local background task.
+  Version 2 also validates a readable terminal same-link Asset Sync reference;
+  its immutable original identity must establish an existing positive B ID.
+  Its result may be missing/damaged and is never rewritten or used as proof of
+  no effects. The current Setting governs the new request, even when an older
+  referenced Work used a prior version. See the reconciliation contract for
+  runtime quiescence, owned-session durability and exact option/result schemas.
 - Before **each local write**, recheck current route enabled state, settings
   version, entities, allowed type, mapping, identity, field rules, and service
   permissions. Hold mismatches without further writes. Previously completed
@@ -1476,7 +1531,7 @@ These are now requirements rather than unapproved defaults.
 | Q6 | Reject malformed admission payloads; save structurally valid Work then Hold scope/settings/type mismatches visibly without asset writes. |
 | Q7 | Generic installed GLPI asset registry, including registered custom asset classes; no per-type implementation. Validate field-kind support and actual safe local writes. Native and Fields-plugin scalar mappings plus the four documented text/dropdown conversions are required. Unsupported enabled mappings, including unavailable Fields support, are rejected during Setting admission for later review/fix. Complex non-scalar fields remain rejected until a payload/save contract exists. |
 | Q8 | Process supported fields and record exact skipped-field reasons. Done may contain documented skips; unresolved conflicts are Held; definite save failures are Failed. Preserve verified partial outcomes. An entire Change snapshot must be covered before it can become Done. |
-| Q9 | One background worker; durable start marker and partial evidence; no blind replay of interrupted/uncertain writes, especially first copy. Held/Failed are not automatically reopened. Reconcile before any necessary new Work. Queue age alone does not expire work. |
+| Q9 | One background worker; durable start marker and partial evidence; no blind replay of interrupted/uncertain writes, especially first copy. Held/Failed are not automatically reopened. Version 2 permits a distinct fresh same-link scalar reconciliation Work after the referenced Work is terminal; it preserves prior unknown evidence and follows current authority. Legacy/version 1 recovery rules remain unchanged. Queue age alone does not expire work. |
 | Q10 | Capture submitting user/profile as B-owned metadata and recheck their current authorizations for local processing. Never inherit cron administrator privileges or store session credentials. |
 | Q11 | Existing Work records carry Sync/Suspend/Resume operations and retain indexed verified link/scope evidence. No fourth record type, custom endpoint, deletion, or entity transfer. |
 | Q12 | Local target is GLPI 11.0.7, confirmed from its running source. A must reconcile acknowledgement responses by actual ID keys and read back omitted/uncertain results. The observed missing-ID omission and no-ID collection response are recorded in section 3.2 and the OB ledger; never override GLPI HTTP handling. |
@@ -1518,3 +1573,20 @@ normal-save decision above; Work failures remain visible in Work results.
 A genuinely unknown convention or fact
 must be stated as an explicit question before promising behavior; do not guess
 an answer. Other approved wire schemas and decisions remain unchanged.
+
+The 28 October 2026 scalar extension permits selected-field catch-up only on
+verified Active existing links. It adds one nullable, native-GET-hidden Work
+column and versioned result evidence, without changing Setting/Change schemas,
+Work statuses or legacy omission semantics. A must negotiate support for B
+0.3.0 plus the completed upgrade before opting in. Prior scalar/Notes runtime
+evidence does not certify this extension; see its normative contract and the
+new manual checklist before claiming A/B integration readiness.
+
+The 29 October 2026 version 2 extension reuses that hidden column and the same
+three public resources, without another schema column or a new Work status.
+It requires deployed version 0.4.0 and the existing additive upgrade. A retains
+its exact original request, correlates `reconcile_work_id` with its own problem
+ledger, polls asynchronous outcomes and can aggregate exact Change coverage
+across fresh targeted Works. There is no `source_timestamp` or `parent_change_id`
+B property. The recovery policy, including its owned-session boundary and limits,
+is normative in reconciliation-contract.md; runtime integration is unverified.

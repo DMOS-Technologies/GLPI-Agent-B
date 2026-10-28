@@ -163,10 +163,10 @@ function plugin_agentbdmosassetsync_snapshot_returned(stdClass $fields, stdClass
     return true;
 }
 
-function plugin_agentbdmosassetsync_covered_returns(array $work, array $result): array
+function plugin_agentbdmosassetsync_covered_returns(array $work, array $result, ?array $selectedIds = null): array
 {
     global $DB;
-    return plugin_agentbdmosassetsync_route_action($work, static function () use ($work, $result, $DB) {
+    return plugin_agentbdmosassetsync_route_action($work, static function () use ($work, $result, $selectedIds, $DB) {
         $route = plugin_agentbdmosassetsync_current_route($work);
         $asset = plugin_agentbdmosassetsync_find_existing($work);
         $covered = [];
@@ -180,6 +180,16 @@ function plugin_agentbdmosassetsync_covered_returns(array $work, array $result):
                 $change = new PluginAgentbdmosassetsyncChange();
                 if (!$change->getFromDB($row['id']) || !$change->can($row['id'], READ)) {
                     continue;
+                }
+                if ($selectedIds !== null) {
+                    $snapshotFields = json_decode($row['changed_fields_json'], false, 512, JSON_THROW_ON_ERROR);
+                    if (!$snapshotFields instanceof stdClass) {
+                        continue;
+                    }
+                    $keys = array_keys(get_object_vars($snapshotFields));
+                    if (array_diff($keys, $selectedIds) !== []) {
+                        continue;
+                    }
                 }
                 $fields = plugin_agentbdmosassetsync_snapshot_scope($work, $route, $asset, $row);
                 if (plugin_agentbdmosassetsync_snapshot_returned($fields, $result['b_values_for_a'])) {
@@ -243,15 +253,24 @@ function plugin_agentbdmosassetsync_correction_coverage(array $work, array $rout
     }
 }
 
-function plugin_agentbdmosassetsync_finish_corrections(PluginAgentbdmosassetsyncWork $record, array &$result): array
+function plugin_agentbdmosassetsync_finish_corrections(PluginAgentbdmosassetsyncWork $record, array &$result,
+    ?array $workContext = null): array
 {
     global $DB;
-    $work = $record->fields;
+    $work = $workContext ?? $record->fields;
+    $strictTransaction = plugin_agentbdmosassetsync_field_sync_enabled($work);
     $failures = [];
     foreach (json_decode($work['handled_change_ids_json'], true, 512, JSON_THROW_ON_ERROR) as $id) {
         try {
-            plugin_agentbdmosassetsync_route_action($work, static function () use ($record, $work, $id, &$result, $DB) {
-                $DB->beginTransaction();
+            $action = static function () use ($record, $work, $id, &$result, $strictTransaction, $DB) {
+                try {
+                    $DB->beginTransaction();
+                } catch (Throwable $e) {
+                    if ($strictTransaction) {
+                        throw new RuntimeException('Snapshot transaction start is uncertain; stop this worker', 9101, $e);
+                    }
+                    throw $e;
+                }
                 try {
                     $snapshot = $DB->fetchAssoc($DB->doQuery('SELECT * FROM `' . PluginAgentbdmosassetsyncChange::getTable()
                         . '` WHERE `id` = ' . $id . ' FOR UPDATE'));
@@ -266,36 +285,131 @@ function plugin_agentbdmosassetsync_finish_corrections(PluginAgentbdmosassetsync
                         throw new RuntimeException('Correction snapshot missing or not permitted: ' . $id);
                     }
                     plugin_agentbdmosassetsync_correction_coverage($work, $route, $asset, $change->fields, $result);
-                    if ($change->fields['status'] !== 'Done' && !$change->markDoneInternally($id)) {
+                    plugin_agentbdmosassetsync_field_sync_reconcile_guard($record->fields, true);
+                    if ($change->fields['status'] !== 'Done' && !$change->markDoneInternally($id, $strictTransaction)) {
                         throw new RuntimeException('Exact snapshot completion was not verified');
                     }
                     $result['handled_change_ids_done'][] = $id;
-                    if (!$record->saveProcessorFields((int) $work['id'], ['result_json' => json_encode($result, JSON_THROW_ON_ERROR)])) {
+                    $saved = $strictTransaction ? $record->saveFieldSyncEvidence((int) $work['id'], $result)
+                        : $record->saveProcessorFields((int) $work['id'], ['result_json' => json_encode($result, JSON_THROW_ON_ERROR)]);
+                    if (!$saved) {
                         throw new RuntimeException('Correction progress could not be saved');
                     }
                     $DB->commit();
+                    plugin_agentbdmosassetsync_field_sync_reconcile_visible($work,
+                        ['result_json' => json_encode($result, JSON_THROW_ON_ERROR)]);
                 } catch (Throwable $e) {
                     $result['handled_change_ids_done'] = array_values(array_diff($result['handled_change_ids_done'], [$id]));
+                    if ($strictTransaction && $e->getCode() === 9101) {
+                        throw $e;
+                    }
                     try {
                         $DB->rollBack();
                     } catch (Throwable $rollbackError) {
+                        if ($strictTransaction) {
+                            throw new RuntimeException('Snapshot rollback is uncertain; stop this worker', 9101, $rollbackError);
+                        }
                         throw new RuntimeException('Hold: correction completion/rollback is uncertain; reconcile exact snapshot ' . $id,
                             0, $rollbackError);
                     }
                     throw $e;
                 }
-            });
+            };
+            if ($strictTransaction) {
+                plugin_agentbdmosassetsync_field_sync_route_action($work, $action);
+            } else {
+                plugin_agentbdmosassetsync_route_action($work, $action);
+            }
         } catch (Throwable $e) {
-            $reason = 'Snapshot ' . $id . ': ' . ($e instanceof RuntimeException ? $e->getMessage() : 'uncertain correction outcome');
+            if ($strictTransaction && $e->getCode() === 9101) {
+                throw $e;
+            }
+            $reason = 'Snapshot ' . $id . ': ' . ($strictTransaction ? 'exact coverage or completion remains unresolved'
+                : ($e instanceof RuntimeException ? $e->getMessage() : 'uncertain correction outcome'));
             $failures[] = $reason;
             try {
-                plugin_agentbdmosassetsync_note_correction_failure($work, $id, $reason);
+                plugin_agentbdmosassetsync_note_correction_failure($work, $id, $reason, $strictTransaction);
             } catch (Throwable $metadataError) {
+                if ($strictTransaction && $metadataError->getCode() === 9101) {
+                    throw $metadataError;
+                }
                 $failures[] = 'Correction metadata could not be verified for snapshot ' . $id;
             }
         }
     }
     return $failures;
+}
+
+/** Inspect snapshot identity and mapping keys without evaluating excluded values or descriptors. */
+function plugin_agentbdmosassetsync_field_sync_snapshot_scope(array $work, array $route,
+    CommonDBTM $asset, array $row): stdClass
+{
+    if (($row['subject'] ?? 'Asset') !== 'Asset' || $row['route_id'] !== $work['route_id']
+        || $row['itemtype'] !== $work['itemtype'] || (int) $row['settings_version'] !== (int) $route['settings_version']
+        || (int) $row['entities_id'] !== (int) $work['entities_id']
+        || (int) $row['a_entities_id'] !== (int) $work['a_entities_id']) {
+        throw new RuntimeException('Snapshot is outside the exact Work scope');
+    }
+    $identity = json_decode($row['identity_json'], false, 512, JSON_THROW_ON_ERROR);
+    if (!plugin_agentbdmosassetsync_object_keys($identity, ['a_items_id', 'b_items_id', 'serial'])
+        || $identity->b_items_id !== (int) $asset->getID()
+        || ($identity->a_items_id !== null && $identity->a_items_id !== (int) $work['a_items_id'])) {
+        throw new RuntimeException('Snapshot does not identify the verified retained parent');
+    }
+    $fields = json_decode($row['changed_fields_json'], false, 512, JSON_THROW_ON_ERROR);
+    $mappings = plugin_agentbdmosassetsync_mapping_map($route, $work['itemtype']);
+    if (!$fields instanceof stdClass || get_object_vars($fields) === []
+        || array_diff(array_keys(get_object_vars($fields)), array_keys($mappings)) !== []) {
+        throw new RuntimeException('Snapshot has invalid mapping references');
+    }
+    return $fields;
+}
+
+function plugin_agentbdmosassetsync_field_sync_snapshots(array $work, array $route, CommonDBTM $asset,
+    stdClass $options, array &$result): array
+{
+    $eligible = [];
+    foreach (json_decode($work['handled_change_ids_json'], true, 512, JSON_THROW_ON_ERROR) as $id) {
+        $change = new PluginAgentbdmosassetsyncChange();
+        if (!$change->getFromDB($id) || !$change->can($id, READ) || !$change->can($id, UPDATE)
+            || !in_array($change->fields['status'], ['Pending', 'Done'], true)) {
+            throw new RuntimeException('Snapshot reference is unavailable or not permitted');
+        }
+        $fields = plugin_agentbdmosassetsync_field_sync_snapshot_scope($work, $route, $asset, $change->fields);
+        if (array_diff(array_keys(get_object_vars($fields)), $options->mapping_ids) !== []) {
+            $result['field_sync']['snapshot_outcomes'][] = ['id' => $id, 'error_code' => 'SNAPSHOT_NOT_SELECTED',
+                'reason' => 'Snapshot contains mappings not selected by this Work'];
+            continue;
+        }
+        foreach (get_object_vars($fields) as $field) {
+            if (!plugin_agentbdmosassetsync_object_keys($field, ['value', 'changed_at', 'reliable'])
+                || $field->reliable !== true || plugin_agentbdmosassetsync_evidence_time($field->changed_at) === null
+                || (!is_scalar($field->value) && $field->value !== null)) {
+                throw new RuntimeException('Selected snapshot evidence is incomplete');
+            }
+        }
+        $eligible[] = $id;
+    }
+    return $eligible;
+}
+
+function plugin_agentbdmosassetsync_field_sync_begin_snapshots(array $work, stdClass $options, array $ids): void
+{
+    $context = $work;
+    $context['handled_change_ids_json'] = json_encode($ids, JSON_THROW_ON_ERROR);
+    plugin_agentbdmosassetsync_field_sync_route_action($work, static function () use ($context, $options) {
+        $code = 'SETTING_SCOPE';
+        [$route, $asset] = plugin_agentbdmosassetsync_field_sync_context($context, $options, $code);
+        $unused = ['field_sync' => ['snapshot_outcomes' => []]];
+        $eligible = plugin_agentbdmosassetsync_field_sync_snapshots($context, $route, $asset, $options, $unused);
+        foreach ($eligible as $id) {
+            $change = new PluginAgentbdmosassetsyncChange();
+            if (!$change->getFromDB($id)
+                || ($change->fields['status'] === 'Pending' && !$change->recordCorrectionAttempt($id, true))) {
+                throw new RuntimeException('Snapshot processing attempt could not be recorded');
+            }
+        }
+    });
 }
 
 function plugin_agentbdmosassetsync_lock_field(CommonDBTM $asset, array $field): void
@@ -385,6 +499,12 @@ function plugin_agentbdmosassetsync_locked_value(array $work, CommonDBTM $asset,
         throw new RuntimeException('Hold: current field storage is missing');
     }
     $value = $row[$field['column']];
+    // Match ordinary rereads of Fields' exact saved empty scalar representation.
+    if ($value === '' && $field['container_id'] !== null
+        && in_array($field['kind'], ['date', 'datetime', 'number'], true)
+        && $field['sql']['Null'] === 'YES') {
+        $value = null;
+    }
     if ($field['custom_field_id'] !== null) {
         $values = json_decode($value ?? '[]', true, 512, JSON_THROW_ON_ERROR);
         $value = $field['custom_type']->formatValueFromDB($values[$field['custom_field_id']] ?? $field['custom_default']);
@@ -395,9 +515,10 @@ function plugin_agentbdmosassetsync_locked_value(array $work, CommonDBTM $asset,
     return plugin_agentbdmosassetsync_field_value($field, $value);
 }
 
-function plugin_agentbdmosassetsync_note_correction_failure(array $work, int $id, string $reason): void
+function plugin_agentbdmosassetsync_note_correction_failure(array $work, int $id, string $reason,
+    bool $strictTransaction = false): void
 {
-    plugin_agentbdmosassetsync_route_action($work, static function () use ($work, $id, $reason) {
+    $action = static function () use ($work, $id, $reason, $strictTransaction) {
         $route = plugin_agentbdmosassetsync_current_route($work);
         $asset = plugin_agentbdmosassetsync_find_existing($work);
         $change = new PluginAgentbdmosassetsyncChange();
@@ -405,8 +526,13 @@ function plugin_agentbdmosassetsync_note_correction_failure(array $work, int $id
             throw new RuntimeException('Correction failure metadata is not currently permitted');
         }
         plugin_agentbdmosassetsync_snapshot_scope($work, $route, $asset, $change->fields);
-        if ($change->fields['status'] === 'Pending' && !$change->recordCorrectionFailure($id, $reason)) {
+        if ($change->fields['status'] === 'Pending' && !$change->recordCorrectionFailure($id, $reason, $strictTransaction)) {
             throw new RuntimeException('Correction failure metadata was not verified');
         }
-    });
+    };
+    if ($strictTransaction) {
+        plugin_agentbdmosassetsync_field_sync_route_action($work, $action);
+    } else {
+        plugin_agentbdmosassetsync_route_action($work, $action);
+    }
 }

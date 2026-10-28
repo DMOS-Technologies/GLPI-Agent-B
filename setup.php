@@ -9,6 +9,7 @@ function plugin_init_agentbdmosassetsync()
     $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['agentbdmosassetsync'] = true;
     require_once __DIR__ . '/inc/functions.php';
     require_once __DIR__ . '/inc/fields.php';
+    require_once __DIR__ . '/inc/fieldisolation.php';
     require_once __DIR__ . '/inc/notes.php';
     require_once __DIR__ . '/inc/capture.php';
     require_once __DIR__ . '/inc/notecapture.php';
@@ -23,7 +24,7 @@ function plugin_version_agentbdmosassetsync()
 {
     return [
         'name' => 'Agent-B-DMOS-AssetSync',
-        'version' => '0.2.0',
+        'version' => '0.4.0',
         'author' => 'DMOS',
         'license' => 'GPLv3+',
         'requirements' => ['glpi' => ['min' => '11.0.7', 'max' => '11.0.99']],

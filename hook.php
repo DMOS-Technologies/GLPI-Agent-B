@@ -31,6 +31,7 @@ function plugin_agentbdmosassetsync_install()
             `a_change_times_json` LONGTEXT NOT NULL,
             `settings_version` INT UNSIGNED NOT NULL,
             `handled_change_ids_json` LONGTEXT NOT NULL,
+            `field_sync_json` LONGTEXT NULL DEFAULT NULL,
             `operation` VARCHAR(16) NOT NULL DEFAULT 'Sync',
             `submitted_users_id` INT UNSIGNED NOT NULL DEFAULT 0,
             `submitted_profiles_id` INT UNSIGNED NOT NULL DEFAULT 0,
@@ -93,13 +94,14 @@ function plugin_agentbdmosassetsync_install()
         }
     }
 
-    // Upgrade only adds Notes columns; retained request and snapshot payloads are untouched.
-    $notesColumns = [
+    // Additive upgrades preserve retained request and snapshot payloads.
+    $additiveColumns = [
         'settings' => ['notes_itemtypes_json' => 'LONGTEXT NULL DEFAULT NULL'],
-        'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
+        'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
     ];
-    foreach ($notesColumns as $suffix => $columns) {
+    foreach ($additiveColumns as $suffix => $columns) {
         $table = 'glpi_plugin_agentbdmosassetsync_' . $suffix;
         foreach ($columns as $column => $definition) {
             if (!$DB->fieldExists($table, $column)) {

@@ -9,7 +9,20 @@
 The flowcharts remain the baseline asset flows. The approved native Notes
 extension is specified in [docs/notes-contract.md](docs/notes-contract.md),
 which extends [docs/api-contract.md](docs/api-contract.md). Notes are implemented
-in source for version 0.2.0; Notes runtime behavior has not been certified.
+in version 0.2.0; bounded local Notes runtime evidence and remaining variants
+are recorded in [docs/manual-tests.md](docs/manual-tests.md#native-notes-local-runtime-verification--28-october-2026).
+The opt-in scalar field-isolation extension requires version 0.3.0 and the
+additive upgrade; [docs/field-sync-contract.md](docs/field-sync-contract.md) is
+normative. Its original FI source checklist is preserved as a historical plan;
+the later local run covers representative regressions, not every FI variant.
+Version 0.4.0 adds explicit version 2 scalar current-state reconciliation in
+[docs/reconciliation-contract.md](docs/reconciliation-contract.md). The prior
+Work stays immutable, including Unknown or damaged evidence; a distinct Work
+can verify or repair the current state. A later authorized bounded local Docker
+run records RC01–RC22 results and remaining variants in
+[docs/manual-tests.md](docs/manual-tests.md#automatic-scalar-reconciliation-local-runtime-verification--29-october-2026).
+The original source-only FI/RC checklists remain historical plans, not claims
+that every variant or Controller A integration has passed.
 
 ## Decisions already made
 
@@ -68,6 +81,11 @@ public API itemtype and does not duplicate complete Note bodies.
   empty scalar values/times objects, and operation `Sync` or `Inventory`.
   Suspend/Resume remain Asset-only. A Note Work requires a verified existing
   Asset link and never creates, links or resumes the parent asset.
+- A may create a new linked Asset Sync Work with non-null `field_sync_json`
+  to request versioned explicit field selection and structured certainty.
+  The exact request is immutable and hidden from native raw-row GET fields;
+  its parsed selection is echoed in opted-in results. Omission/null keeps the
+  legacy request and result shapes. There is no update/reset/replay operation.
 
 ### 2.3 Change record (B creates, A acknowledges)
 **B writes:** queue ID, route ID, settings version, asset type, serial and link IDs, changed fields and values, original per-field change time, status, retry count, error.
@@ -134,6 +152,117 @@ and the Notes contract. For each Asset record:
    - the queue IDs of Pending Change records that those values cover.
    Keep those Change records Pending until A acknowledges them.
 7. **Correction work (B-starts flow):** same pipeline. It also carries `handled_change_ids`. Recheck route, type, mapping, and field times. Mark the covered Change records Done only after the update succeeds. If it fails, they stay Pending.
+
+### 4.1 Explicit scalar selection and durable certainty (opt in)
+
+Only an already-linked asset with a verified retained Active relationship may
+use `field_sync_json={"version":1,"mapping_ids":[...]}` (encoded as an outer
+JSON string). IDs refer to enabled mappings for the exact route, itemtype and
+current settings version. Empty selection processes no mapped fields but still
+checks account, parent and scope. Values/times outside the selection reject.
+The property is forbidden on Notes and Suspend/Resume; it cannot first-copy,
+serial-match, relink, resume or move an asset. Without it, all legacy omission
+and processing rules above remain unchanged.
+
+An excluded mapping is not explicitly described, read, converted, arbitrated,
+returned or written, regardless of A/B/Both source. It remains configured and
+is not cleared. Selected A/Both mappings missing a value receive a structured
+prewrite rejection; selected siblings can still proceed. Missing genuine Both
+time evidence retains normal conflict rules. Supported explicit scalar null
+clears remain distinct from omission/exclusion; dropdown null/empty is rejected.
+
+Opted-in field outcomes identify a prewrite rejection (`NotAttempted`), verified
+save (`VerifiedApplied`), equal no-write observation (`VerifiedEqual`) or possible
+mutation/completion uncertainty (`Unknown`) without parsing prose. Under the
+dedicated-CLI boundary below, B commits an
+in-flight mapping marker before mutation and atomically stores provisional
+verified evidence with the field on supported transactional storage. Commit,
+rollback, journal or lock-release uncertainty stays durable and Holds the Work;
+it never turns into a claim that no writer was called after restart. Verified
+siblings are preserved. Native save methods and the sync guard remain mandatory;
+ordinary human-save capture is unchanged and non-blocking.
+An unreadable/missing started journal is retained unchanged; B Holds with
+`ASB_FIELD_JOURNAL_UNREADABLE`, without fabricating prior per-field outcomes.
+Its selected fields require reconciliation, not automatic catch-up.
+That restriction describes version 1 recovery; section 4.2 defines the separate
+version 2 current-state operation after this Work becomes terminal.
+Opted-in metadata/snapshot work stops if its transaction boundary becomes
+uncertain; same-connection uncommitted readback is never durable evidence.
+Atomicity assumes a fresh dedicated `php front/cron.php processWork` invocation,
+source-verified to have no native outer transaction, and supported native
+behavior. Generic reused cron connections and third-party hooks leaving
+transactions open are not proven clean through public GLPI APIs. No portable
+ambient-transaction guard is implemented, nor is independently committed-marker
+durability promised for arbitrary ambient transactions.
+
+Change snapshots remain whole snapshots. One containing an excluded mapping
+stays Pending with its attempt count unchanged; selected siblings may proceed,
+but that Work is Held and cannot acknowledge the unresolved mixed snapshot.
+Other invalid handled IDs Hold before mapped mutation. No field failure,
+selection or HTTP success substitutes for exact complete-snapshot coverage.
+
+After the original Work is terminal, its mapping is Rejected/NotAttempted,
+current scope is valid and the actual cause is repaired, A may submit a distinct
+Work with fresh current values and genuine evidence. Accepted/Pending is not
+permission for concurrent catch-up. Unknown outcomes require reconciliation
+first; B does not automatically retry or reopen Held/Failed Work. Existing REST
+Work readback exposes stored journal/verified siblings but cannot prove every
+native-hook effect. Native storage loads may physically include excluded columns,
+and hooks may change sibling fields. The new Fields writer uses selected-only
+partial updates on existing generated storage, never a merged-container save or
+implicit storage creation. See the extension for precise limits and examples.
+
+### 4.2 Automatic scalar current-state reconciliation (version 2)
+
+A may submit a new linked Asset Sync Work with the JSON-string option
+`field_sync_json={"version":2,"mapping_ids":[...],"reconcile_work_id":401}`.
+The reference is the B row ID of a readable terminal Done/Held/Failed Asset Sync
+Work for the same route, itemtype, A/B entities and original positive A/B asset
+identity. Its immutable request must establish an existing B link; a first-copy
+request with null B ID, serial-only adoption, Notes, controls and Accepted Work
+cannot authorize this path. The old result may be missing or damaged. B must
+not repair, reinterpret or replace its payload, result, status or history.
+
+The new Work validates the current Setting and its enabled selected mappings;
+the old settings version may be older after repair but cannot exceed the new
+request's version. The reference records
+lineage, never authority to reuse stale values, old field bindings or old edit
+times. A supplies fresh current intent and genuine per-field evidence. There
+is no B field named source_timestamp or parent_change_id, and a whole asset's
+date_mod or reconciliation time must never replace genuine field evidence.
+
+B rechecks the terminal reference and retained Active link in the worker, then
+compares only selected live values under the normal locks. A-owned differences
+may be saved, B-owned values return to A, and Both retains genuine-evidence
+arbitration. Equal values require no native save. Structured outcomes describe
+this new operation only; VerifiedEqual now is not proof that the old Work
+succeeded or that every prior native-hook effect is resolved. A records incidents
+and schedules further fresh attempts; B adds no orchestration or callback.
+
+Version 2 owns a new configured database object/session for its work and restores
+the original global connection afterward. The original connection retains the
+worker lock; B does not close/reopen it or rollback unrelated work. Independent
+committed visibility checks use a fresh native observer per check, an advisory
+challenge verifies the same backend, and worker-lock ownership is rechecked.
+An interrupted version 2 Work crosses the route-lock barrier before B Holds it,
+so an earlier owned writer cannot still mutate after terminal evidence appears.
+Another Accepted Asset Work in the same pair/route/type causes RECONCILE_PENDING;
+invalid reference identity/scope/version causes RECONCILE_SCOPE. Uncertain
+native save, commit, observation or cleanup must retain uncertainty and stop
+further selected writes. This version-specific mechanism does not change the
+version 1 execution precondition or promise universal hook side-effect rollback.
+
+A can durably account for exact snapshot fields/revisions across separate
+targeted Works, then acknowledge the entire exact Change ID after all are safely
+handled. ReturnToA requires A's own verified handling. B's correction path does
+not merge partial Work receipts; a mixed excluded/unresolved snapshot remains
+Pending. The existing id/status acknowledgement trusts A's completed handling
+and cannot independently prove A's saves. No partial-row acknowledgement is added.
+
+Legacy, version 1, Notes, first-copy and Suspend/Resume keep their previous
+paths. Supported explicit clears and selected-only Fields writes are unchanged;
+null is not a universal clear. Read the normative reconciliation contract for
+the exact wire/result schemas, safe conditions and remaining verification limits.
 
 ---
 
@@ -258,9 +387,17 @@ per-note coverage and acknowledgements. This repository implements only B.
 Version 0.2.0 adds Notes through an additive installation/upgrade: retained
 Work/Change payloads remain unchanged, existing rows default to Asset, and Notes
 remain disabled in Settings. An administrator must perform the GLPI plugin
-upgrade before enabling Notes. Source implementation did not execute an upgrade
-or database change. Existing Asset evidence does not certify the new Notes path;
-its manual checklist and runtime verification remain required.
+upgrade before enabling Notes. The later local 0.2.0 Notes run is recorded in the
+manual ledger with bounded PASS/PARTIAL coverage. Version 0.3.0 adds nullable
+Work `field_sync_json` without rewriting existing payloads; omission/null retains
+legacy behavior. Its source implementation has not run installation, upgrade or
+runtime verification at the original 0.3.0 implementation stage; the later
+0.4.0 runtime ledger records the bounded upgrade and representative checks.
+Version 0.4.0 reuses the hidden field_sync_json column for explicit version 2
+reconciliation; no new schema column, record type, profile right or Work status
+is added. Its bounded local runtime ledger includes owned-session processing
+and fresh catch-up checks, with remaining variants and actual A/B integration
+still unverified. No real-environment deployment follows from that local run.
 
 **Known hard areas (from the design guide):** reliable per-field change tracking for "Both", acknowledgements, asset creation, and large-scale testing.
 

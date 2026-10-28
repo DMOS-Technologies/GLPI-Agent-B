@@ -3,6 +3,7 @@
 class PluginAgentbdmosassetsyncWork extends CommonDBTM
 {
     public static $rightname = 'plugin_agentbdmosassetsync_work';
+    public static $undisclosedFields = ['field_sync_json'];
     private ?array $clientCreateInput = null;
 
     public static function getTypeName($nb = 0)
@@ -46,6 +47,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         $raw = $this->clientCreateInput ?? $input;
         $this->clientCreateInput = null;
         $identity = $this->validateCreation($raw);
+        $fieldSync = $this->validateFieldSync($raw, $identity);
         if (!static::canCreate() || !Session::haveAccessToEntity($raw['entities_id'])) {
             return false;
         }
@@ -55,7 +57,12 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             plugin_agentbdmosassetsync_fail('ASB_WORK_SUBMITTER_UNAVAILABLE');
         }
 
-        $raw += ['operation' => 'Sync', 'handled_change_ids_json' => '[]', 'subject' => 'Asset', 'note_json' => null];
+        $raw += ['operation' => 'Sync', 'handled_change_ids_json' => '[]', 'subject' => 'Asset',
+            'note_json' => null, 'field_sync_json' => null];
+        if ($fieldSync !== null) {
+            $raw['result_json'] = json_encode(plugin_agentbdmosassetsync_field_sync_initial_result(
+                $fieldSync['options'], $fieldSync['enabled_mapping_ids']), JSON_THROW_ON_ERROR);
+        }
         $raw += [
             'submitted_users_id' => $userId, 'submitted_profiles_id' => $profileId,
             'a_items_id' => $identity->a_items_id, 'b_items_id' => null, 'link_state' => null,
@@ -100,7 +107,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             'link_state', 'processing_started_at', 'status', 'result_json', 'error',
             'date_creation', 'date_mod', 'completed_at'];
         plugin_agentbdmosassetsync_check_fields($input,
-            array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json']), $owned);
+            array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json', 'field_sync_json']), $owned);
         $subject = $input['subject'] ?? 'Asset';
         if ($subject === 'Note') {
             $required[] = 'note_json';
@@ -188,6 +195,78 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=' . $invalid[0]);
         }
         return $json['identity_json'];
+    }
+
+    /** Opt-in selection is metadata only; the worker verifies the actual retained Active parent. */
+    private function validateFieldSync(array $input, stdClass $identity): ?array
+    {
+        if (!array_key_exists('field_sync_json', $input) || $input['field_sync_json'] === null) {
+            return null;
+        }
+        $options = plugin_agentbdmosassetsync_json('field_sync_json', $input['field_sync_json']);
+        $version = $options instanceof stdClass ? ($options->version ?? null) : null;
+        $keys = $version === 2 ? ['version', 'mapping_ids', 'reconcile_work_id'] : ['version', 'mapping_ids'];
+        if (($input['subject'] ?? 'Asset') !== 'Asset' || ($input['operation'] ?? 'Sync') !== 'Sync'
+            || !plugin_agentbdmosassetsync_object_keys($options, $keys)
+            || !in_array($version, [1, 2], true) || !is_array($options->mapping_ids)
+            || ($version === 2 && !plugin_agentbdmosassetsync_is_uint($options->reconcile_work_id, 1))) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+        }
+        if (!plugin_agentbdmosassetsync_is_uint($identity->b_items_id, 1)) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=identity_json');
+        }
+        $seen = [];
+        foreach ($options->mapping_ids as $id) {
+            if (!$this->validMappingId($id) || in_array($id, $seen, true)) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+            }
+            $seen[] = $id;
+        }
+        $route = plugin_agentbdmosassetsync_read_setting($input['route_id']);
+        if ($route === null || !(int) $route['route_enabled']
+            || (int) $route['settings_version'] !== $input['settings_version']
+            || (int) $route['a_entities_id'] !== $input['a_entities_id']
+            || (int) $route['entities_id'] !== $input['entities_id']) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+        }
+        try {
+            $types = json_decode($route['enabled_itemtypes_json'], true, 512, JSON_THROW_ON_ERROR);
+            $mappings = json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $e) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+        }
+        if (!is_array($types) || !in_array($input['itemtype'], $types, true) || !is_array($mappings)) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+        }
+        $enabled = [];
+        foreach ($mappings as $mapping) {
+            if ($mapping instanceof stdClass && ($mapping->enabled ?? false) === true
+                && ($mapping->itemtype ?? null) === $input['itemtype']
+                && $this->validMappingId($mapping->mapping_id ?? null)) {
+                $enabled[] = $mapping->mapping_id;
+            }
+        }
+        foreach ($options->mapping_ids as $id) {
+            if (!in_array($id, $enabled, true)) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+            }
+        }
+        if ($version === 2) {
+            try {
+                plugin_agentbdmosassetsync_field_sync_reconcile_reference($input, $options);
+            } catch (Throwable $e) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=field_sync_json');
+            }
+        }
+        foreach (['a_values_json', 'a_change_times_json'] as $name) {
+            $values = plugin_agentbdmosassetsync_json($name, $input[$name]);
+            foreach (array_keys(get_object_vars($values)) as $id) {
+                if (!in_array($id, $options->mapping_ids, true)) {
+                    plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=' . $name);
+                }
+            }
+        }
+        return ['options' => $options, 'enabled_mapping_ids' => $enabled];
     }
 
     private function validIdentity($identity): bool
@@ -288,17 +367,26 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
     }
 
     /** Called by local processing code only; REST still reaches the forbidden update(). */
-    public function saveProcessorFields(int $id, array $values): bool
+    public function saveProcessorFields(int $id, array $values, bool $strictTransaction = false): bool
     {
         global $DB;
 
         plugin_agentbdmosassetsync_check_fields($values, [
             'processing_started_at', 'b_items_id', 'link_state', 'status', 'result_json', 'error', 'completed_at',
         ]);
-        $DB->beginTransaction();
+        try {
+            $DB->beginTransaction();
+        } catch (Throwable $e) {
+            if ($strictTransaction) {
+                throw new RuntimeException('Work metadata transaction start is uncertain; stop this worker without replay', 9101, $e);
+            }
+            throw $e;
+        }
+        $rollingBack = false;
         try {
             $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
             if (!$this->getFromDB($id) || $this->fields['status'] !== 'Accepted') {
+                $rollingBack = true;
                 $DB->rollBack();
                 return false;
             }
@@ -312,6 +400,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             }
             $saved = parent::update(['id' => $id] + $values);
             if (!$saved) {
+                $rollingBack = true;
                 $DB->rollBack();
                 return false;
             }
@@ -319,7 +408,17 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             $DB->commit();
             return true;
         } catch (Throwable $e) {
-            $DB->rollBack();
+            if ($strictTransaction && $rollingBack) {
+                throw new RuntimeException('Work metadata rollback is uncertain; stop this worker without replay', 9101, $e);
+            }
+            try {
+                $DB->rollBack();
+            } catch (Throwable $rollbackError) {
+                if ($strictTransaction) {
+                    throw new RuntimeException('Work metadata rollback is uncertain; stop this worker without replay', 9101, $rollbackError);
+                }
+                throw $rollbackError;
+            }
             throw $e;
         }
     }
@@ -340,6 +439,34 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             return false;
         }
         $this->verifyCreated($id, $values);
+        return true;
+    }
+
+    /** The caller owns the native field transaction; its provisional proof commits with the field. */
+    public function saveFieldSyncEvidence(int $id, array $result): bool
+    {
+        global $DB;
+
+        $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
+        if (!$this->getFromDB($id) || $this->fields['status'] !== 'Accepted'
+            || $this->fields['processing_started_at'] === null
+            || ($this->fields['subject'] ?? 'Asset') !== 'Asset'
+            || $this->fields['operation'] !== 'Sync' || $this->fields['field_sync_json'] === null) {
+            return false;
+        }
+        $options = plugin_agentbdmosassetsync_field_sync_options($this->fields);
+        if (($result['field_sync']['version'] ?? null) !== $options->version
+            || ($result['field_sync']['mapping_ids'] ?? null) !== $options->mapping_ids
+            || ($options->version === 2
+                && ($result['field_sync']['reconcile_work_id'] ?? null) !== $options->reconcile_work_id)
+            || ($options->version === 1 && array_key_exists('reconcile_work_id', $result['field_sync']))) {
+            return false;
+        }
+        $json = json_encode($result, JSON_THROW_ON_ERROR);
+        if (!parent::update(['id' => $id, 'result_json' => $json])) {
+            return false;
+        }
+        $this->verifyCreated($id, ['result_json' => $json]);
         return true;
     }
 

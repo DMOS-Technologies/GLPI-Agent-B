@@ -293,3 +293,78 @@ function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array
     $writeAttempted = true;
     return (new PluginFieldsContainer())->updateFieldsValues($data, $asset::class);
 }
+
+/** Fields' public validator accepts partial massive-action input; never merge stored siblings. */
+function plugin_agentbdmosassetsync_field_sync_fields_input(CommonDBTM $asset, array $field, $value,
+    string &$code): array
+{
+    global $DB;
+    $code = 'STORAGE_UNSUPPORTED';
+    $row = plugin_agentbdmosassetsync_locked_fields_row($asset, $field);
+    if ($row === null || !is_callable([PluginFieldsContainer::class, 'validateValues'])
+        || !is_callable([PluginFieldsContainer::class, 'constructHistory'])) {
+        throw new RuntimeException('Existing partial native Fields storage is required');
+    }
+    $class = $field['storage_class'];
+    $stored = new $class();
+    $stored->getFromResultSet($row);
+    $code = 'FIELD_PERMISSION';
+    if (!$stored->can((int) $row['id'], UPDATE)) {
+        throw new RuntimeException('Current generated storage write permission is denied');
+    }
+    $statusName = PluginFieldsStatusOverride::getStatusFieldName($asset::class);
+    $status = $asset->fields[$statusName] ?? null;
+    $overrides = $status !== null
+        ? PluginFieldsStatusOverride::getOverridesForItemtypeAndStatus($field['container_id'], $asset::class, $status) : [];
+    $selected = null;
+    foreach ($DB->request(['FROM' => PluginFieldsField::getTable(), 'WHERE' => [
+        'plugin_fields_containers_id' => $field['container_id'], 'is_active' => 1]]) as $definition) {
+        $column = $definition['type'] === 'dropdown'
+            ? 'plugin_fields_' . $definition['name'] . 'dropdowns_id' : $definition['name'];
+        if ($column === $field['value_column']) {
+            $selected = $definition;
+            break;
+        }
+    }
+    if ($selected === null) {
+        throw new RuntimeException('Selected Fields definition is unavailable');
+    }
+    foreach ($overrides as $override) {
+        if ((int) $override['plugin_fields_fields_id'] === (int) $selected['id']) {
+            $selected['is_readonly'] = $override['is_readonly'];
+            $selected['mandatory'] = $override['mandatory'];
+        }
+    }
+    if ($selected['is_readonly']) {
+        throw new RuntimeException('Selected Fields value is currently read-only');
+    }
+    $code = 'INVALID_VALUE';
+    if ($selected['mandatory'] && ($value === null || $value === ''
+        || ($field['kind'] === 'dropdown' && (int) $value === 0))) {
+        throw new RuntimeException('Selected Fields value is mandatory');
+    }
+    $data = ['id' => (int) $row['id'], 'plugin_fields_containers_id' => $field['container_id'],
+        'items_id' => (int) $asset->getID(), 'itemtype' => $asset::class, $field['value_column'] => $value];
+    if ($statusName === $field['value_column']) {
+        $code = 'STORAGE_UNSUPPORTED';
+        throw new RuntimeException('Fields validation metadata collides with the selected storage column');
+    }
+    $validation = $data;
+    $validation[$statusName] = $status;
+    if (!PluginFieldsContainer::validateValues($validation, $asset::class, true)) {
+        throw new RuntimeException('Native Fields validation rejected the selected partial input');
+    }
+    return [$stored, $data];
+}
+
+/** These are the same public native update/history operations used by Fields 1.24.4. */
+function plugin_agentbdmosassetsync_field_sync_fields_save(CommonDBTM $asset, array $field, array $prepared): bool
+{
+    [$stored, $data] = $prepared;
+    if (!$stored->update($data)) {
+        return false;
+    }
+    PluginFieldsContainer::constructHistory($field['container_id'], (int) $asset->getID(), $asset::class,
+        $stored->input, $stored);
+    return true;
+}

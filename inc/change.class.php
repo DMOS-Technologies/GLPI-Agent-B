@@ -242,26 +242,35 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
     }
 
     /** Local processing attempt metadata; never available through REST update(). */
-    public function recordCorrectionAttempt(int $id): bool
+    public function recordCorrectionAttempt(int $id, bool $strictTransaction = false): bool
     {
-        return $this->saveCorrectionMetadata($id, true, null);
+        return $this->saveCorrectionMetadata($id, true, null, $strictTransaction);
     }
 
-    public function recordCorrectionFailure(int $id, string $reason): bool
+    public function recordCorrectionFailure(int $id, string $reason, bool $strictTransaction = false): bool
     {
-        return $this->saveCorrectionMetadata($id, false, $reason);
+        return $this->saveCorrectionMetadata($id, false, $reason, $strictTransaction);
     }
 
-    private function saveCorrectionMetadata(int $id, bool $increment, ?string $error): bool
+    private function saveCorrectionMetadata(int $id, bool $increment, ?string $error, bool $strictTransaction = false): bool
     {
         global $DB;
         if (!plugin_agentbdmosassetsync_is_uint($id, 1)) {
             throw new RuntimeException('Invalid local correction snapshot ID');
         }
-        $DB->beginTransaction();
+        try {
+            $DB->beginTransaction();
+        } catch (Throwable $e) {
+            if ($strictTransaction) {
+                throw new RuntimeException('Correction metadata transaction start is uncertain; stop this worker without replay', 9101, $e);
+            }
+            throw $e;
+        }
+        $rollingBack = false;
         try {
             $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
             if (!$this->getFromDB($id) || $this->fields['status'] !== 'Pending') {
+                $rollingBack = true;
                 $DB->rollBack();
                 return false;
             }
@@ -284,7 +293,17 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
             $DB->commit();
             return true;
         } catch (Throwable $e) {
-            $DB->rollBack();
+            if ($strictTransaction && $rollingBack) {
+                throw new RuntimeException('Correction metadata rollback is uncertain; stop this worker without replay', 9101, $e);
+            }
+            try {
+                $DB->rollBack();
+            } catch (Throwable $rollbackError) {
+                if ($strictTransaction) {
+                    throw new RuntimeException('Correction metadata rollback is uncertain; stop this worker without replay', 9101, $rollbackError);
+                }
+                throw $rollbackError;
+            }
             throw $e;
         } finally {
             $this->internalDone = false;
@@ -292,25 +311,35 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
     }
 
     /** Local correction code proves exact snapshot coverage before calling this method. */
-    public function markDoneInternally(int $id): bool
+    public function markDoneInternally(int $id, bool $strictTransaction = false): bool
     {
         if (!plugin_agentbdmosassetsync_is_uint($id, 1)) {
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=ids');
         }
-        return $this->finishPending($id, false);
+        return $this->finishPending($id, false, 'Done', true, [], $strictTransaction);
     }
 
-    private function finishPending(int $id, bool $acknowledgement, string $status = 'Done', $history = true, array $options = []): bool
+    private function finishPending(int $id, bool $acknowledgement, string $status = 'Done', $history = true,
+        array $options = [], bool $strictTransaction = false): bool
     {
         global $DB;
 
-        $DB->beginTransaction();
+        try {
+            $DB->beginTransaction();
+        } catch (Throwable $e) {
+            if ($strictTransaction) {
+                throw new RuntimeException('Correction completion transaction start is uncertain; stop this worker without replay', 9101, $e);
+            }
+            throw $e;
+        }
+        $rollingBack = false;
         try {
             $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
             if (!$this->getFromDB($id)) {
                 if ($acknowledgement) {
                     plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=queue_row');
                 }
+                $rollingBack = true;
                 $DB->rollBack();
                 return false;
             }
@@ -322,6 +351,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
                 if ($acknowledgement) {
                     plugin_agentbdmosassetsync_fail('ASB_CHANGE_TRANSITION: from=' . $this->fields['status'] . ' to=' . $status);
                 }
+                $rollingBack = true;
                 $DB->rollBack();
                 return false;
             }
@@ -340,6 +370,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
                 if ($acknowledgement) {
                     plugin_agentbdmosassetsync_fail('ASB_CHANGE_VERIFY_FAILED');
                 }
+                $rollingBack = true;
                 $DB->rollBack();
                 return false;
             }
@@ -348,6 +379,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
                     if ($acknowledgement) {
                         plugin_agentbdmosassetsync_fail('ASB_CHANGE_VERIFY_FAILED: field=' . $field);
                     }
+                    $rollingBack = true;
                     $DB->rollBack();
                     return false;
                 }
@@ -355,7 +387,17 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
             $DB->commit();
             return true;
         } catch (Throwable $e) {
-            $DB->rollBack();
+            if ($strictTransaction && $rollingBack) {
+                throw new RuntimeException('Correction completion rollback is uncertain; stop this worker without replay', 9101, $e);
+            }
+            try {
+                $DB->rollBack();
+            } catch (Throwable $rollbackError) {
+                if ($strictTransaction) {
+                    throw new RuntimeException('Correction completion rollback is uncertain; stop this worker without replay', 9101, $rollbackError);
+                }
+                throw $rollbackError;
+            }
             throw $e;
         } finally {
             $this->internalDone = false;

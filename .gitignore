@@ -1,3 +1,5 @@
 .DS_Store
 /docs/*
 !/docs/notes-contract.md
+!/docs/field-sync-contract.md
+!/docs/reconciliation-contract.md

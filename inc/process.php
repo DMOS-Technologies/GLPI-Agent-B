@@ -6,6 +6,7 @@ require_once __DIR__ . '/results.php';
 require_once __DIR__ . '/scope.php';
 require_once __DIR__ . '/both.php';
 require_once __DIR__ . '/notes.php';
+require_once __DIR__ . '/fieldisolation.php';
 
 function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
 {
@@ -16,19 +17,31 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
         return 0;
     }
     $count = 0;
+    $primaryFailure = null;
     try {
         $rows = iterator_to_array($DB->request(['FROM' => PluginAgentbdmosassetsyncWork::getTable(),
             'WHERE' => ['status' => 'Accepted'], 'ORDER' => 'id ASC', 'LIMIT' => 20]));
         foreach ($rows as $row) {
+            if (plugin_agentbdmosassetsync_field_sync_reconcile_enabled($row)) {
+                if (plugin_agentbdmosassetsync_field_sync_reconcile_task((int) $row['id'])) {
+                    ++$count;
+                }
+                continue;
+            }
             $work = new PluginAgentbdmosassetsyncWork();
             if (!$work->getFromDB($row['id']) || $work->fields['status'] !== 'Accepted') {
                 continue;
             }
             if ($work->fields['processing_started_at'] !== null) {
-                $work->saveProcessorFields((int) $row['id'], ['status' => 'Held',
-                    'error' => 'Uncertain previous processing: reconcile saved outcomes before issuing new Work']);
+                if (plugin_agentbdmosassetsync_field_sync_enabled($work->fields)) {
+                    plugin_agentbdmosassetsync_field_sync_interrupted($work);
+                } else {
+                    $work->saveProcessorFields((int) $row['id'], ['status' => 'Held',
+                        'error' => 'Uncertain previous processing: reconcile saved outcomes before issuing new Work']);
+                }
             } else {
-                if (!$work->saveProcessorFields((int) $row['id'], ['processing_started_at' => Session::getCurrentTime()])) {
+                if (!$work->saveProcessorFields((int) $row['id'], ['processing_started_at' => Session::getCurrentTime()],
+                    plugin_agentbdmosassetsync_field_sync_enabled($work->fields))) {
                     continue;
                 }
                 plugin_agentbdmosassetsync_process_existing($work);
@@ -37,8 +50,17 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
         }
         $task->addVolume($count);
         return $count > 0 ? 1 : 0;
+    } catch (Throwable $error) {
+        $primaryFailure = $error;
+        throw $error;
     } finally {
-        $DB->doQuery("SELECT RELEASE_LOCK('$lock')");
+        try {
+            $DB->doQuery("SELECT RELEASE_LOCK('$lock')");
+        } catch (Throwable $releaseError) {
+            if ($primaryFailure === null || $primaryFailure->getCode() !== 9101) {
+                throw $releaseError;
+            }
+        }
     }
 }
 
@@ -213,6 +235,10 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
 {
     if (($record->fields['subject'] ?? 'Asset') === 'Note') {
         plugin_agentbdmosassetsync_process_note_work($record);
+        return;
+    }
+    if (plugin_agentbdmosassetsync_field_sync_enabled($record->fields)) {
+        plugin_agentbdmosassetsync_process_field_sync($record);
         return;
     }
     $work = $record->fields;

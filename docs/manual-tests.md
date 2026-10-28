@@ -1,5 +1,453 @@
 # GLPI B manual curl review checklist
 
+## Automatic scalar reconciliation local runtime verification — 29 October 2026
+
+The user subsequently authorized deploying **0.4.0** to local Docker B
+`http://localhost:8081` and running RC01–RC22 with disposable fixtures. This
+ledger records that bounded run. The source-only RC/FI sections below remain
+historical preparation, not a statement that these later observations did not
+occur. No real-environment deployment or Controller A runtime was exercised.
+PASS means the described B-side scope passed; PARTIAL identifies additional
+unrun subvariants. A source argument or simulated A ledger is not a runtime PASS.
+
+Private raw evidence is retained under
+`/tmp/agentb-reconciliation-20261029.DGBzh5/`. Its CORE ledger is
+`core/evidence.md`; its FAULT ledger is `fault/evidence.md`, with clone raw
+proofs under `fault/clone/`. Paths below are relative to that root. Token-bearing
+files remain private and are not committed or reproduced here.
+In a table row, subsequent CORE basenames share its `core/` prefix and clone
+basenames share `fault/clone/`; the actor ledgers index every exact filename.
+
+### Deployment, execution boundary and protected records
+
+- Main runtime: Docker `assetsync2-glpib`, GLPI **11.0.7**, active Fields
+  **1.24.4**. Root deployed the complete source, used native CLI installation
+  and activation from 0.2.0 to 0.4.0, compared all 18 PHP hashes and restarted
+  Apache. Deployment evidence: `deployment/source-hashes.json`,
+  `after-upgrade.json`, `after-activation.json` and
+  `deployment/upgrade-comparison.json`.
+  After all three reviewed fixes, `deployment/final-source-hashes.json` matched
+  all18 repository/deployed PHP files and `deployment/final-php-syntax.log`
+  recorded Docker PHP syntax success for all18. These are existing root-run
+  checks read by this documentation reviewer, not another test pass.
+- The scheduler wrapper PID1325 was SIGSTOP-paused for the run. No unrestricted
+  cron/worker invocation was used. A temporary procedural driver called the
+  real `plugin_agentbdmosassetsync_process_batch` with a new unpersisted
+  CronTask. Only its initial Accepted-row selection was narrowed to explicit
+  owned IDs greater than967 plus the exact `rc-core-20261029-` or
+  `rc-fault-20261029-` route/work namespace. Native processing, submitter rights,
+  locks, version 2 fresh DB sessions, observers and writes were product code.
+- Before deployment, main B had **967 Works, 175 Changes, 38 Settings and
+  48 Note links**. The upgrade comparison found no original-column differences,
+  all 967 old Works received null field_sync_json, and original rights and cron
+  rows were unchanged. Final `protected-record-comparison.json` again found
+  **no original-column or old plugin-right differences**, an unchanged cron row
+  before scheduler restoration, and exact preservation of **Works1–7**. These
+  checks compare every original row, not counts alone.
+- Final main fixture totals: **57 new Works:41 Done,16 Held,0 Accepted**;
+  **11 new Changes:4 Done,7 Pending**; two new Settings and one new Note link.
+  CORE owns53 Works (38 Done/15 Held), while FAULT owns main IDs970,971,973,974.
+  Main is frozen. Deliberately unresolved Changes and terminal failures remain
+  as evidence; none was reset, reopened, deleted or acknowledged for cleanup.
+- CORE fixtures: entities15/16, profile20, user20, Computer242/A50001, Monitor6/
+  A60001, Setting39, own Fields container16/fields88–91 and native Note82.
+  Final Setting39 is enabled/version5, user20 active, computer right103
+  (no Delete/Purge), Field88 read-only0 and last control Resume1018/Active on
+  Computer242. `core/final-manifest.json`, `core/final-work-summary.json` and
+  `core/final-native.jsonl` retain the exact manifest/results.
+- Native fixture creation added new profile-right rows2091–2200 for profile20,
+  and Fields profile rows209–228 for the new container16. Rows209–227 add
+  right4 for old profiles1–19; row228 grants right7 to new profile20. These are
+  **additive rows**, explicitly authorized as native derived fixture rights;
+  no existing right value changed. See `core/new-rights-manifest.json`.
+- Fault/install work used a separate no-host-port MySQL8.4 container
+  `rc-fault-20261029-db` and schemas `rc_fault_20261029`, `rc_fresh_20261029`
+  and `rc_upgrade_20261029`. No old Work/Change data was copied into them.
+  Every new DB session asserted its clone DATABASE(). Clone numeric Work IDs
+  therefore do **not** identify main Work rows or protected main Works1–7.
+  The upgrade clone contains its own deliberately unprocessed old-version
+  Work1/Change1; these are not the protected main records.
+- Final clone fault schema:27 owned Works988–1014,14 Done/13 Held/0 Accepted,
+  Changes0; fresh-install schema Works0/Changes0; upgrade schema its own
+  Work1 Accepted/Change1 Pending. `fault/clone/final-*.json` records each
+  namespace. At closure root gracefully stopped the owned clone container,
+  retaining its container, volumes and evidence; no DROP or hard purge ran.
+  Root resumed original scheduler1325 with its original command; Apache was
+  RUNNING and the two old Supervisor cron/worker entries remained STOPPED as
+  initially found. `deployment/scheduler-restoration.log` records restoration.
+
+### RC01–RC22 observed results
+
+All22 named cases were addressed: **8 PASS,14 PARTIAL,0 FAIL** at the documented
+scope after fixes. PARTIAL is not a claim of a failed tested path; its row lists
+the unrun variants or missing actual Controller verification.
+
+| Case | Result | Observed evidence and remaining limits |
+|---|---|---|
+| RC01 — capability and shapes | PASS | Native main 0.2→0.4 upgrade/activation retained all original columns and old null defaults; absent977, outer-null978, version1 Work976 and version2 Works972/975 retained their distinct result shapes. Native GET/collection/search/listSearchOptions did not expose hidden field_sync_json. Isolated fresh 0.4 install and actual old HEAD0.2 installer/classes→0.4 clone upgrade preserved the own old Work/Change columns and new null default (`fault/clone/upgrade-retention-summary.json`). Evidence: deployment comparisons, `core/*row-shape*`, `work-collection-shape.*`, `work-search-shape.*`, `work-search-options.*`, clone `fresh-install.log`, `old-02-install.log`, `upgrade-04-install.log`. Other GLPI patches are not certified. |
+| RC02 — exact option validation | PASS | Twenty-five initial invalid requests plus current disabled/wrong-itemtype/stale-version denials returned native400/idfalse without saved invalid Works. Matrix covers missing/zero/negative/string/float/nonexistent reference, extra option, duplicate/unknown/wrong-type mapping, unsupported version, malformed/nested JSON, outside-selection values/times, unknown top-level source_timestamp/parent_change_id and wrong identity/type/nonSync. `core/invalid-cases.json`, `invalid-bulk.*`, `current-mapping-denials.*`. |
+| RC03 — prior reference eligibility | PARTIAL | Missing/Accepted refs, original null-B firstcopy968, wrong A/B/route/type, Note1020, Suspend1016 and Resume1018 references denied; no fallback creation. Unreadable-reference POST, wrong entity-pair POST and a separate serial-only null-B variant were not exercised independently. A peer970 GET403 is not evidence of POST reference authorization. `core/invalid-bulk.*`, `control-ref-denials.*`, `note-ref-denial.*`. |
+| RC04 — damaged historical journal | PASS | Newly owned eligible references997/998 were made Held with missing/malformed journals through B-native fixture setup; fresh999/1000 converged. All original columns, timestamps, request/result/error bytes stayed identical, including final comparison. Actual uncertain clone writes also retained their prior journals during fresh catch-up. The malformed/null references are synthetic fixtures, not proof they previously attempted a native save. `core/damaged-reference-comparison.json`, `final-manifest.json`, `old-*-repair.worker`; clone `hook-leak.*`, `catchup-after-leak.*`, `lost-commit.*`, `equal-after-lost-commit.*`. |
+| RC05 — version repair and fresh intent | PARTIAL | Setting39 advanced1→2; current-version Work1001 referenced older997 and was admitted. After the locked-read defect fix, fresh1006/ref1001 applied the current date. Real dropdown addition983→988 and permission repair989→990 used distinct targeted Works. Stale new-version admission denied; queued1023 under version3 then Held SETTING_SCOPE after disable/version4, with asset/Fields unchanged and History57→57; route restored at version5. A stored reference greater than the current version and every possible mapping-schema repair were not injected. `core/setting-v2.*`, `current-version.*`, `date-after-fix.*`, `current-mapping-denials.*`, `queued-disable-comparison.json`. |
+| RC06 — terminal/quiescent execution | PARTIAL | Main Accepted references denied. Clone pending/concurrent and lost-owner cases exercise worker exclusion, route barrier and restart without early terminalization while an owned writer can still run. A separately queued control-operation conflict was not an independent concurrency variant. See clone `pending-first/second.*`, `pause-marker.*`, `ownerloss-after-fix.*`; terminal main control behavior is recorded under RC21. No overlapping Controller A scheduling was exercised. |
+| RC07 — source A convergence/equality | PASS | New current intent972/999/1000/1006/1021 applied on existing identity242;975 returned AlreadyEqual/VerifiedEqual with unchanged History9/date_mod/Change0. Clone actual Unknown→fresh catch-up/equal cases retained the old Work and avoided duplicate native writes. Current proof never changed the old operation to success. `core/reconcile-initial.worker`, `equal.worker`, `after-initial-native.jsonl`, `after-equal-native.jsonl`, `old-*-repair.worker`, `date-after-fix.worker`; clone catch-up/equal readbacks. |
+| RC08 — source B return | PARTIAL |981/1008/1011 returned the live Status label/evidence without writing Status. Evidence was unreliable after sync-only seed and reliable after genuine native State editing. A supplied differing value for a B-owned selected field was not a separate case. Actual Controller save/equality/ledger remains unrun; temporary JSON coverage is simulation only. `core/b-return.worker`, `mixed-status.worker`, `filtered-status.worker`, `simulated-a-*-coverage.json`. |
+| RC09 — Both authority and evidence | PARTIAL |991 A-newer Applied,992 B-newer ReturnToA,993 equal VerifiedEqual; missing994/tied995/unreliable996 Held EVIDENCE_CONFLICT without overwrite. Genuine Contact saves/Changes177/178 supplied B evidence. Queued-window1024 preserved a newer B edit after admission and returned its value/evidence. The mid-execution pause attempt1022 timed out before field processing and Held PARENT_SCOPE; it proves safe timeout, not successful simultaneous-edit arbitration. `core/both-*.worker`, `human-both-one/two.jsonl`, `both-queued-window.worker`, `human-queued-new.jsonl`, `both-concurrent.worker`. |
+| RC10 — format/dropdown/permission siblings | PARTIAL | Invalid date979, missing dropdown983, ambiguous dropdown1015 and read-only Fields989 each rejected only the affected field with NotAttempted and stable INVALID_VALUE/DROPDOWN_UNRESOLVED/FIELD_PERMISSION; valid siblings VerifiedApplied. Inactive account1004 Held ACCOUNT_DENIED; actual parent UPDATE removal1005 Held PARENT_SCOPE without a native attempt. Invalid numeric format and a readable but permission-denied dropdown option were not separate cases. `core/siblings-format.worker`, `dropdown-bad.worker`, `dropdown-ambiguous.worker`, `readonly.worker`, `account-denied.worker`, `parent-denied-real.worker`. |
+| RC11 — repair and next distinct attempt | PASS | Actual cause repair followed by fresh targeted Work:979→982 valid date;983→988 newly added permitted option;989→990 restored own Field88 permission;1001→1006 corrected locked-read behavior. Successful sibling fields were not resubmitted. All terminal originals retained; B did not invent an option or silently grant rights. `core/date-repair.*`, `dropdown-repair-native.jsonl`, `readonly-restored.jsonl`, `readonly-repair.*`, `date-after-fix-native.jsonl`. |
+| RC12 — exclusion, clearing and Fields storage | PARTIAL | Selected-only processing, empty980, missing selected value987, supported nullable native Comment clear984, rejected Fields date/dropdown null985, and text/number updates986 passed; excluded siblings stayed unchanged. Genuine human Fields empty-date saves succeeded/captured null without expanding sync clear support. Missing generated storage, every unsupported clear kind and arbitrary third-party hook/container interference were not independently injected. `core/empty.worker`, `missing-value.worker`, `native-clear.worker`, `unsupported-clears.worker`, `fields-write.worker`, `human-fields-empty.jsonl`. |
+| RC13 — owned connection start/read policy | PASS | Clone990 used distinct owner/writer/fresh-observer IDs on its asserted backend.991 preserved unrelated original-owner pending Computer244 data while independently committing target243; fixture rollback later restored244. Read-policy0 fresh1012 returned native literal values and VerifiedApplied Contact JSON; policy1 upgraded-encoding1014 used actual legacy numeric entities and native decoding, including quotes/backslashes/ampersand and dropdown labels. Own profile lacked State READ for1010/1011; those setup rejections were retained, then only the clone profile was repaired. Main v1/legacy shape regressions passed. `fault/clone/ambient-session.*`, `read-policy-0-right.*`, `read-policy-0.repaired-seed.log`, `read-policy-profile-repair.log`, `read-policy-1-decoded.*`, final schema readbacks. No Controller application is inferred. |
+| RC14 — worker and route locks | PASS | A competing real worker returned0 while the original clone owner held its global lock. Killing only that owner released the global lock but restart could not terminalize the still-live owned writer across the route barrier. Resumed writer refused further mutation; fresh post-fix1007 preserved9101 and restarted Held. Global connection restoration is recorded for process summaries; no duplicate native save was observed. `fault/clone/pause-marker.*`, `pending-first/second.*`, `ownerloss-after-fix.*`. These are bounded owner/route cases, not proof of every external hook. |
+| RC15 — independent progress visibility | PASS | Hook-leak992 left a nested transaction: independent observer could not see exact provisional proof, product stopped9101, asset/proof rolled back on owned close and Contact stayed Pending. Fresh993 converged while old992 remained byte-identical. Actual server-COMMIT then injected return-loss994 saved Name but kept Unknown/verifiedtrue;995 verified equal with History8→8 and old994 byte-identical. Every observer used a fresh native DB object/server ID. True wire packet loss is an RC17 gap, not claimed by this bounded proof. `fault/clone/hook-leak.*`, `catchup-after-leak.*`, `lost-commit.*`, `equal-after-lost-commit.*`, `final-evidence-comparison.json`. |
+| RC16 — interruption and restart | PARTIAL | Actual SIGKILL clone1008 occurred before native transaction commit and1009 after actual commit but before final completion. Both restarted Held with no replay; current values/evidence were read back separately. Other listed interruptions use bounded process-local exceptions and are identified as injections. The complete set of possible machine/network/hook interruption points is not certified. Clone `crash-provisional.*`, `crash-after-commit.*`, `pause-marker.final-restart.log`. |
+| RC17 — commit/rollback/cleanup uncertainty | PARTIAL | Actual server COMMIT followed by an injected return exception before GLPI bookkeeping left994 Unknown;995 independently returned equal without duplicate History.996/997 retained earlier Name proof and Contact Unknown on rollback-before-server/actual-rollback-then-return-loss;999/1001 observer construction/close faults stopped before mutation;1002 route RELEASE succeeded then lost its injected return and stayed Unknown;1003 provisional save fault preserved earlier sibling.998 writer construction refused before durable start and later had its first actual execution.1000 actual writer close succeeded but reported false: worker stopped while independently persisted Done proof stayed intact. No real broken-wire COMMIT/ROLLBACK acknowledgement, failure before actual close, exact final-journal refusal or MySQL power failure was performed. `fault/clone/lost-commit.*`, `rollback-before/after.*`, `writer-construction.*`, `observer-construction.*`, `writer-close.*`, `observer-close.*`, `route-release.*`, `provisional-save.*`, `ownerloss-after-fix.*`. |
+| RC18 — lost HTTP/result responses and raw context | PARTIAL | Main1021 POST response was deliberately captured/discarded; exact work_id lookup found one row and duplicate POST400 ASB_WORK_EXISTS caused no new operation. Repeated GET and immutable/B-owned-field denials passed. Full1009 raw `[ 180 ]` and filtered1010 raw `[ 181, 182 ]` preserved original request bytes and verified eligible completion181 while excluded182 stayed Pending. Actual network transport loss/lost GET was not injected; the tested lost-response case is client discard. `core/lost-response*`, `immutable-put.*`, `owned-field-denials.*`, `full-correction.*`, `filtered-correction.*`. |
+| RC19 — mixed snapshot across targeted Works | PARTIAL | Change179 Name+Status:1007 retained verified Name but Held INCOMPLETE_SNAPSHOT;179 stayed Pending/retry0 with immutable snapshot.1008 returned Status;182 behaved similarly through1010/1011. Exact ACK occurred only after explicit simulated full A coverage. B did not aggregate partial receipts or prematurely acknowledge. Actual A durable coverage/save/equality was not exercised. `core/mixed-change-before.json`, `mixed-after-targets.jsonl`, `mixed-name.worker`, `mixed-status.worker`, `simulated-a-*-coverage.json`. |
+| RC20 — whole coverage and exact ACK | PARTIAL | Full1009 marked180 Done/retry1; filtered1010 marked181 Done/retry1 and left182 Pending/retry0. New183 remained Pending.179 ACK followed simulated coverage; mixed PUT182 plus absent2147483647 returned native207 with only182 success and missing GET404. Actual A-side aggregation/ReturnToA handling and a separate old revision mismatch remain unrun. `core/full-change-read.*`, `mixed-ack.*`, `mixed-missing-ack.*`, `missing-change-read.*`, final Changes. |
+| RC21 — scope/identity/permission regressions | PARTIAL | Queued route disable1023 Held SETTING_SCOPE with unchanged asset/Fields/History; restored Setting5. Actual account/parent/field revocation and Computer/Monitor legacy first-copy, positive link and v2 paths passed. Suspend1016 blocked1017 and ACK183; native human save still succeeded without capture while suspended. Resume1018 retained identity242;1019 applied. Note Inventory1020 returned Note82 formatting; Note/control/firstcopy references denied. Mid-field Setting changes, moved entity/parent, competing claimant and every Notes operation were not tested here. `core/queued-disable*`, `monitor-*`, `suspend.*`, `while-suspended.*`, `resume.*`, `note-inventory.worker`, control/note denials. |
+| RC22 — human saves, feedback and readiness | PARTIAL | Genuine native/Fields saves, including empty mapped Fields dates, succeeded and captured eligible values with real edit times. Sync-only writes produced no feedback Changes. Observed reasons/codes omitted raw sensitive diagnostics and rejected values. Controller Sync problems, scheduling, actual A/B convergence and unrestricted cron were not exercised. Arbitrary third-party hooks and all installed asset/field kinds remain outside this finite sample. `core/human-*.jsonl`, `after-*.jsonl`, `final-native.jsonl`, final fixture manifests. |
+
+### Defects found, repaired and rechecked
+
+1. **Active parent lookup assumed sequential iterator keys.** Work969 Held
+   PARENT_SCOPE after native seed968 established Active Computer242 because
+   `field_sync_parent()` read `$links[0]` from an ID-keyed iterator. Independent
+   reproduction/review replaced that assumption with the ordered first row.
+   Root deployed `inc/fieldisolation.php` SHA256
+   `ed23ed4414dd4adf388bebc938ad804cf085b5ed926983ad9f4ab0bac8a08db2`.
+   Fresh972 passed;969/peer971 retained their original failures. Evidence:
+   `core/diagnostic-parent.jsonl`, `linked.worker`, `reconcile-initial.worker`,
+   `deployment/active-link-fix-hashes.json`.
+2. **Locked Fields reread omitted the existing empty-value normalization.**
+   Genuine human date clearing succeeded and stored exact empty string;1001
+   then rejected a valid repopulation as FIELD_UNAVAILABLE. The narrow
+   `locked_value()` correction applies the existing ordinary-read rule only to
+   exact `''` in nullable Fields date/datetime/number storage. Arbitrary invalid
+   values, dropdowns and clear writers remain unchanged. Root deployed
+   `inc/results.php` SHA256
+   `44052e4b98d9eeabdda54b42b72dcc2899f8f0e9b0c46aac81ce19004a41aa8d`.
+   Fresh1006/ref1001 VerifiedApplied;1001 kept its rejection. Evidence:
+   `core/human-fields-empty.jsonl`, `current-version.worker`, `date-after-fix.*`,
+   `deployment/locked-read-fix-hashes.json`.
+3. **Dead owner cleanup masked the primary fatal transaction signal.**
+   A clone lost-owner fault made final worker-lock RELEASE on the dead owner
+   replace the existing9101 failure. The narrow process_batch finalizer now
+   preserves an already-propagating9101; standalone/legacy release failures
+   still throw. Independent review and fresh clone1007 closed that case while
+   the earlier clone1006 remained intact. Root deployed `inc/process.php`
+   SHA256 `668c97e312efcacf3941b2248c3255ab1b8ef15ab10816b92fdf2e8a601615b7`.
+   Evidence: clone `ownerloss-after-fix.*`,
+   `deployment/cleanup-fix-hashes.json`.
+
+Initial fixture mistakes remain in the private ledgers: encrypted token use
+caused setup401; direct Profile::update did not remove the intended computer
+right for1002, so1002 is not denial evidence. Correct ProfileRight mutation
+produced1005 Held/PARENT_SCOPE; rights were restored and a fresh session used.
+The1022 pause timeout was retained as a safe prewrite timeout, not reported as a
+successful concurrent newer-edit test. Root deployed only independently
+reviewed bounded fixes; no existing Work was reset to manufacture a pass.
+
+### Remaining gaps and interpretation
+
+The new loop has bounded B-side runtime evidence, not complete integration
+certification. Actual Controller A scheduling, Sync problems, durable coverage,
+local ReturnToA saves and automatic end-to-end reconciliation remain unrun.
+True wire-level COMMIT/HTTP response loss, successful mid-execution newer-human
+arbitration, separately listed permission/reference/storage variants, moved
+scope/competing identity, unrestricted cron and exhaustive native-hook/type
+coverage remain explicit gaps. A finite hook fault does not prove rollback or
+idempotence of arbitrary external effects. Nothing here changes authority,
+null semantics, exact whole-snapshot rules or preserved historical Unknowns.
+
+The method/path/status inventory is `core/curl-calls.jsonl`. Runtime exercised
+native V1 GET initSession; Setting POST/PUT; Work POST, exact/collection/search
+GET and immutable PUT denial; Change GET and exact/mixed/denied PUT. Fixture
+asset/Fields/dropdown/profile/account changes used native PHP model methods,
+not direct asset SQL. Procedural injections, separate clone schemas and each
+source/runtime limitation are recorded in the private actor ledgers. No
+automated test framework or permanent test harness was introduced.
+
+## Automatic scalar reconciliation source-only candidate — 29 October 2026
+
+**Historical preparation:** the NOT RUN entries and source-only statements in
+this section describe the earlier implementation turn. The user later
+authorized the bounded run recorded in the local runtime ledger above; this
+plan is retained unchanged so its unperformed subvariants remain visible.
+
+Version **0.4.0** adds the explicit version 2 policy in
+[reconciliation-contract.md](reconciliation-contract.md). This is a prepared
+manual checklist, not a runtime ledger: **RC01–RC22 are all NOT RUN**. No current
+implementation task deployed the plugin, upgraded a database, changed live
+configuration/data, submitted/retried/reset/deleted a Work or performed a native
+write. No automated tests were added or run. Works 1–7 and every existing Work
+must remain untouched. Historical scalar/Notes evidence and the version 1 FI
+checklist do not establish version 2 runtime behavior or A/B integration readiness.
+
+Use separately approved disposable assets, route/Setting, account/profile and
+new Work/Change fixtures. Retain their evidence and never reopen or reset an old
+Work for repetition. Create reference fixtures through authorized native/plugin
+paths; fault cases require separately bounded permission. Record the deployed
+source/version, GLPI/Fields patches, table engines, B row IDs and A work IDs,
+actual requests/results, original-reference bytes, selected native inputs,
+before/after values and exact Change coverage. Use fresh API sessions after
+rights changes. A's scheduling/problem ledger tests belong to Controller A;
+this checklist specifies their B-side contract expectations.
+
+### Prepared version 2 request and curl sequence
+
+The IDs, labels and timestamps below are illustrative, not existing test targets.
+Assume an authorized current route-12/version 8, Computer A42/B231, and a newly
+created terminal linked Asset Sync reference at B Work row 401. Work 401's
+immutable request must already contain positive B identity 231. Its journal may
+be a separately authorized damaged/missing fixture; it must remain unchanged.
+The current enabled mappings include asset_name and asset_status, and only
+asset_status is selected. Save this complete JSON as `reconcile-request.json`:
+
+```json
+{
+  "input":[{
+    "work_id":"A-reconcile-20261029-001",
+    "subject":"Asset",
+    "operation":"Sync",
+    "route_id":"route-12",
+    "a_entities_id":12,
+    "entities_id":5,
+    "itemtype":"Computer",
+    "identity_json":"{\"a_items_id\":42,\"b_items_id\":231,\"serial\":\"SN-0042\"}",
+    "a_values_json":"{\"asset_status\":\"On Hold\"}",
+    "a_change_times_json":"{\"asset_status\":{\"changed_at\":\"2026-10-29T10:00:00+08:00\",\"reliable\":true}}",
+    "settings_version":8,
+    "handled_change_ids_json":"[]",
+    "field_sync_json":"{\"version\":2,\"mapping_ids\":[\"asset_status\"],\"reconcile_work_id\":401}"
+  }]
+}
+```
+
+Use private operator-supplied tokens and the newly returned disposable row ID:
+
+```sh
+B_API_BASE='http://localhost:8081/api.php/v1'
+B_APP_TOKEN='<fixture application token>'
+B_SESSION_TOKEN='<fixture service session token>'
+B_RECONCILE_ROW_ID='<newly returned disposable Work row ID>'
+
+curl --globoff --silent --show-error --include \
+  --request POST "$B_API_BASE/PluginAgentbdmosassetsyncWork" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data-binary @reconcile-request.json
+
+curl --globoff --silent --show-error --include \
+  "$B_API_BASE/PluginAgentbdmosassetsyncWork/$B_RECONCILE_ROW_ID" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Accept: application/json'
+
+curl --globoff --silent --show-error --include \
+  "$B_API_BASE/PluginAgentbdmosassetsyncWork?searchText%5Bwork_id%5D=%5EA-reconcile-20261029-001%24&sort=id&order=ASC&range=0-49" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Accept: application/json'
+```
+
+POST array acceptance remains native 201 `[{"id":<B id>,"message":<string>}]`:
+it does not prove asset completion. Poll the same original ID after a lost POST
+response; duplicate work_id must reject without a second write. GET is the raw
+Work row with JSON-string result_json; hidden field_sync_json adds no raw-row
+key. Decode the result and require field_sync.version 2 plus the exact
+reconcile_work_id and ordered selection. Reasons are descriptive; machine codes,
+certainty and exact IDs determine handling. No source_timestamp or parent_change_id
+top-level Work field exists.
+
+For acknowledgement only after every field/revision of the newly created exact
+fixture Change is verified handled, save `{"input":[{"id":301,"status":"Done"}]}`
+as `reconcile-ack.json`, replace 301 with that fixture ID, and use:
+
+```sh
+curl --globoff --silent --show-error --include \
+  --request PUT "$B_API_BASE/PluginAgentbdmosassetsyncChange" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' \
+  --data-binary @reconcile-ack.json
+```
+
+Compare actual returned ID keys with submitted IDs and GET each missing or
+uncertain exact Change. Native success is `[{"301":true,"message":<string>}]`
+for that illustrative ID. B's direct PUT validates scope/rights/transition and
+trusts A's completed handling; it does not prove A saved every field. Do not use
+this command to conceal unresolved fields or acknowledge the same Done ID again.
+
+### Named reconciliation checks — all NOT RUN
+
+| Case | Manual procedure and required evidence | Result |
+|---|---|---|
+| RC01 — capability and shapes | On approved pre-0.3/fresh disposable installations, verify deployed 0.4.0 and existing additive field_sync_json upgrade; no further schema column/status/right/resource. Compare raw GET/collection/search keys. Absent/null stays legacy, version 1 has no reconciliation key, version 2 echoes exact version/selection/reference. Retained old requests/results remain byte-identical. | NOT RUN |
+| RC02 — exact option validation | Distinct new IDs: version 2 with valid reference; missing/noninteger/nonpositive reference, extra option, duplicate/unknown/disabled/wrong-type mapping, values/times outside selection, malformed/nested JSON and unsupported version. Require native denial wrappers and documented field_sync_json/a_values_json/a_change_times_json errors; no saved invalid Work or native write. | NOT RUN |
+| RC03 — prior reference eligibility | Missing/unreadable/wrong route/type/A asset/B asset/entity pair, nonterminal Accepted, Note, Suspend/Resume and original null-B/serial-only first-copy references deny. Old result content must never turn an ineligible reference into a linked recovery. Record reference bytes and asset counts. | NOT RUN |
+| RC04 — damaged historical journal | Reference a newly created eligible terminal Held/Failed Work whose result is missing/damaged under separately authorized fixture setup. Fresh version 2 may compare/repair current selected state without parsing or replacing old result/status/error/request/timestamps. Compare every old column before/after, including original Unknown evidence when readable. | NOT RUN |
+| RC05 — version repair and fresh intent | Advance the disposable Setting after repairing an option/mapping. Reference older terminal same-link Work; new request must use exact current version and current enabled mappings. Old values, bindings and edit times are never replayed. Stale new version or a reference with a greater settings version Holds/rejects as documented. The old reference supplies lineage only; old-version Changes retain their existing exact coverage/ACK rules. | NOT RUN |
+| RC06 — terminal/quiescent execution | Bound a prior owned writer still processing, loss of its original lock-owner session, and another Accepted Asset Work in the same pair/route/type (Sync/control). Recheck terminal reference, worker ownership and retained Active identity; cross the route barrier before restart terminalizes a started Work. RECONCILE_PENDING prevents overlap; RECONCILE_SCOPE covers invalid reference/scope/version. Notes are outside this Asset conflict scan. Accepted/Pending is not refusal evidence and a later scope-control operation retains normal ordering. | NOT RUN |
+| RC07 — source A convergence | With old write outcome unknown and current A authority valid, select only a different current scalar. B writes/rereads/verifies the new intent; old Work remains unchanged. Equal current values produce AlreadyEqual/VerifiedEqual without a native save or duplicated History; current proof never certifies the old operation. | NOT RUN |
+| RC08 — source B return | Select B-owned scalar with/without supplied A value. B does not write it; ReturnToA carries current readable value/evidence. A's approved end-to-end check must verify its own save/equality before accounting for that field or acknowledging a Change. Merely receiving the result is insufficient. | NOT RUN |
+| RC09 — Both authority and evidence | Test A-newer, B-newer, equal values, missing/unreliable/tied times and a newer genuine B edit during reconciliation. Apply current per-field genuine evidence only; no global date_mod/poll time/A-wins fallback. Differing unresolved evidence remains Conflict/Held, without overwriting either side. | NOT RUN |
+| RC10 — format/dropdown/permission siblings | Select valid Name, invalid date/number or unresolved/ambiguous/denied dropdown label, and valid Serial. Only confirmed prewriter Rejected/NotAttempted fields are quarantinable; valid siblings progress. Field/container denial differs from account, parent READ/required UPDATE, route/entity and Setting failures. Inspect structured codes, not prose or HTTP alone. | NOT RUN |
+| RC11 — repair and next distinct attempt | After terminal field rejection, repair the real cause, read fresh authoritative values/evidence and create a new targeted Work/ref. Previously converged fields remain unselected; cause repair cannot replay the old payload or turn old Unknown into success. Missing option/permissions are not repaired automatically by B. | NOT RUN |
+| RC12 — exclusion, clearing and Fields storage | Test A/B/Both exclusions, mapping_ids empty, explicit supported nullable native clear, omitted value versus null/empty, and unsupported dropdown/Fields/custom null clears. Selected-only Fields update requires existing native storage and never resubmits excluded container values or creates defaults/storage. Record native hook/shared-storage limits separately. | NOT RUN |
+| RC13 — owned connection start | With separately approved process-local instrumentation, demonstrate a genuinely new configured DB object/session with fresh GLPI bookkeeping for each version 2 Work, including durable processing start. Keep the original ambient session untouched; do not close/reconnect it or rollback unrelated work. On authorized fresh/upgraded disposable databases covering both core must_unsanitize_db_data flag states, verify writer and every observer use native PostBoot read policy consistently with ordinary API reads for quotes, backslashes, JSON and dropdown labels, without changing configuration. Demonstrate version 1/legacy paths retain their previous boundary. | NOT RUN |
+| RC14 — worker and route locks | Run approved bounded concurrent workers. The original connection retains its worker lock through version 2 owned-session creation/close; route locks use their intended session. Verify no lock loss midloop, no duplicate processing, restoration of the original global connection and no competing writer after a failed owned connection. | NOT RUN |
+| RC15 — independent progress visibility | Bound savepoint/commit-response and native-hook transaction-leak cases. A fresh independent native observer for each check must prove the same backend via the advisory challenge and see exact newly persisted Work metadata/marker/provisional proof/final journal before B trusts completion; same-connection visibility, a reused observer snapshot or a coincidentally matching asset value is insufficient. Unconfirmed observations/ownership must not publish VerifiedApplied or authorize later siblings. | NOT RUN |
+| RC16 — interruption and restart | Interrupt after durable start, before/after mapping marker, native save/reread, provisional proof, commit and final persistence. Restart retains original identity and known sibling proof, Holds started uncertain Work without replay, preserves damaged evidence, and allows only a distinct eligible version 2 operation later. | NOT RUN |
+| RC17 — commit/rollback/cleanup uncertainty | Bound owned DB construction, observer, commit, rollback, result save and lock/session close failures/lost acknowledgements. Preserve durable uncertainty and prior siblings; stop before later writes when boundaries are unsafe. Cleanup must restore original connection and preserve the original exception/evidence. Never mark Failed/Skipped as no effects. | NOT RUN |
+| RC18 — lost HTTP/result responses | Lose POST response and locate exact original work_id, then poll it; do not create a fresh operation blindly. Lose GET safely repeat. Native false/mixed batch outcomes and HTTP201/200 are not processing proof. Use raw handled_change_ids_json whitespace such as `[ 301 ]` and mixed eligible/excluded snapshot references: immutable-request guards must compare original bytes while filtered execution context handles only eligible IDs, without losing durable completion proof. Read exact stored versioned outcomes and preserve earlier Unknown history after new convergence. | NOT RUN |
+| RC19 — mixed snapshot across targeted Works | New Change contains Name/Status. Separate targeted Works may handle them; B does not aggregate partial receipts and each partial mixed correction leaves the whole row Pending/attempt count unchanged where excluded. A durably tracks exact field/revision coverage and sends one full ACK only after all fields are independently handled; one success or equal-now alone is insufficient. | NOT RUN |
+| RC20 — whole coverage and exact ACK | Test one fully selected B correction, A-side aggregation across fresh Works, ReturnToA requiring A handling, newer separate Changes and older revisions. Only exact fully covered IDs become Done. Compare per-ID PUT results, omitted/missing IDs and exact GET readback; B never acknowledges unrelated/newer snapshots automatically. | NOT RUN |
+| RC21 — scope/identity/permissions and regressions | During new processing disable/advance Setting, suspend or move the linked fixture, revoke captured submitter/parent/field rights and create competing identity ownership. Hold/reject with safe context categories before further writes, no fallback/relink/create/move. Repeat representative legacy/version 1, first-copy, Notes and Suspend/Resume cases on separate fixtures; do not alter their semantics. | NOT RUN |
+| RC22 — ordinary saves, feedback and readiness | Human native/Fields saves remain non-blocking; sync writes stay under origin guard and queue no feedback Change. Results/loggable reasons contain no raw sensitive diagnostics/credentials/rejected values. A Sync problems/scheduling behavior is verified in its own authorized checks. Document incidental hook effects and unsupported evidence; no integration-ready claim before relevant B/A cases actually pass. | NOT RUN |
+
+Every RC runtime case remains pending. Fault/concurrency cases need separately
+authorized disposable fixtures and bounded instrumentation; this document does
+not authorize them. The implementation does not promise reconstruction of lost
+history or reversal of arbitrary native-hook effects. Source review and PHP
+syntax checks cannot certify database/session behavior, fault recovery or A/B
+integration. Preserve all earlier ledgers below unchanged.
+
+## Scalar field isolation source-only candidate — 28 October 2026
+
+**Historical preparation:** this original FI01–FI35 plan is retained below.
+The later 0.4.0 RC run exercised representative version 1/legacy regressions;
+it did not execute or certify all35 FI cases.
+
+Version **0.3.0** adds the opt-in scalar contract in
+[field-sync-contract.md](field-sync-contract.md). This section is a **prepared
+manual checklist, not a runtime result**. Every FI case is **NOT RUN**. No
+plugin deployment/upgrade, live configuration/data change, Work submission,
+retry/reset/delete, native write or fault injection was performed for this
+implementation task. No automated tests or harness were added or run. Works
+1–7 and all other existing Works must remain untouched. Historical scalar and
+0.2.0 Notes runs below do not establish this extension's behavior or A/B
+integration readiness.
+
+Use separately authorized disposable assets, entities, route/Setting and service
+profile. Retain test Works/Changes as evidence; do not reset them to repeat an
+operation. Record the actual deployed source/version, native GLPI/Fields patch,
+field storage engine, fixture IDs, request IDs, HTTP/result readbacks, native
+before/after values and exact Change IDs. Use fresh service sessions after
+permission changes; prior Notes evidence found session rights caching. Never
+assume a process-local permission check proves immediate API-session revocation.
+
+### Manual curl shapes (prepared, not executed)
+
+Use the full linked-asset request from [the exact protocol
+examples](field-sync-contract.md#exact-rest-calls-and-examples), adapted only to
+the authorized fixture's actual IDs/Setting/version. Save that complete outer
+JSON as a local review payload; JSON columns remain JSON **strings**. Obtain a
+native session through the existing login procedure. The variables below are
+placeholders for operator-supplied fixture/session values, never credentials to
+commit:
+
+```sh
+B_API_BASE='http://localhost:8081/api.php/v1'
+B_APP_TOKEN='<fixture application token>'
+B_SESSION_TOKEN='<fixture service session token>'
+B_WORK_ROW_ID='<returned disposable Work row ID>'
+
+curl --globoff --silent --show-error --include \
+  --request POST "$B_API_BASE/PluginAgentbdmosassetsyncWork" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --data-binary @field-sync-request.json
+
+curl --globoff --silent --show-error --include \
+  "$B_API_BASE/PluginAgentbdmosassetsyncWork/$B_WORK_ROW_ID" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Accept: application/json'
+
+curl --globoff --silent --show-error --include \
+  "$B_API_BASE/PluginAgentbdmosassetsyncWork?searchText%5Bwork_id%5D=%5EA-field-isolation-20261028-001%24&sort=id&order=ASC&range=0-49" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Accept: application/json'
+```
+
+POST array acceptance is 201 `[{"id":<B id>,"message":<native string>}]`;
+acceptance is not completion. Poll only the same Work until its terminal
+Done/Held/Failed evidence is known. Decode `result_json` once; it is an outer
+JSON string. The optional request column is hidden from all raw Work GET forms;
+the parsed immutable selection is echoed in `result_json.field_sync`.
+Admission denial uses native 400/207 bulk wrappers, not an invented custom
+422/409/error envelope. See the contract for exact messages and safe codes.
+
+For exact acknowledgement **only after the entire fixture snapshot has actually
+been handled**, send this body to the existing Change collection PUT, using the
+same headers as POST:
+
+```json
+{"input":[{"id":301,"status":"Done"}]}
+```
+
+Expect the native `[{"301":true,"message":<native string>}]` success entry and
+read back that exact Change if any result is omitted/uncertain. A supplied ID
+or HTTP 200 alone is not proof. Missing IDs can be omitted by GLPI 11.0.7.
+Do not use a mixed snapshot in this command to hide an unresolved field.
+
+### Named checks — all NOT RUN
+
+| Case | Manual procedure and required evidence | Result |
+|---|---|---|
+| FI01 — additive install/upgrade | On separately approved fresh and pre-0.3 disposable installations, verify 0.3.0, nullable Work `field_sync_json` with existing-row null default, no changed retained request/result bytes, no new public class/right/endpoint and existing Setting/Change/Notes defaults preserved. Record actual engines and upgrade behavior. | NOT RUN |
+| FI02 — legacy strict-parser compatibility | Submit otherwise valid Asset requests with property absent and outer null. Verify existing omission/first-copy/authority behavior, Accepted result null and exact six legacy result keys/three field-outcome keys with no new certainty/error/member. Compare unfiltered native GET/collection/search row keys to pre-upgrade; no `field_sync_json` leak. | NOT RUN |
+| FI03 — opt-in admission/readback | Supply version 1 and two selected enabled IDs. Confirm 201 only saves immutable request plus Pending/Excluded initial journal, no native asset write. GET the single row, collection and native search with discovered options: hidden raw property, same parsed version/ordered selection in result. Original supplied JSON text is unchanged in database read-only evidence. | NOT RUN |
+| FI04 — selection schema/scope denial | Separate new IDs: malformed JSON, nested object instead of JSON string, noninteger/unknown version, extra option, nonarray/missing IDs, duplicates, unknown/disabled/wrong-itemtype mapping, wrong route/entity/version. Expect documented native denial/message and no saved Work/asset mutation. Base-validation and native-rights precedence remain valid. | NOT RUN |
+| FI05 — outside-selection values/times | Select Name/Serial but send Status value or Status time, including a B-source mapping. Expect `ASB_INVALID_FIELD` for the appropriate JSON column; no silent inclusion. Empty objects with empty selection remain valid. | NOT RUN |
+| FI06 — explicit exclusion, source A | Valid linked Active fixture: select Name/Serial, exclude enabled A-source Status that differs. Only selected fields are described/converted/compared/returned/written; Status outcome Excluded/NotAttempted, no Status value in return and no explicit native Status input. Saved Setting/mapping remains enabled and unchanged. Inspect native explicit input as well as final value. | NOT RUN |
+| FI07 — explicit exclusion, source B | Repeat FI06 with Status B-owned, including an unreadable/invalid stored Status. Exclusion must avoid descriptor/label/value processing and B return; a bad excluded mapping must not reject selected siblings. Record physical row-load/native-hook limits separately. | NOT RUN |
+| FI08 — explicit exclusion, source Both | Repeat FI06 with Both Status, differing values and missing/tied evidence. No excluded arbitration/conflict/return/write; selected siblings progress. A later selected request still uses the saved Both authority. | NOT RUN |
+| FI09 — empty selection | Use `mapping_ids:[]`, empty values/times, valid positive linked identity and no handled IDs. Check normal account/route/parent/Active checks, no logical mapped reads or native writes, every enabled mapping Excluded, Done only if all scope checks succeed. | NOT RUN |
+| FI10 — legacy omission versus selection | Without opt-in omit Status under A/B/Both separately: preserve old A skip, B read/return and Both conflict. With opt-in exclude it: Excluded for all. With opt-in select A/Both but omit value: Rejected/VALUE_REQUIRED/NotAttempted; selected B without A value still returns B. | NOT RUN |
+| FI11 — explicit clear | For actual nullable supported date/text/scalar fixtures, select the mapping and send explicit inner null; verify saved clear/reread/correct genuine value evidence. Omission/exclusion never clear. Dropdown null/empty and genuinely invalid scalar values reject before native writer; no invented zero/default/NULL conversion. | NOT RUN |
+| FI12 — selected authority/equality | Verify A applies winning value without borrowing B edit time; B returns current value without native write; Both uses only reliable genuine instants, missing/tied evidence conflicts, equal values need no write. Preserve current source-specific return/evidence behavior; no sync timestamp becomes a human edit. | NOT RUN |
+| FI13 — format rejection plus siblings | Select good Name, invalid date/number and good Serial. Terminal result retains verified successful siblings and invalid mapping Rejected/NotAttempted/INVALID_VALUE (or documented FIELD_UNAVAILABLE where descriptor itself fails). Prove invalid mapping's native writer was not called; Done may contain rejection. No prose parsing is required. | NOT RUN |
+| FI14 — dropdown rejection plus siblings | Missing, ambiguous or denied exact readable label must produce the appropriate safe structured field rejection before writer. Other selected valid fields complete. No automatic option creation, case folding, default choice or conversion of bad input into clear. | NOT RUN |
+| FI15 — field permission versus account/scope | Under fresh captured submitter context deny one writable field/Fields container while leaving parent/account/scope valid; that field rejects FIELD_PERMISSION and siblings can complete. Separately revoke account/Work access, parent READ/required UPDATE or entity access, or route/Setting validity; Hold with work-context code (parent denial PARENT_SCOPE), stop further processing and do not classify global failure as a quarantinable mapping. | NOT RUN |
+| FI16 — repaired fresh catch-up | Wait for original Work terminal. After proving target mapping Rejected/NotAttempted, fix cause, read fresh current A/B evidence and send distinct new ID selecting only that mapping. Check preserved earlier siblings, current A/B/Both authority, original Work immutable and no blind replay of its old payload. Accepted/Pending is not retry authorization. | NOT RUN |
+| FI17 — first-copy/link guard | Non-null opt-in without positive B ID is admission denial. Positive B ID with absent, Suspended, wrong pair/type/entity or unverified retained Active link Holds before mapped work; no serial fallback, asset create/relink/resume/move. Record guard and asset counts. | NOT RUN |
+| FI18 — legacy first copy and control/Notes regression | On approved separate fixtures, repeat legacy first-copy seeding of all supplied enabled sources; Suspend/Resume ordering/link retention; representative Note Sync/Inventory. Non-null field_sync_json on controls/Notes denies. Absent/null retains previous request/result behavior and no Notes behavior changes. No existing Work is reopened. | NOT RUN |
+| FI19 — native selected-only input/hooks | Inspect normal native explicit input for selected mapping only, including native/custom virtual scalar. Verify no explicit excluded-value resubmission; native history/metadata may change. Add only separately approved bounded hook instrumentation to determine incidental sibling effects; document them honestly, never promise universal hook immutability. | NOT RUN |
+| FI20 — Fields partial existing storage | With two mappings in one existing Fields container, select one, including unrelated malformed/unreadable excluded storage value. Verify selected-only validation, generated-storage update and history, no merged-container resubmission/default/add, no excluded mapped processing. Absent generated row or unsupported safe path rejects before mutation; no implicit row creation. | NOT RUN |
+| FI21 — human saves and feedback | Ordinary native/Fields saves remain governed by GLPI/Fields and never blocked by capture. Sync native writes and nested Fields/history work stay under sync guard, producing no feedback Change. Later genuine human save captures normally; exclusions do not disable configured capture. | NOT RUN |
+| FI22 — mixed excluded Change snapshot | Supply exact Pending snapshot with selected Name plus excluded Status. Selected Name may finish but Work Holds INCOMPLETE_SNAPSHOT with exact SNAPSHOT_NOT_SELECTED entry; whole row remains Pending with original attempt count/payload. It is absent from handled_change_ids_done and never silently acknowledged. | NOT RUN |
+| FI23 — invalid handled references | Missing, other subject/asset/pair/route/entity/type/version and malformed mapping-key snapshot references Hold before any selected native mutation; preserve Pending rows/attempts. Already Done handling follows existing rules without rewriting immutable snapshot. | NOT RUN |
+| FI24 — selected snapshot with rejected/conflicted sibling | Fully select a mixed snapshot but reject/conflict one field. Verify actual validated attempt accounting only, no whole-snapshot Done or premature covered/completed IDs for unresolved revisions, even when another field is VerifiedApplied. Unknown never completes any unresolved snapshot. | NOT RUN |
+| FI25 — full correction and exact external ACK | Fully selected exact same-scope snapshots complete only under existing full-revision/time/permission coverage. Test older/newer snapshots and newly captured sibling rows. Reconcile exact handled_change_ids_done and external ID-key acknowledgements; later/unrelated rows stay Pending. A polling read or supplied ID is never an attempt/ACK. | NOT RUN |
+| FI26 — durable marker before native call | With separately approved disposable process interruption after committed mapping marker and before native writer, retain original Work identity, mapping Unknown/in_flight verified=false and earlier verified siblings. Restart Holds without replay; never infer NotAttempted from missing completion evidence. | NOT RUN |
+| FI27 — save false/throw and reread failure | Separately bound native save refusal/exception and verification mismatch/failure after writer invocation. Unknown with documented SAVE_UNCONFIRMED/WRITE_UNCERTAIN/VERIFICATION_FAILED is conservative even if the observed current value looks unchanged; stop further selected writes, preserve prior verified siblings and no auto-ACK. | NOT RUN |
+| FI28 — field/provisional-evidence transaction | On checked supported transactional storage, interrupt after native save+reread and provisional journal save before commit, and after commit before cleanup. Record native values and durable in-flight verified=false/true states. Public certainty stays Unknown until confirmed commit, lock release and final journal; never claim a provisional marker is final applied proof. | NOT RUN |
+| FI29 — commit/rollback uncertainty | With separately approved disposable fault boundaries, make commit and rollback outcome/acknowledgement uncertain. Commit uncertainty retains Unknown/COMMIT_UNCERTAIN where safely persisted. A rollback exception stops the worker with the earlier durable Unknown marker; restart reports INTERRUPTED, without requiring a newly saved ROLLBACK_UNCERTAIN code on an uncertain connection. Do not replay, downgrade certainty or reopen terminal Work even if a later read happens to equal input. | NOT RUN |
+| FI30 — journal/lock cleanup uncertainty | Bound result persistence and route lock release failures/lost acknowledgements before/after their actual effects. Keep prior durable marker if new save fails; unresolved cleanup stays Unknown and Held. Uncertain metadata begin/rollback stops the worker before further Work/Change saves or same-connection readback; only a known clean helper boundary permits exact lost-response readback. GET may later establish committed completion metadata, but absent response alone proves neither failure nor no effect. | NOT RUN |
+| FI31 — restart/missing journal | Restart a started opted Work at each durable boundary. Readable journals Hold without native replay, preserving known siblings and in-flight uncertainty. Missing/unreadable journals Hold with stable error ASB_FIELD_JOURNAL_UNREADABLE and preserve exact original result_json bytes/request; do not reconstruct excluded entries or fabricate per-field certainty. Missing selected evidence is unresolved, never NotAttempted or automatic catch-up permission. Accepted initial Pending before a durable start remains admission evidence only. | NOT RUN |
+| FI32 — lost HTTP responses/readback | Lose POST response after save and find exact original Work ID/echoed request; do not submit a new operation blindly. Lose GET response and safely repeat GET. Read current Work/native state for Unknown but do not claim that current value alone proves native history/hooks/evidence completed or permits automatic retry. | NOT RUN |
+| FI33 — storage/native transaction limits | On separately approved disposable nontransactional/unsupported field or Work storage, require prewrite STORAGE_UNSUPPORTED rejection. Use the deployment precondition of a fresh dedicated `php front/cron.php processWork` invocation, source-verified to have no native outer transaction. Inspect GLPI nested transaction/savepoint/public-void semantics, History/field boundaries and a separately bounded hook leaving an outer transaction open. Generic reused cron connections/third-party leaks are not proven clean by public GLPI APIs and no portable guard enforces this assumption; do not infer independent durability from same-connection visibility or savepoint release. No private accessor or success from a void return. | NOT RUN |
+| FI34 — concurrency/current scope | Queue distinct requests on same valid route/link; verify single worker/route lock, setting/scope recheck and current Both evidence protect against stale overwrite. Denied/busy route or later scope change produces work-context outcome and no further native writes. Do not interpret prior field rejection as permission to overlap an Accepted/started Work. | NOT RUN |
+| FI35 — safe results and integration boundary | Every enabled mapping has correct selected Pending/terminal or Excluded entry in the readable journal; only opt-in adds exact machine fields/field_sync. The documented damaged-journal exception retains raw evidence and grants no per-field certainty. Reasons contain no credentials/raw SQL/exception diagnostics/rejected business values. Held/Failed never imply no writes. Run corresponding A end-to-end selection/quarantine/fresh-current catch-up only after authorization; no integration-ready claim before these real checks pass. | NOT RUN |
+
+### Remaining verification gaps
+
+All FI01–FI35 runtime cases are pending. Source inspection can establish intended
+request shapes, branches and journal ordering; it cannot establish actual native
+save/hook transaction effects, fault acknowledgements, deployed schema behavior
+or Controller A's interpretation. Crash/fault cases require separately authorized
+bounded disposable fixtures; do not use this checklist as authorization to alter
+live data/configuration, existing Works or the real B environment. Do not infer
+that a cause repair resolves older Unknown Works or native recovery jobs.
+
+
 ## Native Notes local runtime verification — 28 October 2026
 
 The user subsequently authorized deployment of the Notes candidate to

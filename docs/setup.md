@@ -10,10 +10,18 @@ The reviewed deployment uses GLPI **11.0.7** and active Fields **1.24.4**.
 The plugin declares GLPI 11.0.7 through 11.0.x compatibility; other patches have
 not been exercised by these manual passes. See [the evidence index](manual-tests.md#current-evidence-index)
 for observed behavior and explicit unrun variants. Final Asset Both source and
-scoped runtime evidence have been reviewed. Version **0.2.0** adds native Notes
-in source; Notes installation, upgrade and runtime behavior have not been
-certified. The [Notes contract](notes-contract.md) extends the API contract;
-the existing flowcharts remain the baseline Asset flows.
+scoped runtime evidence have been reviewed. Version **0.2.0** Notes has a bounded
+[local manual run](manual-tests.md#native-notes-local-runtime-verification--28-october-2026)
+with remaining PARTIAL variants. Version **0.3.0** adds opt-in scalar selection
+and durable field certainty; the original FI source checklist remains historical,
+with representative regressions later exercised by the 0.4.0 local run. The [Notes contract](notes-contract.md) and
+[field-sync contract](field-sync-contract.md) extend the API contract; existing
+flowcharts remain the baseline Asset flows.
+Version **0.4.0** adds version 2 automatic scalar current-state reconciliation
+in [reconciliation-contract.md](reconciliation-contract.md). Its authorized
+[bounded local Docker run](manual-tests.md#automatic-scalar-reconciliation-local-runtime-verification--29-october-2026)
+records deployment, owned-session/catch-up observations and remaining gaps;
+it does not certify Controller A integration or the real environment.
 
 ## Deploy and enable
 
@@ -31,12 +39,20 @@ the existing flowcharts remain the baseline Asset flows.
    It registers plugin profile
    rights and the native automatic action. Service rights are not granted
    automatically.
-3. For an existing installation, deploy the complete version 0.2.0 source and
-   perform GLPI's plugin upgrade as an administrator before enabling Notes.
+3. For an existing installation, deploy the complete version 0.4.0 source and
+   perform GLPI's plugin upgrade as an administrator before opting into the
+   new scalar protocol (and before enabling Notes on a pre-0.2 installation).
    The upgrade adds missing columns and the internal table without replacing
    existing Work/Change payloads. Existing Work/Change rows become subject Asset
-   with null `note_json`; Settings start with Notes disabled (`[]`). This source
-   implementation did not run installation, upgrade, deployment or database writes.
+   with null `note_json`; Settings start with Notes disabled (`[]`). The 0.3.0
+   upgrade adds nullable `field_sync_json` to Work, default null, without changing
+   retained requests/results or adding a public record class. Native Work
+   GET/collection/search hide that column. The original 0.3.0 implementation task did
+   not run installation, upgrade, deployment or database writes.
+   Version 0.4.0 reuses that column for version 2; it adds no further schema
+   column and does not rewrite existing Work/result evidence. A subsequently
+   authorized local Docker upgrade and separate fresh/old-version clone checks
+   are recorded in the current runtime ledger; other deployments remain manual.
 4. Uninstall removes all four tables, rights and registered task. It requires
    explicit approval and is not an upgrade/reset procedure. Preserve required
    Work/Change evidence; there is no autonomous cleanup of terminal records.
@@ -137,6 +153,107 @@ exactly and uniquely within permitted destination options; no option is
 created, trimmed or case-folded automatically. Unsupported complex/multiple
 fields stay rejected until a payload/save contract is defined.
 
+## Scalar field isolation (opt in, version 0.3.0)
+
+Confirm the deployed plugin version and completed upgrade before A sends
+`field_sync_json`. A Setting's increasing version does not negotiate a protocol
+capability. There is no custom discovery endpoint; do not silently retry with
+legacy behavior if an older B rejects the property. Grant the existing Work
+Read/Create and underlying parent/field/container permissions; this feature adds
+no profile right and grants no Delete/Purge.
+
+Only new Asset Sync Work on a verified retained Active relationship can select
+mapping IDs. Omission/null retains all legacy behavior; `[]` deliberately selects
+none. The selection applies equally to A/B/Both, does not clear or disable
+mappings, and cannot create/link a parent, Resume it or alter Notes. A serial
+alone cannot authorize this path. Use the exact request/result examples in
+[field-sync-contract.md](field-sync-contract.md).
+
+The opted-in Fields path requires existing generated storage and source-supported
+selected-only validation/update/history. It does not resubmit a merged Fields
+container. Unsupported/nontransactional field/Work storage must reject before a
+native writer rather than claim atomic evidence. Preserve native GLPI hooks;
+they may still change sibling fields, while parent/storage row reads may load
+excluded columns. These are explicit limits to logical mapping isolation.
+Opted-in metadata helpers stop the worker on uncertain transaction boundaries;
+they do not read back on that same uncertain connection to infer durability.
+For version 1's supported durability boundary, configure a fresh dedicated
+CLI invocation of `php <GLPI_ROOT>/front/cron.php processWork`; source review
+established that this entry point has no native outer transaction. Generic
+reused cron connections and third-party hooks leaving transactions open are
+not proven clean through a public GLPI transaction-state API. There is no
+portable ambient-transaction guard/enforcement here and no universal independent
+marker guarantee for arbitrary ambient transactions. Native/plugin hooks leaking
+transaction boundaries remain a limitation, with runtime cases unrun. This is a
+deployment/manual-verification precondition, not a deployment performed here.
+
+Read per-field certainty and machine codes in addition to Work status. Done can
+include rejected/excluded fields; Unknown remains unresolved and Held, with no
+automatic replay or Work reset. Once the original Work is terminal and the
+mapping is Rejected/NotAttempted, its cause is repaired and current scope remains
+valid, A may send a distinct fresh current-state request. Accepted/Pending is
+not retry authorization. For Unknown, first reconcile the
+existing Work journal and native current state; native readback alone does not
+prove all hook effects. If the retained journal is damaged/missing, B Holds with
+Work error `ASB_FIELD_JOURNAL_UNREADABLE`, preserving its exact result bytes and
+request. There is no safe reconstructed field certainty; A must retain its own
+original request and reconcile all selected missing effects. No automatic
+version 1 catch-up/replay follows that error. A separately opted-in version 2
+operation is described below. Exact mixed Change snapshots stay Pending until fully
+covered. Run the [new disposable-fixture checklist](manual-tests.md#scalar-field-isolation-source-only-candidate--28-october-2026)
+after separate authorization; historical passes do not certify this feature.
+
+## Automatic scalar reconciliation (opt in, version 0.4.0)
+
+Confirm deployed 0.4.0 and the existing additive upgrade before A sends version 2
+of field_sync_json. There is no automatic fallback to version 1 or legacy after
+an unsupported-version response. The exact schema, examples and recovery limits
+are in [reconciliation-contract.md](reconciliation-contract.md).
+
+A creates a distinct targeted Work referencing a terminal same-link Asset Sync
+row with an original positive B identity. It retains its original request and
+problem ledger. Missing/damaged earlier result evidence remains unchanged;
+current convergence does not certify the earlier operation. A uses current
+Setting/mappings and genuine values/evidence, even if the Setting advanced after
+repair; the referenced settings version cannot exceed the new version. B rechecks
+current permissions, Active identity, terminal reference and
+field authority before native processing. It never first-copies, reopens the old
+Work or invents a winning Both timestamp.
+
+The version 2 worker uses a new configured DB object/session for its own work,
+retaining the original lock-owning connection. It restores that connection and
+closes only its owned session. Independent committed visibility checks are
+required before progress is trusted: each uses a fresh native observer on the
+same positively verified backend and compares exact Work metadata/journal.
+Both the owned writer and each fresh observer apply GLPI's native PostBoot read
+policy through public `setMustUnsanitizeData`, using the existing
+`glpi_configs` core `must_unsanitize_db_data` value with native fallback true;
+this reads configuration and does not change it.
+Worker-lock ownership checks and the restart route barrier protect against an
+older owned writer still running. Another Accepted same-pair Asset Work is a
+RECONCILE_PENDING context failure, not a field rejection; invalid references use
+RECONCILE_SCOPE. Closing/reconnecting an existing DB object
+is not equivalent because GLPI retains private transaction bookkeeping and
+connection-owned locks. This version-specific behavior avoids requiring a new
+PHP process for every version 2 Work. It does not change version 1's documented
+boundary or prove arbitrary external hook effects harmless. Connection loss,
+unverified evidence or unsafe native effects remain structured uncertainty.
+
+A polls the Work; POST success is admission only. AppliedToB/VerifiedApplied and
+AlreadyEqual/VerifiedEqual describe the new Work. ReturnToA requires A's actual
+verified save/equality. A may aggregate exact field/revision coverage in its own
+ledger, leaving mixed snapshots Pending until fully handled, then acknowledge
+only the exact Change IDs. B does not aggregate partial Work receipts or verify
+A's local saves. Root-cause repair and scheduling live in Controller A; no B
+option creation, permission grant or automatic configuration repair is added
+by this feature.
+
+Review RC01–RC22 in the
+[local runtime ledger](manual-tests.md#automatic-scalar-reconciliation-local-runtime-verification--29-october-2026)
+and its remaining variants. The source-only checklist below it is the historical
+plan. New fault/write verification still requires authorized disposable fixtures;
+existing Works, including Works 1–7, must remain untouched.
+
 ## Native Notes (opt in)
 
 Before enabling capture, ensure the A consumer understands `subject` and can
@@ -202,9 +319,9 @@ Acknowledgement remains exactly `id` and `status=Done`. Correction work validate
 all referenced snapshots before counting an attempt and completes only supplied
 same-note snapshots demonstrably covered by the verified result. ReturnToA
 snapshots stay Pending until A handles and acknowledges them; newer or uncertain
-revisions remain independent. Notes runtime coverage and lifecycle checks remain
-unrun; use the [Notes manual checklist](manual-tests.md#native-notes-source-only-candidate--28-october-2026)
-before a pilot.
+revisions remain independent. Review the bounded [Notes local results](manual-tests.md#native-notes-local-runtime-verification--28-october-2026)
+and remaining PARTIAL variants before a pilot; do not infer that the new scalar
+selection/journal path was exercised by that run.
 
 ## Background processing and scope controls
 
@@ -284,7 +401,8 @@ and explicit NOT RUN variants. Verification covered representative native,
 custom and Fields fixtures, not every installed type/field or unsafe fault
 injection. Future deployment changes require their own scoped manual checks;
 there are no automated tests or destructive reset/delete/purge steps here.
-That existing runtime evidence covers the Asset workflows. Native Notes are a
-source-only addition pending their own manual installation/upgrade, rights,
-capture, identity, content, conflict, cursor and acknowledgement checks. No Notes
-runtime certification follows from the earlier Asset passes.
+The later Notes and reconciliation runs have their own scoped PASS/PARTIAL
+evidence. Neither earlier Asset/Notes passes nor the bounded 0.4.0 reconciliation
+run certifies every field, hook, fault variant or actual Controller A catch-up.
+Use the current ledger's remaining gaps; historical source-only checklists are
+preserved and must not be interpreted as later runtime results.
