@@ -1,5 +1,397 @@
 # GLPI B manual curl review checklist
 
+## Native Notes local runtime verification — 28 October 2026
+
+The user subsequently authorized deployment of the Notes candidate to
+`http://localhost:8081` and manual NT01–NT31 checks with disposable fixtures.
+This section records that later run; the source-only section below is historical
+and its NOT RUN statements describe the preceding implementation turn. No
+Controller A or real-environment deployment is part of this run. No commit or
+push is authorized. Results distinguish observed passes from cases whose wider
+subvariants remain unverified; a source review does not turn an unrun variant
+into a runtime PASS.
+
+Deployment upgraded and activated plugin version **0.2.0** in the local Docker B.
+Pre-upgrade counts were 860 Works, 111 Changes and 34 Settings. Comparison of
+every pre-existing column after the additive upgrade matched the before export;
+new Work/Change defaults are `subject=Asset` and `note_json=null`, existing
+Settings have `notes_itemtypes_json="[]"`, and the internal association table and
+unique indexes exist. The operator retained full before/after XML exports and
+a separate complete before snapshot of Works 1–7. Final comparison passed for
+all original columns of **all 860 Works, 111 Changes and 34 Settings**, including
+every original column of all seven protected Works 1–7. Their statuses and
+payloads were not changed. Old Work 860 remained Accepted/unstarted; no new
+fixture Work remained Accepted. All 17 deployed PHP files matched the repository
+by SHA-256 and version 0.2.0 was active. No plugin PHP source was changed during
+this runtime-verification turn.
+
+The fresh plugin-install branch was also exercised on a new disposable database
+`agentb_notes_fresh_20261028`, cloned from the local GLPI base while excluding
+the four Agent-B tables and its registration/right/task rows. The native install
+hook returned true, created four empty tables, registered 57 profile-right rows
+and external waiting 60-second task 52, and established the expected defaults
+and both Note identity unique keys. The original database context was restored.
+This proves fresh **plugin-hook** installation on that GLPI base, not a clean
+GLPI installer or a separate production CLI deployment. No DROP/delete/reset
+was used.
+
+An unrelated pre-existing Accepted Work was present. To leave existing jobs
+untouched, operators did **not** run an unrestricted cron batch. Each disposable
+Work was selected explicitly and passed through the same worker lock, durable
+start marker and `plugin_agentbdmosassetsync_process_existing()` processing path.
+That establishes the exercised processor behavior, not a global cron-dispatch
+test. Native fixtures use GLPI methods; plugin admission and acknowledgement
+use native REST V1. A-side handling is simulated for B-side acknowledgement
+checks and does not establish Controller end-to-end behavior.
+
+Shared new fixtures: entity **13**, profile **18** and user **18**; no existing
+profile rights were changed. Main route `notes-main-20261028`, Setting **36**,
+uses versions 1–7. Version 5 omitted Notes and preserved `["Computer"]`, version
+6 explicitly disabled it with `[]`, and version 7 re-enabled it. Computer **234**
+has verified parent Work **871** (`Done`, `Active`, default Asset subject).
+Native Note **62** created immutable Note Change **113**. Adoption Work **878**
+was first `Accepted` with no processing marker/result, then `Done/AlreadyEqual`:
+the parent remained 234, the Note Work link columns remained null, and the
+captured genuine value evidence was preserved.
+
+Local raw evidence is retained outside the repository at
+`/tmp/agentb-notes-20261028.DR68R2` for this operator session. Credential/session
+files in that directory are not report artifacts and must not be committed or
+shared. This ledger includes only redacted request shapes, IDs and outcomes.
+Temporary evidence paths are not a promise of durable archival.
+
+Confirmed admission evidence:
+
+- Duplicate/non-subset Notes selections returned HTTP 400 with
+  `ASB_INVALID_FIELD: field=notes_itemtypes_json`; unknown and non-Notes types
+  returned `ASB_UNSUPPORTED_ITEMTYPE` in the native `ERROR_GLPI_ADD` wrapper.
+- A 27-entry all-invalid Work bulk request returned HTTP 400
+  `ERROR_GLPI_ADD`, with every entry `id=false`. It covered subject/operation,
+  scalar separation, malformed/extra Note fields, IDs, content, time/offset,
+  reliability, Inventory bounds/handled IDs, duplicate handled IDs, B-owned and
+  unknown fields, missing `note_json`, and duplicate `work_id`.
+- The internal Note-link name was rejected as an API resource with
+  `ERROR_RESOURCE_NOT_FOUND_NOR_COMMONDBTM`; it is not a fourth public itemtype.
+
+### Executed NT01–NT31 results
+
+Final tally: **27 PASS (including explicitly bounded/representative passes),
+4 PARTIAL**: NT16, NT17, NT22 and NT27. All 31 cases were exercised; this is
+not a claim that all 31 full variant sets passed.
+
+PASS means the stated representative behavior was observed on the local GLPI
+11.0.7 fixture. PARTIAL preserves concrete unrun variants or a verified runtime
+limitation. The cases do not certify every registered type, every HTML construct,
+all storage failures, real Controller application or unrestricted cron dispatch.
+
+| Case | Result | Actual local evidence and remaining boundary |
+|---|---|---|
+| NT01 — additive install/upgrade | PASS, bounded | Upgrade comparison preserved every pre-existing payload column across 860 Works/111 Changes/34 Settings. New defaults/indexes verified. Separate cloned-base fresh plugin hook created four empty tables, rights and task. Clean GLPI installation and production CLI deployment are outside this result. |
+| NT02 — Setting capability/compatibility | PASS | Main Setting 36 omitted Notes at v5 and retained Computer, explicitly disabled at v6, re-enabled at v7. New Setting 38 omitted Notes and defaulted to `[]`. Duplicate/non-subset/unknown/Software/Unmanaged selections, same-version replacement and preserved Notes with an empty enabled-type set returned their exact native 400 errors. Main Setting stayed v7. Core Setting 35 retained scalar mappings and ended enabled at v5; no request enabled a native capability. |
+| NT03 — three-record REST surface | PASS | Single/bulk Work admission and ordinary GET/Change PUT used the native wrappers; Work 878 was Accepted before explicit processing. Internal Note-link API name was denied. Mixed admission returned native 207 with independent good/bad results, not an atomic batch. No custom endpoint or callback was used. |
+| NT04 — strict admission | PASS | All 27 invalid bulk entries returned `id=false`/HTTP 400: invalid subject/operations, scalar contamination, malformed/object/array/extra Note payloads, IDs/content/time/offset/reliability, Inventory limits/cursor/handled IDs, duplicate IDs, owned/unknown/missing fields and duplicate Work ID. Work 893 separately proved empty content is valid and not deletion. |
+| NT05 — live keyset Inventory | PASS | Work 869 returned 49 supported rows plus image skip 5, `has_more=true`, cursor 50. After genuine concurrent-pass edit/add, 888 returned 10 supported rows through cursor 63 and `has_more=false`; historical evidence stayed unknown. Work 908 skipped native Document_Item-bearing Note 6 at limit 1 and advanced cursor 6. Inventory created no Change. |
+| NT06 — new A Note | PASS | Work 863 Created Note 60/parent Computer 233 with exact Unicode/HTML/link content, creator/updater 18, visibility 0, durable association 1/reservation 863 and copied effective evidence. No Note echo or scalar/asset mutation was observed. |
+| NT07 — unique equal adoption | PASS | Work 864 adopted historical Note 1 without changing native content, dates, author or visibility; evidence remained null/false. Work 922 with different leading whitespace created separate Note 69 rather than normalizing/adopting Note 1. |
+| NT08 — unsafe initial match | PASS, bounded | 865 held duplicate exact Notes 2/3; 891/892 held explicit/implicit already-paired matches. Native ITEM_CAN READ denial 920 and candidate-auth exception 952 Held without creation. Work 956 encountered a real read-only MySQL 1054 error within the exact Note 75 candidate callback and Held without fallback; the Note and null A association stayed unchanged, then normal 960 adopted AlreadyEqual. A database wire disconnect was not simulated. |
+| NT09 — expected B identity/parent | PASS | 866 adopted explicit same-parent Note 4. Wrong-parent Note 59 (867), conflicting paired ID (890), and nonexistent expected ID 999999 (921) Held without fallback creation, reparenting or native alteration. Parent movement variants are listed under NT16. |
+| NT10 — durable identity/idempotence | PASS | Fresh Works for A Note 12 repeatedly reused B Note 60; duplicate original Work ID returned 400 `ASB_WORK_EXISTS`. Restart cases 894/895 retained one Reserved association and could not recreate; 896/897 reused committed Note 66 after reconciliation. |
+| NT11 — equal content/evidence | PASS | 879 newer, 880 older, 881 tied and 882 unreliable incoming evidence all returned AlreadyEqual, retained B's genuine 15:37:31+08:00 evidence and left native metadata unchanged. Covered Change 115 was reported without acknowledgement. |
+| NT12 — later A wins/clear | PASS | 889 applied later A content to Note 60, recording effective A time separately from last local human time. 893 applied empty content to the same Note, preserved visibility 1 and did not delete or echo. 924 preserved existing creator 2 while updater became actual local service 18. |
+| NT13 — later B wins | PASS | 883 and main correction 904/928 returned B's current revision/evidence as ReturnToA without a native update. Covered Pending snapshots stayed Pending; ReturnToA alone did not acknowledge them. A-side application was simulated, not exercised in Controller A. |
+| NT14 — tie/missing/unreliable | PASS | 884 tied differing content, 885 unreliable A, 886 missing A and 887 unknown historical B evidence all Held without content writes. Equal-value variants remained AlreadyEqual under NT11. |
+| NT15 — content/media boundary | PASS, bounded | Unicode, formatting, ordinary link and empty clear round-tripped. Image Sync 868 Held; native image 5 skipped/no human-save blockage. Document 1/Document_Item 1 on Note 6 caused successful save/no Change, Held 907 and skip 908. Actual `_filename` text upload on 74 created native Document/file/relation 2 while save succeeded/no new Change/evidence invalidated; 951 Held. Native audio 78/video 79 saved without Changes; Sync 954/955 Held and Inventory 953 skipped 74/78/79. No file was transferred by Agent B or content stripped. This is representative supported formatting, not every HTML construct. |
+| NT16 — parent/suspension/scope | PARTIAL | No link 909, wrong pair 910, suspended 912, stale version 915, disabled Notes 916 and disabled route 925 Held without Note writes. Suspend 911/Resume 913 retained identity; suspended human save succeeded/no Change/evidence invalidated; resumed save captured 137. Native move of 237 to entity 14, reversible soft-delete of 238 and process-local READ denial of 239 caused 948–950 Held; restored fixtures yielded 957–959 AlreadyEqual. Capacity removal remains unrun: native GLPI `onCapacityDisabled` hard-purges Notes/history/preferences, outside the non-destructive test boundary. |
+| NT17 — Notes rights/submitter | PARTIAL | Own profile/user 19: rights 97 (READ+READNOTE+UPDATENOTE, no ordinary UPDATE) allowed 874 Created Note 61 with author/updater 19. Removing READ/READNOTE/UPDATENOTE made 875–877 Held with no Note writes. Read-only Inventory 917 succeeded; no READNOTE 918 and Work-CREATE revoked after admission 919 Held. Authentication context restored in all checked calls. Existing API-session rights caching is a separate limitation described below. |
+| NT18 — native metadata | PASS | Copied new Note visibility 0/local authors observed; metadata-only and repeated same-body saves created no content Change or new genuine time. Existing visibility 1 survived clear/update. Admin-created Note 70 retained creator 2 after Work 924 and recorded actual updater 18. Invalid extra metadata properties were denied at admission. |
+| NT19 — genuine immutable capture | PASS | Native edit 60 captured 115; new Note 63 captured 118; a later resumed edit created 137 without mutating 118. Known/unpaired A IDs, actual B IDs, parent identity, subject Note, `{}` scalar snapshot and genuine second-precision +08:00 evidence were read back. Metadata-only/repeated saves added none. Separate eligible routes' snapshots were counted separately. |
+| NT20 — feedback/nested suppression | PASS | Sync seed/add/update emitted no own Note Changes. A guarded Monitor save followed by a deliberate fixture exception released the guard; the next genuine edit captured 134. A process-local Computer ITEM_ADD callback created nested Computer 236/Note 67 while the parent-add stack was active and produced no Note echo. Later Monitor Work 906 updated normally without feedback. |
+| NT21 — nonblocking failure | PASS, bounded | Exact-route Change pre-add exception left human Note 61 save successful/no new row and invalidated association 5 evidence. After good baseline 125, a 20-second exact-link lock plus writer timeout 1 caused queue/invalidation failure: save succeeded in 2.03 seconds/no new Change, with `ASB_NOTE_CAPTURE_MANUAL_RECONCILIATION_REQUIRED` in the existing PHP log. A request-local ITEM_CAN exception during fresh Note 61 capture-read plus a throwing PHPLOGGER.warning() still left save true/no Change/evidence 0/null; fallback `ASB_CAPTURE_SKIPPED` stderr was observed by the operator. Callbacks/logger were restored in finally. Filesystem-full/unwritable-sink behavior itself was not simulated. |
+| NT22 — restart/unknown outcome | PARTIAL | Killed 894 after native add but before commit: durable reservation 19 remained, uncommitted Note 65 did not, recovery 894 Held and fresh 895 Held without creation. Killed 896 after committed Note 66/Linked association 20 but before Work finalization: recovery Held; reconciled fresh 897 AlreadyEqual reused 66 with metadata unchanged. Wire-lost COMMIT acknowledgement, explicit rollback failure and upload-lifecycle interruption were not injected. |
+| NT23 — supported worker concurrency | PASS, bounded | Paused native add in 898 while holding the worker lock. Overlapping second worker received GET_LOCK=0 and left 899 Accepted/unstarted. After resume, 898 Created Note 68; next 899 AlreadyEqual reused 68 and association 21. Unique A/B keys were verified. This proves supported-worker exclusion/reuse, not unsupported bypass-worker duelling writers or every transaction failure. |
+| NT24 — correction references/attempts | PASS | 900 missing, 901 other Note, 902 other route and 903 other parent Held with no coverage. 927 combined Pending Note 140 and Asset 144 and Held on scope; complete XML readbacks for both rows stayed identical, proving no premature retry/error/payload change. Original snapshots remained immutable. |
+| NT25 — exact successful correction | PASS | 905 AppliedToB reported covered `[113,132]` but completed only supplied 113, leaving 132 Pending. 914 AlreadyEqual completed supplied 132 and reported already-Done 113 without rewriting it. Retry metadata followed actual valid correction attempts. Other Note 129 remained separate until its later explicit acknowledgement. |
+| NT26 — newer snapshot independence | PASS, bounded | 928 returned current B/ReturnToA and left supplied newer 140 Pending; 905 left unsupplied 132 Pending. In 947, A's native write committed before a controlled pause in the correction scan. A concurrent genuine B edit created 171. Resumed 947 Held with `handled_change_ids_done=[]`; supplied 165 stayed Pending with a reason/retry 2, and new 171 stayed Pending/retry 0/error null. Current native B retained the later human body. The result honestly preserved its earlier AppliedToB outcome despite the final Held status. |
+| NT27 — exact native acknowledgement | PARTIAL | Old 129 PUT returned 200 true; full readback changed only status/date_mod/done_at. Repeat Done and B-owned snapshot update were denied. Bulk 140 valid plus 129 already Done returned native 207 with `140:true`, `129:false`; missing-ID bulk returned 207 with only `167:true`, and GET absent 999999999 returned 404. Anchored/exact GETs confirmed actual statuses. Fresh no-READNOTE session denied own Pending 125 with 400 and byte-identical readback. A pre-existing authenticated API session still retained cached rights after database revocation and could acknowledge 142; see limitation below. |
+| NT28 — result/column shape | PASS | All 50 core Note Works retained null native Work `b_items_id`/`link_state`; all 70 core Works were terminal at the final readback. Sync/Inventory business members and Note snapshot shapes matched the contract; Held results returned a safe verified Note or null. Native GET/anchored collections returned standard record/array shapes, and a one-row range returned native 206. Unknown outcomes did not falsely claim creation; 947 retained an actual committed application despite later completion failure. |
+| NT29 — Asset regression/filters | PASS, representative | Genuine Computer comment edit captured Asset 144 with null note_json. Work 923 omitted subject/operation/note_json, defaulted Asset/Sync/null and applied the mapped native Both comment; Notes/associations/core Changes were byte-equivalent before/after without echo. Exact Asset 144 acknowledgement later returned 200 true, changed only three status/date columns and left all 19 core Note Changes unchanged. Anchored Note collection returned nine Note rows, Asset filter only 144, unfiltered both. Earlier full Asset/Fields coverage is not silently repeated by this pass. |
+| NT30 — second generic type | PASS, representative | Monitor 5 used the same Setting/Notepad path: parent link 862, AlreadyEqual 870, genuine Change 134 and AppliedToB 906 with evidence preserved/no feedback. Computer and Monitor passed; other registered/custom capable types are not runtime-certified by these two fixtures. No per-type handler or new public endpoint was introduced. |
+| NT31 — older ACK after media edit | PASS, bounded | Native Note 64 later gained media: save succeeded and Change count stayed five. Earlier supported snapshot 129 was acknowledged successfully while immediate readback of later 142 remained Pending and byte-identical. The distinct later cached-session rights-negative exercise subsequently made 142 Done; it was retained and never reset. Fresh-session permission denial passed on 125. Do not misreport 142 as still Pending at final teardown or infer immediate database-right revocation from this test. |
+
+### Verified limitations and interpretation
+
+**GLPI V1 API rights are cached in an authenticated session.** The original
+fixture user 19 session had Computer rights 97. After its profile's database
+rights became 65 (READNOTE removed), that already-open session could still
+acknowledge snapshot 142 (HTTP 200); a newly initialized session reported 65,
+denied exact Pending 125 with HTTP 400 `ASB_CHANGE_SCOPE_MISMATCH`, and left its
+whole row unchanged. The database rights were restored afterward. The worker's
+separate captured-submitter checks did observe database revocations before
+processing. This run therefore does not establish immediate revocation of an
+existing API session. When withdrawing API permissions, the operator must also
+end/reinitialize affected API sessions; neither client settings-version changes
+nor the worker's fresh authorization checks invalidate an old REST session.
+No custom authentication or unrequested code change was added to hide this
+native-session boundary.
+
+The curl requests exercised these native V1 operations, with redacted fixture
+bodies represented by the request examples in the historical checklist below:
+Setting POST/PUT; Work single/bulk POST, exact GET and anchored collection GET;
+Change anchored subject/status/route collection GET, exact GET and single/bulk
+id/status PUT; denial of the internal Note-link resource; and a native Computer
+POST used only to create main fixture 234. Actual plugin admission
+used 201/400/207 wrappers; exact/collection reads used 200/206/404 as applicable;
+acknowledgement used 200/400/207 with native per-ID results. Other native asset
+fixtures, Note lifecycle saves and fault injection used local GLPI methods.
+Fixture creation is not a claim that A uses native asset/Note REST resources on
+B. Raw request/response artifacts are
+kept separately under `main/`, `core/` and `fault-*`; protected-record comparison
+is `protected-record-comparison.json`, deployment comparison is
+`deployed-source-hashes.json`.
+
+Failures were injected only in process-local fixture hooks, by pausing/killing
+the explicitly selected fixture processor, or with a rolled-back exact-link
+row lock and session-local timeout. No persistent source patch, destructive SQL,
+database reset or hard purge was used. Only the owned parent 238 was temporarily
+soft-deleted and restored through native GLPI methods. A simulated exception/kill is not
+proof of every storage/network failure. Actual filesystem logging-sink failure,
+wire-lost COMMIT acknowledgement, rollback/release failure and all custom asset
+capacities remain explicit gaps. Native capacity removal was intentionally not
+executed: GLPI `HasNotepadCapacity::onCapacityDisabled()` force-purges Notes,
+history and preferences. The global cron batch was intentionally not run while
+unrelated old Accepted work existed. Fixtures, including terminal/Held Works and
+the separate fresh-install database, were retained rather than reset or purged.
+
+The rights fixture's initial `actor_restored:false` output compared the entire
+session against a checkpoint before a native ProfileRight update; it included
+that operation's message/session changes. A later per-call authentication check
+compared user/profile/entity/cron/inventory context and returned
+`context_restored:true`. The initial full-session measurement is not evidence
+of an authentication restoration defect. Similarly, an initial clone-install
+attempt reused native schema cache after switching database context and failed
+before table creation; clearing the public schema cache and rerunning on the
+new empty plugin schema produced the successful fresh-hook result above.
+
+## Native Notes source-only candidate — 28 October 2026
+
+Source: [notes-contract.md](notes-contract.md), extending the standard V1
+[api-contract.md](api-contract.md). This section covers existing/new native
+Notes and later content edits, text/formatting only, with per-note Both
+authority. Every runtime case below is **NOT RUN**. This source-only task does
+not authorize curl execution, runtime probes, fixtures, deployment, upgrade,
+worker startup, database mutation, commit or push. Earlier runtime ledgers
+below describe earlier candidates and do not establish any Notes result.
+
+Source review: **COMPLETE — source only**. The complete PHP diff and new
+`inc/notes.php` / `inc/notecapture.php` files were reviewed once against the
+Notes contract, with necessary existing helper context. One P2 was identified:
+exact acknowledgement of an older supported snapshot also validated the Note's
+current content/media, so a later unsupported media edit could block that old
+snapshot's acknowledgement despite unchanged identity and rights. The narrow
+follow-up in `plugin_agentbdmosassetsync_notes_check_acknowledgement()` was
+reread once: it now locks the actual Note and checks parent/type, native READ
+and association, without consulting current content/media. Existing retained
+ownership, entity, suspension and parent Notes-right checks remain. The P2 is
+**resolved in source**; no other demonstrated P1/P2 or project-rule violation
+was identified in this review. NT31 below remains NOT RUN.
+
+The coordinator executed static checks using host **PHP 8.2.31 CLI**: `php -l`
+passed for all **17 runtime PHP files**, and `git diff --check` passed before
+the narrow follow-up. Those are syntax/patch-whitespace checks, with no GLPI
+bootstrap or runtime writes. Final follow-up static-check status is recorded
+by the coordinator: affected `inc/notes.php` passed `php -l` again after the
+acknowledgement fix; no other runtime PHP changed after the all-file syntax pass.
+
+Native Note lifecycle, attachment handling, transaction behavior, uncertain
+creation recovery and target-version Notes rights still require a separately
+authorized operator before a pilot readiness claim. No Docker container was
+started and no deployment, migration, database write, Controller work, commit
+or push was performed in this source-only task. No automated harness or
+additional test software is proposed.
+
+### Manual request fixtures and native REST shapes
+
+For a future authorized run, use an isolated disposable route and a parent
+already linked by verified Asset Work. Replace every illustrative ID/version
+with an operator-owned fixture and the actual current Setting. Enable capture
+before Inventory and retain actual IDs for deduplication. The examples do not
+establish that route, parent, Notes or rights. Use genuine observed timestamps
+for conflict cases; copied/current `date_mod` is not evidence of a human edit.
+The Legacy base is deployment-configured; do not assume another GLPI API
+generation or add a Note REST endpoint.
+
+```sh
+export B_V1_BASE='http://localhost:8081/api.php/v1'
+export B_APP_TOKEN='<B_APP_TOKEN>'
+export B_SESSION_TOKEN='<B_SESSION_TOKEN>'
+export NOTE_ROUTE='notes-review-20261028'
+export A_ENTITY_ID=1
+export B_ENTITY_ID=12
+export A_PARENT_ID=77
+export B_PARENT_ID=231
+export NOTE_SETTING_VERSION=2
+export NOTE_SETTING_ID='<returned Setting ID>'
+export NOTE_WORK_ID='<returned single Work ID>'
+export B_NOTE_ID='<verified B Note ID returned after processing>'
+export NOTE_CHANGE_ID='<exact Pending Note Change ID>'
+export NEXT_NOTE_CHANGE_ID='<another exact Pending Note Change ID>'
+
+# These variables are outer JSON-string contents: keep the backslashes.
+# note_json is a JSON string in the REST request, never an inner object.
+export NOTE_JSON_STRING='{\"a_notes_id\":12,\"b_notes_id\":null,\"content\":\"<p>Replaced battery</p>\",\"changed_at\":\"2026-10-28T10:00:00+08:00\",\"reliable\":true}'
+export INVENTORY_JSON_STRING='{\"after_id\":0,\"limit\":50}'
+```
+
+Setting create uses all original required fields; its Notes selection is a
+JSON string and a subset of enabled types. This fixture has no scalar mappings.
+If replacing an existing operator-owned Setting instead, use its exact ID,
+immutable route/entity pair and all current replaceable fields, with a strictly
+higher version. Omitting `notes_itemtypes_json` preserves the selection;
+explicit `"[]"` disables it. Do not replace an unrelated route's mappings.
+
+```sh
+cat > notes-setting.json <<JSON
+{"input":{"route_id":"${NOTE_ROUTE}","a_entities_id":${A_ENTITY_ID},"entities_id":${B_ENTITY_ID},"route_enabled":1,"settings_version":${NOTE_SETTING_VERSION},"enabled_itemtypes_json":"[\"Computer\"]","field_mappings_json":"[]","notes_itemtypes_json":"[\"Computer\"]"}}
+JSON
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  --request POST --data-binary @notes-setting.json \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncSetting"
+```
+
+Single Note Sync creates only an Accepted Work. It must not save a Note inside
+the POST. Keep the returned Work ID and GET it after the separately authorized
+normal worker processes it. Its `b_items_id`/`link_state` columns remain null;
+the verified parent ID belongs in `result_json`. Asset scalar payloads are `{}`.
+
+```sh
+cat > notes-sync-single.json <<JSON
+{"input":{"work_id":"notes-review-single-20261028-1","route_id":"${NOTE_ROUTE}","a_entities_id":${A_ENTITY_ID},"entities_id":${B_ENTITY_ID},"itemtype":"Computer","identity_json":"{\"a_items_id\":${A_PARENT_ID},\"b_items_id\":${B_PARENT_ID},\"serial\":null}","a_values_json":"{}","a_change_times_json":"{}","settings_version":${NOTE_SETTING_VERSION},"handled_change_ids_json":"[]","subject":"Note","operation":"Sync","note_json":"${NOTE_JSON_STRING}"}}
+JSON
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  --request POST --data-binary @notes-sync-single.json \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncWork"
+
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncWork/${NOTE_WORK_ID}?get_hateoas=false&expand_dropdowns=false"
+```
+
+For a later same-note Sync, retain A Note 12, replace the expected B ID with
+the verified ID from the first result and use a fresh Work ID. This bulk body
+shows a later Sync plus the first Inventory page; retain each returned Work
+ID independently. Bulk order is not a processing-order guarantee. A later
+Inventory page uses a fresh Work ID and the previous `next_after_id`, stopping
+when `has_more` is false; do not use the collection `range` as that cursor.
+
+```sh
+export NOTE_JSON_STRING='{\"a_notes_id\":12,\"b_notes_id\":'"${B_NOTE_ID}"',\"content\":\"<p>Replaced battery</p>\",\"changed_at\":\"2026-10-28T10:00:00+08:00\",\"reliable\":true}'
+cat > notes-work-bulk.json <<JSON
+{"input":[{"work_id":"notes-review-bulk-sync-20261028-2","route_id":"${NOTE_ROUTE}","a_entities_id":${A_ENTITY_ID},"entities_id":${B_ENTITY_ID},"itemtype":"Computer","identity_json":"{\"a_items_id\":${A_PARENT_ID},\"b_items_id\":${B_PARENT_ID},\"serial\":null}","a_values_json":"{}","a_change_times_json":"{}","settings_version":${NOTE_SETTING_VERSION},"handled_change_ids_json":"[]","subject":"Note","operation":"Sync","note_json":"${NOTE_JSON_STRING}"},{"work_id":"notes-review-inventory-20261028-page-1","route_id":"${NOTE_ROUTE}","a_entities_id":${A_ENTITY_ID},"entities_id":${B_ENTITY_ID},"itemtype":"Computer","identity_json":"{\"a_items_id\":${A_PARENT_ID},\"b_items_id\":${B_PARENT_ID},\"serial\":null}","a_values_json":"{}","a_change_times_json":"{}","settings_version":${NOTE_SETTING_VERSION},"handled_change_ids_json":"[]","subject":"Note","operation":"Inventory","note_json":"${INVENTORY_JSON_STRING}"}]}
+JSON
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  --request POST --data-binary @notes-work-bulk.json \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncWork"
+
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncChange?searchText%5Bsubject%5D=%5ENote%24&searchText%5Bstatus%5D=%5EPending%24&searchText%5Broute_id%5D=%5E${NOTE_ROUTE}%24&range=0-49&sort=id&order=ASC&get_hateoas=false&expand_dropdowns=false"
+```
+
+Expected native shapes: single create `201 {"id":1234,"message":<string>}`;
+bulk create `201 [{"id":1234,"message":<string>},...]`; single validation
+failure `400 ["ERROR_GLPI_ADD",<message>]`; all-denied bulk
+`400 ["ERROR_GLPI_ADD",[{"id":false,"message":<message>},...]]`; mixed bulk
+`207 ["ERROR_GLPI_PARTIAL_ADD",[{"id":<id-or-false>,"message":<string>},...]]`.
+The batch is not atomic. GET returns a raw record/array, never a custom
+envelope. Queue collection paging is inclusive offset `range`, with native
+200/206/Content-Range rules; after acknowledged rows leave Pending, request
+the first page again. GET and receipt of handled IDs never acknowledge a row.
+
+Only after A's actual handling succeeds, acknowledge exact IDs with the
+unchanged native PUT. These are alternative single/bulk forms, not two calls
+to apply to the same IDs. Omit every B-owned field, including dates/error.
+
+```sh
+cat > notes-ack-single.json <<JSON
+{"input":{"id":${NOTE_CHANGE_ID},"status":"Done"}}
+JSON
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  --request PUT --data-binary @notes-ack-single.json \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncChange"
+
+cat > notes-ack-bulk.json <<JSON
+{"input":[{"id":${NOTE_CHANGE_ID},"status":"Done"},{"id":${NEXT_NOTE_CHANGE_ID},"status":"Done"}]}
+JSON
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  --request PUT --data-binary @notes-ack-bulk.json \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncChange"
+
+curl --silent --show-error --include \
+  -H 'Content-Type: application/json' -H 'Accept: application/json' \
+  -H "App-Token: ${B_APP_TOKEN}" -H "Session-Token: ${B_SESSION_TOKEN}" \
+  "${B_V1_BASE}/PluginAgentbdmosassetsyncChange/${NOTE_CHANGE_ID}?get_hateoas=false&expand_dropdowns=false"
+```
+
+Successful PUT is the standard `200 [{"<id>":true,"message":<string>},...]`,
+including single input. Native partial/all-denied wrappers still apply.
+Compare returned ID keys, then GET unresolved/exact IDs: only their actual
+`status: "Done"` confirms completion. Missing/native-omitted IDs and HTTP 200
+alone are not proof. A second acknowledgement of Done remains denied.
+
+### Named manual checks — all NOT RUN
+
+Record actual request headers/body (tokens redacted), native response, Work
+before/after and exact parent/Note/association/Change readbacks for each case.
+Use normal native lifecycle operations only when separately authorized. Any
+fault/race/migration exercise needs its own bounded disposable-environment
+authorization; this checklist does not authorize direct database mutation.
+
+| Case | Manual verification and required result | Actual result |
+|---|---|---|
+| NT01 — additive install/upgrade | On separately authorized fresh/upgrade fixtures, verify Notes-disabled `[]` default, Work/Change `subject=Asset` and null `note_json` for existing rows, internal association table/unique keys and required evidence columns. Compare all pre-existing payloads unchanged; an upgrade must not clear/rewrite them. No install/upgrade/uninstall is run in this task. | NOT RUN |
+| NT02 — Setting capability and compatibility | Create valid enabled Notes subset; omit Notes on a full later replacement and verify preservation, then explicitly disable with `[]`. Duplicate/non-subset selections use `ASB_INVALID_FIELD: field=notes_itemtypes_json`; unavailable/non-Notes types use `ASB_UNSUPPORTED_ITEMTYPE: itemtype=<type>`, inside the native wrapper. Prove no payload enables a GLPI capability. Existing scalar mappings and increasing-version rules remain in force. | NOT RUN |
+| NT03 — unchanged three-record REST surface | Exercise full single/bulk bodies above, Accepted before processing, normal GET and exact acknowledgement. Verify only Setting/Work/Change are public plugin records; internal `notelinks` is unavailable as an API itemtype. No custom route/auth, callback or B outbound call exists. | NOT RUN |
+| NT04 — strict admission | Reject unknown subject/operation, Note Suspend/Resume, Asset with non-null `note_json`, Note nonempty scalar objects, malformed inner JSON/types, extra note keys, invalid IDs/time/reliable combinations, Inventory handled IDs and invalid bounds, duplicate handled IDs, and supplied B-owned Work fields. Empty Note content remains valid content, not deletion. Invalid Note fields use `ASB_INVALID_FIELD: field=<field>`; missing/unknown top-level and B-owned fields retain their existing field-specific validation messages, all inside the standard native wrapper. | NOT RUN |
+| NT05 — Inventory paging and skipped positions | Before backfill, enable capture. Inventory more than 50 same-parent notes including unsupported media between supported IDs; follow ascending keyset `next_after_id`, extra-row lookahead and `has_more`. A skip consumes its ID/cursor, remains unchanged and returns a reason. Deduplicate live inventory/events by IDs; no fabricated edit times, Change rows or immutable-snapshot claim. | NOT RUN |
+| NT06 — first new A Note | With complete readable same-parent lookup proving zero exact matches, Sync reserves A identity before native add. Created requires one actual B Note, verified unchanged formatting/parent, durable association and effective evidence; new visibility is 0 and actual local account owns native author fields. No scalar/asset write or feedback Change. | NOT RUN |
+| NT07 — unique equal existing Note adoption | With exactly one unpaired same-parent exact-content Note, Sync returns AlreadyEqual, associates IDs and leaves content/native metadata/visibility unchanged without `update()`. Preserve unknown historical evidence as null/false. Ordinary whitespace/markup differences are not equal. | NOT RUN |
+| NT08 — ambiguous or unsafe match | Two exact-content candidates, an exact match paired to another A Note, denied/incomplete lookup, expected B ID already paired elsewhere, or unpermitted candidate all Hold unchanged. None proves creation safe. Do not replace unrelated notes as a collection. | NOT RUN |
+| NT09 — explicit B identity and parent guard | An unpaired supplied expected B ID adopts only a permitted Note on the exact verified parent. Wrong B ID, wrong parent/concrete type/entity or disagreement with an existing association Holds without reparenting, fallback creation or alteration of another note. | NOT RUN |
+| NT10 — two Work IDs, one durable Note | Process two fresh Work IDs for the same A Note/parent/route, including changed content after pairing. Both reuse one internal association and one B Note even when content changes. Same Work ID is globally rejected with `ASB_WORK_EXISTS`; a new Work ID cannot bypass missing/Uncertain prior creation. | NOT RUN |
+| NT11 — equal paired current content | Send paired equal content with newer, older, tied or unreliable incoming evidence. AlreadyEqual performs no Note update, preserves evidence belonging to the stored value and does not create a genuine edit/winning time. Leave content, native metadata and unrelated Notes unchanged. | NOT RUN |
+| NT12 — Both, later A wins | With differing content and A's genuine reliable instant later than B's, apply only the paired Note through native Notepad. AppliedToB requires verified save/association/evidence; preserve formatting and copied A evidence separately from B's last genuine human edit. Native date_mod alone must not decide. | NOT RUN |
+| NT13 — Both, later B wins | With B's genuine reliable instant later than A's, return ReturnToA with verified B snapshot/evidence, without local Note update. Exact covered Pending Changes stay Pending until A successfully copies and acknowledges them; no automatic completion on return. | NOT RUN |
+| NT14 — Both, tie/missing/unreliable evidence | Differing content with equal instants, missing/null evidence, reliable=false or unknown current-value evidence Holds without update. A newer-looking native date_mod or incoming unreliable time cannot win. Equal content remains NT11. | NOT RUN |
+| NT15 — supported content and file skips | Round-trip formatting, Unicode, empty content and ordinary external hyperlinks exactly. Inline images, uploads, media and native document references cause Held Sync, Inventory skip and local capture log/omit; no stripping, fetching, copying files or deletion. Unsupported content must not block a human's normal native save. | NOT RUN |
+| NT16 — verified parent and suspension | Without a verified Asset link, with Suspended link, moved/deleted/unreadable parent, stale pair/scope/settings or disabled route/Notes, hold before any Note write. Note Work never creates/links/resumes an asset and keeps Work `b_items_id`/`link_state` null. Recheck current parent and scope before each write. | NOT RUN |
+| NT17 — real Notes rights and submitter | Under captured submitting user/profile, test parent READ, READNOTE and UPDATENOTE separately, including revocation after acceptance. Missing capability/rights Holds; cron privileges cannot substitute. A profile that has required Note rights but lacks ordinary asset UPDATE must not be rejected solely for that missing asset UPDATE. Inventory/read-only operations require their applicable rights. | NOT RUN |
+| NT18 — native metadata boundaries | Edit an existing visible-from-ticket Note and verify its existing visibility survives explicitly. New copied Notes use 0. Reject remote author/updater/date/parent/visibility/file properties; native local account provides author/updater. Metadata-only native saves produce no content Change or human-content time. | NOT RUN |
+| NT19 — genuine native save capture | On an already eligible existing parent, native add/edit creates one immutable Note snapshot per eligible route with exact actual B ID, known A ID or null, parent identity, `{}` changed_fields, genuine reliable second-precision +08:00 time. Repeated/metadata-only saves add none; later edits create separate rows without mutating earlier snapshots. | NOT RUN |
+| NT20 — nested/sync feedback suppression | Native Note add/update under the full sync guard, including nested lifecycle work and nested asset creation, creates no feedback Change. Guard releases normally/on exceptions; a later genuine save captures. B never queues its own applied sync content back to A. | NOT RUN |
+| NT21 — nonblocking capture and queue failure | With separately approved bounded failures in lookup/evidence/queue persistence/logging, a normal native Note save still succeeds; capture snapshots are read-only, no save-input mutation escapes, existing PHP log reports omission, and no false Change exists. Missed capture best-effort invalidates older asserted current-value evidence; if that evidence update also cannot persist, the existing log reports `ASB_NOTE_CAPTURE_MANUAL_RECONCILIATION_REQUIRED`. No shutdown-only capture, auto retry or extra log. | NOT RUN |
+| NT22 — uncertain creation and reservation | With approved interruptions at reservation, native add, verification and association/evidence confirmation, do not claim Created without a verified save/durable state. Preserve committed reservation on unknown outcome; Held/Uncertain and a new Work ID cannot automatically create again. Definitive failed save may Failed. Held/Failed never reopen automatically. | NOT RUN |
+| NT23 — atomicity/concurrent identities | In an approved disposable lifecycle/transaction/race exercise, verify A reservation is durable before creation, native Note plus linked evidence confirm in a local transaction where supported, uniqueness prevents competing A/B pairing and concurrent fresh Work IDs do not duplicate a Note. Record real lifecycle/rollback limits; reservation alone is never success. | NOT RUN |
+| NT24 — correction reference validation | Use exact supplied distinct same-note Note Change IDs. Asset/other-note/other-parent/route/entity/stale-scope references deny correction without completing any row or recording a premature attempt. Original snapshots stay immutable; receiving IDs is never acknowledgement. | NOT RUN |
+| NT25 — exact successful correction coverage | After valid references and an actual correction attempt, successful equal content or a newer reliable winning content revision completes only demonstrably covered supplied IDs. Return exact `covered_change_ids`/`handled_change_ids_done`; already Done references are covered without rewriting them. retry_count follows actual attempts. Unrelated rows stay unchanged. | NOT RUN |
+| NT26 — newer/uncertain snapshot remains Pending | Supply an older correction with a differing later snapshot or missing evidence. That snapshot stays Pending with a reason; a valid older supplied snapshot may be covered only under full-content revision rules. A later snapshot created during processing stays separate; no broad parent/note acknowledgement or mutable snapshot. | NOT RUN |
+| NT27 — exact acknowledgement | After successful external handling, PUT only id/status using the single/bulk forms above. Verify each exact row Done, timestamps B-owned, later same-note snapshots still Pending, and denied/absent/already Done IDs do not count as success. Reject attempts to alter Note snapshot/scope/error fields. | NOT RUN |
+| NT28 — result shape and failure state | Sync result has exactly `b_items_id`, `note_outcome`, `note`, `covered_change_ids`, `handled_change_ids_done`; Inventory has exactly parent ID, notes/skips, cursor/has_more. Snapshot has only A/B Note IDs, content and value evidence. Held may safely return verified snapshot or null; unknown outcome never reports Created/AppliedToB. No redundant asset write. | NOT RUN |
+| NT29 — old Asset behavior and subject filters | Repeat relevant existing Asset admission/processing/capture/ack manual cases with omitted/default Asset subject and null/omitted note_json. Setting omission preserves Notes as specified. Unfiltered old Change GET can include Note rows: clients must understand/filter subject before enabling Notes; settings_version alone is not capability negotiation. Verify anchored Asset/Note collection filters and native pagination. | NOT RUN |
+| NT30 — generic path and scope of implementation | Review/operate a second registered Notes-capable parent type through the same data-driven native Notepad path when authorized. No per-type class, speculative abstraction, Controller code, custom auth/routes, file support, delete/purge/move, automatic retry, unrelated cleanup or outbound B call. Uninstall is separate explicit administrator authorization. | NOT RUN |
+| NT31 — old snapshot acknowledgement after a later media edit | Capture a supported Note snapshot and have A successfully handle that exact revision. Before its acknowledgement, make a later normal native edit containing unsupported media; that human save survives and capture skips/logs it. Exact id/status acknowledgement of the earlier immutable supported snapshot must still succeed when Note identity, retained parent/link, entity/suspension and current READ/READNOTE/native READ permissions remain valid. Missing/wrong-parent/unpermitted/reassociated Notes still deny acknowledgement. Existing later supported snapshots remain Pending; the skipped media value is neither transferred nor silently acknowledged. | NOT RUN |
+
 ## Execution status and review boundary
 
 Prepared for `Agent-B-DMOS-AssetSync`, installed key `agentbdmosassetsync`.

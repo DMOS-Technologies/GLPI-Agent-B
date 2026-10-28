@@ -11,18 +11,10 @@ function plugin_agentbdmosassetsync_mapping_map(array $route, string $type): arr
     return $mappings;
 }
 
-function plugin_agentbdmosassetsync_evidence_time($value): ?DateTimeImmutable
-{
-    if (!is_string($value) || !str_ends_with($value, '+08:00')) {
-        return null;
-    }
-    $time = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:sP', $value);
-    return $time && $time->format('Y-m-d\TH:i:sP') === $value ? $time : null;
-}
-
 function plugin_agentbdmosassetsync_snapshot_scope(array $work, array $route, CommonDBTM $asset, array $row): stdClass
 {
-    if ($row['route_id'] !== $work['route_id'] || $row['itemtype'] !== $work['itemtype']
+    if (($row['subject'] ?? 'Asset') !== 'Asset' || ($work['subject'] ?? 'Asset') !== 'Asset'
+        || $row['route_id'] !== $work['route_id'] || $row['itemtype'] !== $work['itemtype']
         || (int) $row['settings_version'] !== (int) $route['settings_version']
         || (int) $row['entities_id'] !== (int) $work['entities_id']
         || (int) $row['a_entities_id'] !== (int) $work['a_entities_id']) {
@@ -95,7 +87,7 @@ function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset,
         return ['changed_at' => null, 'reliable' => false];
     }
     $criteria = ['FROM' => PluginAgentbdmosassetsyncChange::getTable(), 'WHERE' => [
-        'route_id' => $work['route_id'], 'itemtype' => $work['itemtype'],
+        'subject' => 'Asset', 'route_id' => $work['route_id'], 'itemtype' => $work['itemtype'],
         'entities_id' => (int) $work['entities_id'], 'a_entities_id' => (int) $work['a_entities_id'],
         'settings_version' => (int) $work['settings_version']], 'ORDER' => 'id DESC'];
     if ($lockCurrent) {
@@ -182,7 +174,7 @@ function plugin_agentbdmosassetsync_covered_returns(array $work, array $result):
             return [];
         }
         foreach ($DB->request(['FROM' => PluginAgentbdmosassetsyncChange::getTable(),
-            'WHERE' => ['route_id' => $work['route_id'], 'itemtype' => $work['itemtype'], 'status' => 'Pending'],
+            'WHERE' => ['subject' => 'Asset', 'route_id' => $work['route_id'], 'itemtype' => $work['itemtype'], 'status' => 'Pending'],
             'ORDER' => 'id ASC']) as $row) {
             try {
                 $change = new PluginAgentbdmosassetsyncChange();
@@ -336,7 +328,7 @@ function plugin_agentbdmosassetsync_lock_current_asset(array $work, CommonDBTM $
         throw new RuntimeException('Hold: current locked asset scope or submitting permission changed');
     }
     $query->buildQuery(['FROM' => PluginAgentbdmosassetsyncWork::getTable(), 'WHERE' =>
-        ['itemtype' => $work['itemtype'], 'b_items_id' => (int) $asset->getID()]]);
+        ['subject' => 'Asset', 'itemtype' => $work['itemtype'], 'b_items_id' => (int) $asset->getID()]]);
     $owners = $DB->doQuery($query->getSql() . ' FOR UPDATE');
     while ($owner = $DB->fetchAssoc($owners)) {
         if ($owner['route_id'] !== $work['route_id'] || (int) $owner['a_items_id'] !== (int) $work['a_items_id']) {

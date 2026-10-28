@@ -3,14 +3,17 @@
 The installed plugin key is `agentbdmosassetsync`; its display name is
 **Agent-B-DMOS-AssetSync**. B accepts controller requests through GLPI's
 built-in Legacy REST API V1 on Setting, Work and Change records. It performs
-asset operations locally and makes no outbound requests. There are no custom
-HTTP routes, authentication methods or log files.
+asset and native Notes operations locally and makes no outbound requests.
+There are no custom HTTP routes, authentication methods or log files.
 
 The reviewed deployment uses GLPI **11.0.7** and active Fields **1.24.4**.
 The plugin declares GLPI 11.0.7 through 11.0.x compatibility; other patches have
 not been exercised by these manual passes. See [the evidence index](manual-tests.md#current-evidence-index)
-for observed behavior and explicit unrun variants. Final Both source and
-scoped runtime evidence have been reviewed.
+for observed behavior and explicit unrun variants. Final Asset Both source and
+scoped runtime evidence have been reviewed. Version **0.2.0** adds native Notes
+in source; Notes installation, upgrade and runtime behavior have not been
+certified. The [Notes contract](notes-contract.md) extends the API contract;
+the existing flowcharts remain the baseline Asset flows.
 
 ## Deploy and enable
 
@@ -19,13 +22,22 @@ scoped runtime evidence have been reviewed.
    `GLPI-Agent-B` is not the installed plugin key. Keep old plugins/resources
    separate from this new plugin.
 2. In **Setup > Plugins**, install and enable **Agent-B-DMOS-AssetSync** using
-   an administrator account. Installation creates exactly three plugin tables:
+   an administrator account. Installation creates the three public record tables:
    `glpi_plugin_agentbdmosassetsync_settings`,
    `glpi_plugin_agentbdmosassetsync_works`, and
-   `glpi_plugin_agentbdmosassetsync_changes`. It registers plugin profile
+   `glpi_plugin_agentbdmosassetsync_changes`, plus the internal
+   `glpi_plugin_agentbdmosassetsync_notelinks` association/evidence table.
+   Only the original three record classes are exposed through REST.
+   It registers plugin profile
    rights and the native automatic action. Service rights are not granted
    automatically.
-3. Uninstall removes these tables, rights and registered task. It requires
+3. For an existing installation, deploy the complete version 0.2.0 source and
+   perform GLPI's plugin upgrade as an administrator before enabling Notes.
+   The upgrade adds missing columns and the internal table without replacing
+   existing Work/Change payloads. Existing Work/Change rows become subject Asset
+   with null `note_json`; Settings start with Notes disabled (`[]`). This source
+   implementation did not run installation, upgrade, deployment or database writes.
+4. Uninstall removes all four tables, rights and registered task. It requires
    explicit approval and is not an upgrade/reset procedure. Preserve required
    Work/Change evidence; there is no autonomous cleanup of terminal records.
 
@@ -78,6 +90,13 @@ regardless of source. A read-only runtime return is not permission to enable
 an unsupported/unwritable first-copy mapping. Never grant Super-Admin or a
 cron bypass to compensate for missing service rights.
 
+For each selected Notes parent type, grant parent **READ**, **READNOTE** and
+**UPDATENOTE** in the service profile and routed entity scope. Ordinary asset
+UPDATE does not replace Notes-specific rights. Notes checks use the captured
+submitter's current permissions for local processing. All installed capable
+asset types may be selected, including capable concrete custom types; selection
+does not enable a missing native GLPI Notes capability.
+
 Work records capture submitting user/profile IDs, not credentials. Before
 local processing B rebuilds that account's current authorization and verifies
 route/entity, type, asset and field rights. Account/profile/permission changes
@@ -89,6 +108,8 @@ do not authorize these actions; its context is restored afterwards.
 Create one Setting per immutable A/B entity pair. To change a pair, use a
 new route identity and preserve the old asset/link/evidence. Every Setting
 replacement includes all replaceable content and a strictly newer version.
+The optional `notes_itemtypes_json` defaults to `[]` on creation; omission from
+a replacement preserves its current value, while explicit `[]` disables Notes.
 JSON columns are strings containing JSON on the outer REST wire; use the
 exact schemas and examples in [the API contract](api-contract.md).
 
@@ -116,6 +137,75 @@ exactly and uniquely within permitted destination options; no option is
 created, trimmed or case-folded automatically. Unsupported complex/multiple
 fields stay rejected until a payload/save contract is defined.
 
+## Native Notes (opt in)
+
+Before enabling capture, ensure the A consumer understands `subject` and can
+handle Note Work/Change payloads. Older Asset consumers must filter for
+`subject=Asset`: an unfiltered standard queue GET also returns Note rows.
+Settings-version changes alone do not establish client capability.
+
+Set `notes_itemtypes_json` to a JSON-string array of distinct types already in
+`enabled_itemtypes_json`. Setting admission checks registry membership, actual
+native Notes capability and the Notes rights above. Do not put Notes into scalar
+field mappings. The extension keeps Setting, Work and Change as its only REST
+record classes; the internal association table has no separate endpoint.
+
+Subject `Note` Work uses operation `Sync` (default) or `Inventory`, carries
+`note_json`, and sends `{}` for both scalar values/times JSON strings. Its
+ordinary identity and entity fields describe the parent asset. Establish that
+parent's verified Asset Work link first: Note processing cannot create, link,
+resume or move a parent. B's Note Work `b_items_id` and `link_state` remain null;
+confirmed parent IDs appear in the result. Suspend/Resume remain Asset operations
+and retained suspension also blocks Notes for that relationship.
+
+Enable the selected Notes capture before running Inventory for existing notes.
+Inventory uses ascending B Note IDs, a limit of 1..50 and returned `next_after_id`
+until `has_more` is false. It is a live keyset pass; inventory and capture may
+overlap, so A must reconcile by note IDs. Skipped unsupported notes consume
+cursor positions and remain unchanged. Historical native dates are not promoted
+into reliable genuine-edit evidence. Exact request/result and REST examples are
+in [the Notes contract](notes-contract.md).
+
+Sync reuses durable A/B Note associations on the verified parent. Initial exact
+content matches are linked without an update; multiple matches, paired-elsewhere
+candidates, denied or incomplete lookups Hold. A complete zero-match lookup
+reserves the A Note identity before attempting creation. Missing linked notes
+or uncertain creations Hold even under a fresh Work ID. Reservations are not
+success, and source implementation does not promise exactly-once native creation
+or proven rollback across attachment lifecycle work.
+
+Each note uses Both authority. Equal content causes no native update. For
+differing content, a newer reliable genuine per-note revision wins; equal,
+missing or unreliable times Hold without overwriting content. Preserve the
+winning revision's evidence when copying it between installations. B stores
+copied-value evidence separately from its last genuine local content-edit time.
+Empty content is an explicit edit and never means deletion.
+
+Only text and formatting, including ordinary external hyperlinks, are supported.
+Embedded images, uploads, native document references and other media are skipped
+and logged during local capture, reported as Inventory skips, or Held in Sync;
+they are never fetched or silently stripped. Native authors/updaters are actual
+local accounts. Existing `visible_from_ticket` is preserved on edits and new
+copies use 0. A payload cannot reparent a Note, spoof authors/dates, enable a
+GLPI capability, or delete/purge a Note. Unrelated local notes remain unchanged.
+
+Passive native Notepad capture observes genuine additions and content edits,
+including notes on existing linked assets. Metadata-only changes produce no
+Note Change. The sync guard spans the native save and its nested work, so B's
+own copies do not queue back to A. Capture/queue failures use GLPI's existing
+PHP log and never block a person's normal save. One eligible save produces an
+immutable Note snapshot per route; no shutdown-only capture or automatic retry
+is introduced.
+
+Note Changes use `changed_fields_json` `{}` and a full `note_json` snapshot.
+Acknowledgement remains exactly `id` and `status=Done`. Correction work validates
+all referenced snapshots before counting an attempt and completes only supplied
+same-note snapshots demonstrably covered by the verified result. ReturnToA
+snapshots stay Pending until A handles and acknowledges them; newer or uncertain
+revisions remain independent. Notes runtime coverage and lifecycle checks remain
+unrun; use the [Notes manual checklist](manual-tests.md#native-notes-source-only-candidate--28-october-2026)
+before a pilot.
+
 ## Background processing and scope controls
 
 Installation registers automatic action **processWork** on itemtype
@@ -129,7 +219,7 @@ php <GLPI_ROOT>/front/cron.php
 ```
 
 The action processes at most 20 Accepted Work records per pass in ascending ID
-order under one worker lock. POST acceptance performs no asset write. A durable
+order under one worker lock. POST acceptance performs no asset or Note write. A durable
 start marker precedes asset actions; interrupted started Work becomes Held
 rather than replaying blindly. Done/Held/Failed records do not automatically
 reopen. Reconcile a genuinely uncertain outcome before issuing any necessary
@@ -194,3 +284,7 @@ and explicit NOT RUN variants. Verification covered representative native,
 custom and Fields fixtures, not every installed type/field or unsafe fault
 injection. Future deployment changes require their own scoped manual checks;
 there are no automated tests or destructive reset/delete/purge steps here.
+That existing runtime evidence covers the Asset workflows. Native Notes are a
+source-only addition pending their own manual installation/upgrade, rights,
+capture, identity, content, conflict, cursor and acknowledgement checks. No Notes
+runtime certification follows from the earlier Asset passes.

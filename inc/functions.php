@@ -73,6 +73,15 @@ function plugin_agentbdmosassetsync_object_keys($value, array $keys): bool
     return $actual === $keys;
 }
 
+function plugin_agentbdmosassetsync_evidence_time($value): ?DateTimeImmutable
+{
+    if (!is_string($value) || !str_ends_with($value, '+08:00')) {
+        return null;
+    }
+    $time = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i:sP', $value);
+    return $time && $time->format('Y-m-d\TH:i:sP') === $value ? $time : null;
+}
+
 function plugin_agentbdmosassetsync_read_setting(string $routeId): ?array
 {
     if (!plugin_agentbdmosassetsync_is_key($routeId)) {

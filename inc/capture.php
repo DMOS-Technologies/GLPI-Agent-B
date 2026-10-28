@@ -36,6 +36,7 @@ function plugin_agentbdmosassetsync_register_capture(): void
             }
         }
     }
+    plugin_agentbdmosassetsync_register_note_capture();
 }
 
 /** The first capture operation is a cheap local enabled-type check. */
@@ -204,7 +205,7 @@ function plugin_agentbdmosassetsync_capture_identity(CommonDBTM $asset, array $r
     global $DB;
     $links = [];
     foreach ($DB->request(['FROM' => PluginAgentbdmosassetsyncWork::getTable(), 'WHERE' => [
-        'route_id' => $route['route_id'], 'itemtype' => $asset::class,
+        'route_id' => $route['route_id'], 'itemtype' => $asset::class, 'subject' => 'Asset',
         'entities_id' => (int) $route['entities_id'], 'a_entities_id' => (int) $route['a_entities_id'],
         'b_items_id' => (int) $asset->getID(), 'link_state' => ['Active', 'Suspended']],
         'ORDER' => ['id DESC']]) as $work) {

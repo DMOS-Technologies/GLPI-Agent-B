@@ -6,6 +6,14 @@ HTTP responses, or outbound calls from B. This file defines the required
 record and processing behavior. The plugin implementation is present; reviewed
 runtime evidence and remaining verification limits are indexed below.
 
+**Native Notes extension (0.2.0, 28 October 2026):** the normative
+[Notes contract](notes-contract.md) adds opt-in native Notes backfill, creation
+and content edits through these same three REST resources. Text and formatting
+are supported; files, deletion and automatic capability changes are excluded.
+It defines the subject discriminator, note payloads, internal association table,
+permissions, equality/adoption rules and exact completion. Earlier runtime
+evidence below covers Asset subjects; it does not certify the new Notes path.
+
 ## Contract status and sources
 
 The confirmed requirements below come from [the B spec](../spec-b-agent.md),
@@ -49,6 +57,7 @@ examples use illustrative IDs and values.
 | Setting table | `glpi_plugin_agentbdmosassetsync_settings` |
 | Work table | `glpi_plugin_agentbdmosassetsync_works` |
 | Change table | `glpi_plugin_agentbdmosassetsync_changes` |
+| Internal Notes association table, no REST itemtype | `glpi_plugin_agentbdmosassetsync_notelinks` |
 
 The repository folder is not the deployment folder. GLPI allows only
 alphanumeric characters in the installed plugin directory name; the user
@@ -116,6 +125,11 @@ on Setting.
 | `settings_version` | `VERSION` | Required | A; strictly increases |
 | `enabled_itemtypes_json` | `JSON_TEXT`, inner array of unique `ITEMTYPE` strings | Required; `[]` permits disabling all types | A |
 | `field_mappings_json` | `JSON_TEXT`, inner array of mapping objects | Required; `[]` permits no mappings | A |
+| `notes_itemtypes_json` | `JSON_TEXT`, array of unique enabled parent `ITEMTYPE` strings supporting native Notes | Optional; create/upgrade default `[]`; omission on replacement preserves current selection | A |
+
+The Notes selection must be a subset of enabled_itemtypes_json. It does not
+enable GLPI Notes capabilities automatically. It uses per-note Both authority,
+independently of scalar field mappings; see the Notes contract for exact rules.
 
 A mapping object has exactly these properties (selectors are contract data,
 not GLPI API routes):
@@ -258,7 +272,9 @@ settings GET and no remote lookup by B.
 |---|---|---|---|
 | `id` | `ID` | Generated | B/GLPI only |
 | `work_id` | `KEY128` | Required; unique, immutable | A at creation only |
-| `operation` | `VARCHAR(16)` / `Sync`, `Suspend`, `Resume` | Optional; default `Sync` | A at creation only |
+| `subject` | `VARCHAR(16)` / `Asset`, `Note` | Optional; default `Asset` | A at creation only |
+| `note_json` | nullable `JSON_TEXT` | Asset: omitted/null; Note: required Sync/Inventory payload from Notes contract | A at creation only |
+| `operation` | `VARCHAR(16)` | Optional; default `Sync`; Asset allows Sync/Suspend/Resume; Note allows Sync/Inventory | A at creation only |
 | `route_id` | `KEY128` | Required | A at creation only |
 | `a_entities_id` | `ID`, allowing `0` | Required | A at creation only |
 | `entities_id` | `ID`, allowing `0` | Required; B entity | A at creation only |
@@ -280,6 +296,13 @@ settings GET and no remote lookup by B.
 | `date_creation` | `TIME` | Set on acceptance | B/GLPI only |
 | `date_mod` | `TIME` | Set on acceptance and B updates | B/GLPI only |
 | `completed_at` | nullable `TIME` | Initially `null`; set only on `Done` | B only |
+
+The remaining Asset processing/result examples below apply to subject Asset.
+Note Work retains all required parent/scope fields, uses empty scalar objects,
+and follows [the Notes contract](notes-contract.md). Note Work never supplies
+retained parent-link/control evidence: b_items_id/link_state stay null, and the
+confirmed parent ID is returned in its result_json. A Note operation requires
+an already verified, active Asset relationship and cannot create a parent.
 
 Identity object (no additional keys):
 
@@ -358,7 +381,9 @@ covered queue snapshots Done; no blanket acknowledgement of input IDs.
 
 ### Per-asset links and scope operations
 
-The three record types remain the only plugin records/tables. Retained Work
+The three record types remain the only public plugin API records. The approved
+Notes extension adds one internal association table without an API class.
+Retained Asset Work
 rows provide durable link/scope evidence, indexed by `route_id`, `itemtype`,
 and B-derived `a_items_id`. A verified `b_items_id` is scoped to that route;
 raw remote IDs are never sufficient evidence. Do not delete these records.
@@ -404,13 +429,15 @@ column and no A-generated queue identifier.
 | Field | SQL / REST type | Required/default | Who may supply/change it |
 |---|---|---|---|
 | `id` | `ID` | Generated; exact ID A acknowledges | B/GLPI generates; A uses as PUT selector only |
+| `subject` | `VARCHAR(16)` / `Asset`, `Note` | Initially `Asset` for legacy rows; B selects on capture | B only |
+| `note_json` | nullable `JSON_TEXT` | Null for Asset; complete immutable note snapshot for Note | B only |
 | `route_id` | `KEY128` | Required | B only |
 | `settings_version` | `VERSION` | Required; version at genuine edit | B only |
 | `a_entities_id` | `ID`, allowing `0` | Required | B only |
 | `entities_id` | `ID`, allowing `0` | Required; B entity | B only |
 | `itemtype` | `ITEMTYPE` | Required | B only |
 | `identity_json` | `JSON_TEXT`, identity object above | Required | B only |
-| `changed_fields_json` | `JSON_TEXT`, nonempty object from mapping ID to value/time object | Required | B only |
+| `changed_fields_json` | `JSON_TEXT`; Asset: nonempty mapping snapshot; Note: `{}` with complete note_json | Required | B only |
 | `status` | `VARCHAR(16)` / string enum below | Initially `Pending` | B on create; A may change only `Pending -> Done`; B may do that after successful correction |
 | `retry_count` | `INT UNSIGNED` / nonnegative integer | Initially `0` | B only; count actual processing attempts, not polling |
 | `error` | nullable `TEXT` | Initially `null` | B only |
@@ -442,6 +469,13 @@ have no reliable parent completion hook in GLPI 11.0.7. Capture each row before
 that local save returns; no shutdown-only flush or mutation of an exposed
 snapshot. A later edit creates another row; B must not overwrite a row A may already have read.
 Sync writes never create a Change row.
+
+For a Note Change, changed_fields_json is `{}` and note_json is the nonempty
+Notes snapshot defined in [the extension](notes-contract.md). Its identity_json
+still identifies the parent asset. Empty/error-only snapshots remain forbidden.
+The existing exact id/status acknowledgement applies to either subject; it
+cannot change subject or note_json. Asset correction/evidence queries exclude
+Note rows, and Note correction cannot complete an Asset snapshot.
 
 Under the normal-save decision above, a snapshot contains the fields B actually
 verified and captured. Omitted fields have no value/time entry and are not
@@ -851,6 +885,8 @@ Content-Type: application/json
   "settings_version": 7,
   "handled_change_ids_json": "[]",
   "operation": "Sync",
+  "subject": "Asset",
+  "note_json": null,
   "submitted_users_id": 7,
   "submitted_profiles_id": 9,
   "a_items_id": 42,
@@ -925,6 +961,8 @@ Accept-Range: PluginAgentbdmosassetsyncChange <GLPI_configured_limit>
     "entities_id": 5,
     "itemtype": "Computer",
     "identity_json": "{\"a_items_id\":42,\"b_items_id\":845,\"serial\":\"SN-0042\"}",
+    "subject": "Asset",
+    "note_json": null,
     "changed_fields_json": "{\"asset_name\":{\"value\":\"Renamed in B\",\"changed_at\":\"2026-10-24T12:10:00+08:00\",\"reliable\":true}}",
     "status": "Pending",
     "retry_count": 0,
@@ -1149,7 +1187,7 @@ case (`operation` omitted defaults to Sync); unknown values produce
 
 ### 5.2 Setting validation
 
-- Require all A-owned Setting fields on creation and all replaceable content
+- Require all original A-owned Setting fields on creation and all original replaceable content
   on update. On update require selector `id`; if `route_id` is repeated it
   must equal the stored immutable value. The examples repeat it for clarity.
 - Enforce a database unique key on `route_id`, as well as friendly validation,
@@ -1179,7 +1217,9 @@ case (`operation` omitted defaults to Sync); unknown values produce
 ### 5.3 Work validation and processing boundary
 
 - Required creation fields are exactly those marked Required in section 1.4.
-  `operation` defaults to Sync; only Sync/Suspend/Resume are allowed. Scope
+  `subject` defaults to Asset and `operation` defaults to Sync. Asset allows
+  Sync/Suspend/Resume; Note allows Sync/Inventory with note_json and empty scalar
+  objects as specified in the Notes extension. Scope
   operations require empty values/times and no handled IDs. Do not require
   `status`, results, error, timestamps, submitter, or normalized identity
   columns from A; B derives its metadata from authenticated input/context.
@@ -1302,7 +1342,8 @@ permissions and field-capability details.
 
 1. Confirm the exact GLPI 11.x patch, HTTPS base URL, and routed B entities.
    Install/enable the implemented plugin under `plugins/agentbdmosassetsync`;
-   installation registers its three resource tables, classes, entity checks,
+   installation registers its three resource tables, the internal Notes-link
+   table, classes, entity checks,
    profile tab/rights and automatic action. The reviewed target is 11.0.7;
    use the actual configured HTTPS Legacy base for the deployment.
 2. In **Setup/Configuration > General > API**, use the **Legacy API** section.
@@ -1442,6 +1483,12 @@ These are now requirements rather than unapproved defaults.
 | Q13 | Local disposable test base is `http://localhost:8081/api.php/v1`. Production uses B's configured HTTPS Legacy API base. |
 | Q14 | One A consumer per B. Use discovered numeric search options and ascending queue IDs for bounded passes; revisit unresolved IDs without starving later rows. Never treat offset pages as an immutable snapshot. |
 | Q15 | Verify implementation hooks, bookkeeping, field writes, permissions, and native API exposure against installed GLPI 11.0.7 source. These are engineering checks, not permission to invent APIs. |
+
+On 28 October 2026 the user approved native Notes backfill, new Notes and later
+edits, text/formatting only; one internal Notes association table; Both conflict
+handling per paired Note; and leaving equal same-parent Notes unchanged while
+remembering their association. Ambiguous duplicate content remains unchanged
+for review. These decisions and the additive schemas are in notes-contract.md.
 
 Dropdown matching is conservative: preserve source readable label/text without
 implicit trimming or case folding, match exactly in the destination's locally

@@ -6,6 +6,11 @@
 
 **Sources:** the two flowcharts (A-starts and B-starts) and "AssetSync End-to-End Guide" (21 Oct 2026), used as the design reference. Ignore the guide's "what works today" status, because it describes an older implementation. Where the sources disagree or are silent, see section 11 (Open Questions). Do not guess.
 
+The flowcharts remain the baseline asset flows. The approved native Notes
+extension is specified in [docs/notes-contract.md](docs/notes-contract.md),
+which extends [docs/api-contract.md](docs/api-contract.md). Notes are implemented
+in source for version 0.2.0; Notes runtime behavior has not been certified.
+
 ## Decisions already made
 
 - **A reaches B only through GLPI's built-in REST API, on plugin records.** B adds no custom HTTP routes and no custom authentication. A creates, reads, and updates records that B's plugin defines. B's behavior comes from validation inside those record classes and from a background task.
@@ -16,7 +21,7 @@
 
 ## 1. Ground rules for B
 
-1. **B is passive.** A sends every request. B never calls A. B keeps SQL tables, runs an `item_update` hook, and runs a background task.
+1. **B is passive.** A sends every request. B never calls A. B keeps SQL tables, observes asset and native Notepad saves, and runs a background task.
 2. **Accepted is not synced.** A successful POST of a work record only means B saved the request. It does not mean any asset changed.
 3. **Heavy work runs in the background task**, not inside the REST request.
 4. **Inside B, use GLPI's own local methods** (find, `add()`, `update()`). B makes no REST calls to itself.
@@ -33,14 +38,23 @@
 
 ---
 
-## 2. What B stores (three plugin record types)
+## 2. What B stores (three public plugin record types)
 
 Exact class names, table names, field names, approved implementation decisions, and Sync/Suspend/Resume Work operations are defined in `docs/api-contract.md`. Use that contract for the REST wire schema.
+
+The Notes extension retains exactly these three public record types. The
+approved fourth SQL table, `glpi_plugin_agentbdmosassetsync_notelinks`, stores
+only B-owned Note associations, reservations and value evidence. It has no
+public API itemtype and does not duplicate complete Note bodies.
 
 ### 2.1 Setting record (A writes)
 - Entity Route (A entity to B entity), enabled asset types per route, enabled field mappings, per-field source (A / B / Both), and a settings version.
 - Only A changes it. B never edits it.
 - Work that does not match the current settings (version, route, entity, type, mapping) must not keep writing. Hold it with a visible status.
+- `notes_itemtypes_json` separately opts enabled parent types into native Notes.
+  It defaults to `[]`; omitting it from a replacement preserves the selection.
+  Selection requires native Notes capability and parent READ, READNOTE and
+  UPDATENOTE rights. The plugin never enables GLPI Notes capabilities itself.
 
 ### 2.2 Work record (A creates, B completes)
 
@@ -50,6 +64,10 @@ Exact class names, table names, field names, approved implementation decisions, 
 
 - A reads the result later with a normal GET.
 - The same work ID retried must not write again (see Open Question 15).
+- `subject` defaults to `Asset`. Subject `Note` carries its own `note_json`,
+  empty scalar values/times objects, and operation `Sync` or `Inventory`.
+  Suspend/Resume remain Asset-only. A Note Work requires a verified existing
+  Asset link and never creates, links or resumes the parent asset.
 
 ### 2.3 Change record (B creates, A acknowledges)
 **B writes:** queue ID, route ID, settings version, asset type, serial and link IDs, changed fields and values, original per-field change time, status, retry count, error.
@@ -61,6 +79,9 @@ Exact class names, table names, field names, approved implementation decisions, 
 - Failed or conflicted rows stay available for retry or review.
 - Edits made after A reads a batch become new rows.
 - One user save may produce separate native-field and Fields-plugin Change rows, each captured immediately for its genuine underlying storage save. The user approved this GLPI 11.0.7 compatibility rule; never defer a necessary capture to shutdown or mutate an already exposed snapshot.
+- A Note Change has subject `Note`, empty `changed_fields_json`, and an immutable
+  per-note `note_json` snapshot. Its ordinary identity/entity columns identify
+  the parent. Acknowledgement remains exactly `id` and `status`.
 
 ---
 
@@ -91,7 +112,9 @@ Verify in the target GLPI version that plugin classes are exposed through the bu
 
 ## 4. Inbound: processing work from A (background task)
 
-The background task picks up Work records that are waiting, in a bounded batch. For each record:
+The background task picks up Work records that are waiting, in a bounded batch.
+The following steps describe subject Asset; subject Note follows section 6.1
+and the Notes contract. For each Asset record:
 
 1. **Check against the settings copy:** settings version, route, target B entity, and whether the asset type is enabled for this route. Mismatch or unknown type means hold with a visible status. Do not write.
 2. **Only use mapped fields** that are enabled in the saved mapping. Ignore everything else in the work.
@@ -157,6 +180,38 @@ Additional rules:
 - **Field support:** native fields and Fields-plugin custom fields. Each field kind needs explicit support. A field showing in GLPI search options is not proof it is safe to write. Unsupported enabled B mappings are rejected at Setting admission for explicit review/fix. A mapping becoming unavailable during normal-save capture is skipped and logged under section 5; it must not block GLPI saves or fabricate change evidence.
 - **Mapped date/time values:** date uses `YYYY-MM-DD`; datetime uses `YYYY-MM-DD HH:MM:SS` already in the destination GLPI native convention. These values are separate from Brunei-offset genuine edit timestamps.
 
+### 6.1 Native Notes
+
+Existing notes, newly added notes and later content edits use one generic native
+Notepad path for all selected capable parent types. Notes are text and formatting,
+separate from scalar field mappings. Each durable A/B Note pair uses Both
+authority: newer reliable genuine per-note evidence wins; differing values with
+equal, missing or unreliable times Hold. Historical native dates alone are not
+reliable human-edit evidence. Copied-value evidence remains separate from B's
+last genuine local content edit.
+
+An existing association fixes the Note's parent and identity. For initial pairing,
+an exact same-parent content match is linked without updating its content. A
+unique unpaired match is required; ambiguous, denied or incomplete matching Holds.
+Only a complete zero-match lookup permits a reserved creation. Missing linked
+notes or uncertain creation never permit blind recreation through a fresh Work
+ID. Empty content is an edit, not deletion. Inventory provides bounded live
+keyset backfill; normal capture must be enabled before inventory begins.
+
+Genuine native Notepad additions/content edits queue immutable snapshots per
+eligible route; metadata-only edits and sync writes do not. Capture is passive
+and non-blocking. Embedded files/media and native document references are
+unsupported: skip/log capture, skip Inventory rows, or Hold Sync. Preserve
+formatting and ordinary hyperlinks; never fetch files or silently strip content.
+Local writes use the actual local author/updater, preserve existing visibility,
+and use visibility 0 for new copies. No reparenting, author/date spoofing or
+automatic deletion is permitted.
+
+Before enabling Notes, A must understand/filter `subject`; older Asset consumers
+must explicitly filter Asset rows. A settings version alone does not negotiate
+client capability. See the Notes contract for exact input/result shapes,
+per-note coverage and acknowledgements. This repository implements only B.
+
 ---
 
 ## 7. Transfers and scope (B's side only)
@@ -185,18 +240,27 @@ Additional rules:
 - No automatic deletion, archiving, clearing, or B-entity transfer.
 - No per-asset-type classes or switch statements.
 - No new log files, no cleanup jobs for Done rows, no extra abstraction layers.
+- No native Note file/media transfer, reparenting, remote-author impersonation
+  or automatic Note deletion.
 
 ---
 
 ## 10. Foundations needed (build these first)
 
 1. Plugin skeleton for the target GLPI version (Open Question 13), including install and uninstall.
-2. The three record classes (Setting, Work, Change) with their SQL tables and GLPI profile rights.
+2. The three public record classes (Setting, Work, Change), their SQL tables and GLPI profile rights, plus the approved internal Note-association table.
 3. Validation rules from section 3 inside the record classes (including "A may write only what A owns").
 4. A function that reads the Setting record.
 5. `markQueueRowsDone(ids)`: marks exactly those Change records Done and leaves all others unchanged.
 6. Registration of an empty background task.
 7. `docs/setup.md`: steps to enable the REST API on B and create the service account with the rights in section 3.
+
+Version 0.2.0 adds Notes through an additive installation/upgrade: retained
+Work/Change payloads remain unchanged, existing rows default to Asset, and Notes
+remain disabled in Settings. An administrator must perform the GLPI plugin
+upgrade before enabling Notes. Source implementation did not execute an upgrade
+or database change. Existing Asset evidence does not certify the new Notes path;
+its manual checklist and runtime verification remain required.
 
 **Known hard areas (from the design guide):** reliable per-field change tracking for "Both", acknowledgements, asset creation, and large-scale testing.
 

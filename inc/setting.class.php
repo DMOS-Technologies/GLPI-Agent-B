@@ -46,7 +46,7 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
 
     private function validateSetting(array $input, bool $creating): void
     {
-        $allowed = array_merge(self::contentFields(), ['route_id']);
+        $allowed = array_merge(self::contentFields(), ['route_id', 'notes_itemtypes_json']);
         if (!$creating) {
             $allowed[] = 'id';
         }
@@ -73,7 +73,11 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
             $invalid[] = 'settings_version';
         }
         $decoded = [];
-        foreach (['enabled_itemtypes_json', 'field_mappings_json'] as $field) {
+        $jsonFields = ['enabled_itemtypes_json', 'field_mappings_json'];
+        if (array_key_exists('notes_itemtypes_json', $input)) {
+            $jsonFields[] = 'notes_itemtypes_json';
+        }
+        foreach ($jsonFields as $field) {
             try {
                 $decoded[$field] = plugin_agentbdmosassetsync_json($field, $input[$field]);
                 if (!is_array($decoded[$field])) {
@@ -88,6 +92,32 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=' . $invalid[0]);
         }
         $this->validateMappings($decoded['enabled_itemtypes_json'], $decoded['field_mappings_json'], $input['entities_id']);
+        if (array_key_exists('notes_itemtypes_json', $decoded)) {
+            $this->validateNotes($decoded['enabled_itemtypes_json'], $decoded['notes_itemtypes_json'], $input['entities_id']);
+        }
+    }
+
+    private function validateNotes(array $types, array $noteTypes, int $entity): void
+    {
+        $seen = [];
+        foreach ($noteTypes as $type) {
+            if (!is_string($type) || $type === '' || strlen($type) > 255 || in_array($type, $seen, true)
+                || !in_array($type, $types, true)) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=notes_itemtypes_json');
+            }
+            $seen[] = $type;
+        }
+        foreach ($noteTypes as $type) {
+            if (!plugin_agentbdmosassetsync_notes_capable($type)) {
+                plugin_agentbdmosassetsync_fail('ASB_UNSUPPORTED_ITEMTYPE: itemtype=' . $type);
+            }
+            $parent = new $type();
+            $parent->getEmpty();
+            $parent->fields['entities_id'] = $entity;
+            plugin_agentbdmosassetsync_notes_check_parent($parent, [
+                'itemtype' => $type, 'entities_id' => $entity,
+            ], UPDATENOTE);
+        }
     }
 
     private function validateMappings(array $types, array $mappings, int $entity): void
@@ -219,6 +249,7 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
 
         $raw = $this->clientCreateInput ?? $input;
         $this->clientCreateInput = null;
+        $raw += ['notes_itemtypes_json' => '[]'];
         $this->validateSetting($raw, true);
         if (!static::canCreate() || !Session::haveAccessToEntity($raw['entities_id'])) {
             return false;
@@ -250,6 +281,14 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
         try {
             if (!$this->getFromDB($input['id'])) {
                 return false;
+            }
+            if (!array_key_exists('notes_itemtypes_json', $input)) {
+                // Legacy replacements preserve Notes, while still validating the new enabled-type list.
+                $this->validateNotes(
+                    plugin_agentbdmosassetsync_json('enabled_itemtypes_json', $input['enabled_itemtypes_json']),
+                    plugin_agentbdmosassetsync_json('notes_itemtypes_json', $this->fields['notes_itemtypes_json']),
+                    $input['entities_id']
+                );
             }
             foreach (['route_id', 'a_entities_id', 'entities_id'] as $field) {
                 if (array_key_exists($field, $input) && (string) $input[$field] !== (string) $this->fields[$field]) {

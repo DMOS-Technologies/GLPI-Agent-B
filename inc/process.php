@@ -5,6 +5,7 @@ require_once __DIR__ . '/firstcopy.php';
 require_once __DIR__ . '/results.php';
 require_once __DIR__ . '/scope.php';
 require_once __DIR__ . '/both.php';
+require_once __DIR__ . '/notes.php';
 
 function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
 {
@@ -121,7 +122,7 @@ function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissin
     }
     $identity = json_decode($work['identity_json'], false, 512, JSON_THROW_ON_ERROR);
     $links = iterator_to_array($DB->request(['FROM' => PluginAgentbdmosassetsyncWork::getTable(),
-        'WHERE' => ['route_id' => $work['route_id'], 'itemtype' => $type,
+        'WHERE' => ['subject' => 'Asset', 'route_id' => $work['route_id'], 'itemtype' => $type,
             'a_items_id' => (int) $work['a_items_id'], 'b_items_id' => ['>', 0]], 'ORDER' => 'id DESC']));
     $ids = array_unique(array_column($links, 'b_items_id'));
     if (count($ids) > 1) {
@@ -174,7 +175,7 @@ function plugin_agentbdmosassetsync_find_existing(array $work, bool $allowMissin
     }
     plugin_agentbdmosassetsync_check_asset($asset, $work, READ);
     $owners = $DB->request(['FROM' => PluginAgentbdmosassetsyncWork::getTable(),
-        'WHERE' => ['itemtype' => $type, 'b_items_id' => (int) $asset->getID()]]);
+        'WHERE' => ['subject' => 'Asset', 'itemtype' => $type, 'b_items_id' => (int) $asset->getID()]]);
     foreach ($owners as $owner) {
         if ($owner['route_id'] !== $work['route_id'] || (int) $owner['a_items_id'] !== (int) $work['a_items_id']) {
             throw new RuntimeException('B asset has competing retained source ownership');
@@ -210,6 +211,10 @@ function plugin_agentbdmosassetsync_check_asset(CommonDBTM $asset, array $work, 
 
 function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWork $record): void
 {
+    if (($record->fields['subject'] ?? 'Asset') === 'Note') {
+        plugin_agentbdmosassetsync_process_note_work($record);
+        return;
+    }
     $work = $record->fields;
     $result = ['b_items_id' => null, 'created_b_items_id' => null, 'b_values_for_a' => new stdClass(),
         'covered_change_ids' => [], 'handled_change_ids_done' => [], 'field_outcomes' => []];

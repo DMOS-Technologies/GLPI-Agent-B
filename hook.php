@@ -13,6 +13,7 @@ function plugin_agentbdmosassetsync_install()
             `route_enabled` TINYINT UNSIGNED NOT NULL,
             `settings_version` INT UNSIGNED NOT NULL,
             `enabled_itemtypes_json` LONGTEXT NOT NULL,
+            `notes_itemtypes_json` LONGTEXT NOT NULL,
             `field_mappings_json` LONGTEXT NOT NULL,
             PRIMARY KEY (`id`), UNIQUE KEY `route_id` (`route_id`),
             KEY `entities_id` (`entities_id`)",
@@ -23,6 +24,8 @@ function plugin_agentbdmosassetsync_install()
             `a_entities_id` INT UNSIGNED NOT NULL,
             `entities_id` INT UNSIGNED NOT NULL,
             `itemtype` VARCHAR(255) NOT NULL,
+            `subject` VARCHAR(16) NOT NULL DEFAULT 'Asset',
+            `note_json` LONGTEXT NULL DEFAULT NULL,
             `identity_json` LONGTEXT NOT NULL,
             `a_values_json` LONGTEXT NOT NULL,
             `a_change_times_json` LONGTEXT NOT NULL,
@@ -51,6 +54,8 @@ function plugin_agentbdmosassetsync_install()
             `a_entities_id` INT UNSIGNED NOT NULL,
             `entities_id` INT UNSIGNED NOT NULL,
             `itemtype` VARCHAR(255) NOT NULL,
+            `subject` VARCHAR(16) NOT NULL DEFAULT 'Asset',
+            `note_json` LONGTEXT NULL DEFAULT NULL,
             `identity_json` LONGTEXT NOT NULL,
             `changed_fields_json` LONGTEXT NOT NULL,
             `status` VARCHAR(16) NOT NULL DEFAULT 'Pending',
@@ -61,6 +66,25 @@ function plugin_agentbdmosassetsync_install()
             `done_at` DATETIME NULL DEFAULT NULL,
             PRIMARY KEY (`id`), KEY `entities_id` (`entities_id`),
             KEY `status` (`status`), KEY `route_id` (`route_id`)",
+        'notelinks' => "
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `route_id` VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+            `itemtype` VARCHAR(255) NOT NULL,
+            `a_entities_id` INT UNSIGNED NOT NULL,
+            `entities_id` INT UNSIGNED NOT NULL,
+            `a_items_id` INT UNSIGNED NULL DEFAULT NULL,
+            `a_notes_id` INT UNSIGNED NULL DEFAULT NULL,
+            `b_items_id` INT UNSIGNED NOT NULL,
+            `b_notes_id` INT UNSIGNED NULL DEFAULT NULL,
+            `state` VARCHAR(16) NOT NULL,
+            `reservation_works_id` INT UNSIGNED NULL DEFAULT NULL,
+            `content_hash` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL DEFAULT NULL,
+            `value_changed_at` VARCHAR(32) NULL DEFAULT NULL,
+            `value_reliable` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `last_local_changed_at` VARCHAR(32) NULL DEFAULT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `a_note` (`route_id`, `itemtype`, `a_items_id`, `a_notes_id`),
+            UNIQUE KEY `b_note` (`route_id`, `itemtype`, `b_items_id`, `b_notes_id`)",
     ];
     foreach ($tables as $suffix => $columns) {
         $table = 'glpi_plugin_agentbdmosassetsync_' . $suffix;
@@ -68,6 +92,24 @@ function plugin_agentbdmosassetsync_install()
             $DB->doQuery("CREATE TABLE `$table` ($columns) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         }
     }
+
+    // Upgrade only adds Notes columns; retained request and snapshot payloads are untouched.
+    $notesColumns = [
+        'settings' => ['notes_itemtypes_json' => 'LONGTEXT NULL DEFAULT NULL'],
+        'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
+        'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
+    ];
+    foreach ($notesColumns as $suffix => $columns) {
+        $table = 'glpi_plugin_agentbdmosassetsync_' . $suffix;
+        foreach ($columns as $column => $definition) {
+            if (!$DB->fieldExists($table, $column)) {
+                $DB->doQuery("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+            }
+        }
+    }
+    $settingsTable = 'glpi_plugin_agentbdmosassetsync_settings';
+    $DB->update($settingsTable, ['notes_itemtypes_json' => '[]'], ['notes_itemtypes_json' => null]);
+    $DB->doQuery("ALTER TABLE `$settingsTable` MODIFY COLUMN `notes_itemtypes_json` LONGTEXT NOT NULL");
 
     require_once __DIR__ . '/inc/functions.php';
     foreach (plugin_agentbdmosassetsync_rights() as $name) {
@@ -102,7 +144,7 @@ function plugin_agentbdmosassetsync_uninstall()
         return false;
     }
     // An administrator's explicit uninstall removes this plugin's records only.
-    foreach (['settings', 'works', 'changes'] as $suffix) {
+    foreach (['settings', 'works', 'changes', 'notelinks'] as $suffix) {
         $DB->doQuery('DROP TABLE IF EXISTS `glpi_plugin_agentbdmosassetsync_' . $suffix . '`');
     }
     return true;

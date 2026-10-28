@@ -32,7 +32,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
     public function rawSearchOptions()
     {
         return plugin_agentbdmosassetsync_search_options(static::getTable(), [
-            'id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype',
+            'id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype', 'subject',
         ]);
     }
 
@@ -52,8 +52,18 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
         global $DB;
         $required = ['route_id', 'settings_version', 'a_entities_id', 'entities_id', 'itemtype',
             'identity_json', 'changed_fields_json'];
-        plugin_agentbdmosassetsync_check_fields($input, $required);
+        plugin_agentbdmosassetsync_check_fields($input, array_merge($required, ['subject', 'note_json']));
+        $subject = $input['subject'] ?? 'Asset';
+        if ($subject === 'Note') {
+            $required[] = 'note_json';
+        }
         plugin_agentbdmosassetsync_require_fields($input, $required);
+        if (array_key_exists('subject', $input) && !in_array($input['subject'], ['Asset', 'Note'], true)) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=subject');
+        }
+        if ($subject === 'Asset' && array_key_exists('note_json', $input) && $input['note_json'] !== null) {
+            plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=note_json');
+        }
         if (!plugin_agentbdmosassetsync_is_key($input['route_id'])
             || !plugin_agentbdmosassetsync_is_uint($input['settings_version'], 1)
             || !plugin_agentbdmosassetsync_is_uint($input['a_entities_id'])
@@ -69,8 +79,17 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=identity_json');
         }
         $fields = plugin_agentbdmosassetsync_json('changed_fields_json', $input['changed_fields_json']);
-        if (!$fields instanceof stdClass || !get_object_vars($fields)) {
+        if (!$fields instanceof stdClass
+            || ($subject === 'Asset' && !get_object_vars($fields))
+            || ($subject === 'Note' && get_object_vars($fields) !== [])) {
             plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=changed_fields_json');
+        }
+        if ($subject === 'Note') {
+            $note = plugin_agentbdmosassetsync_json('note_json', $input['note_json']);
+            if (!plugin_agentbdmosassetsync_notes_valid_payload($note, true) || $note->reliable !== true
+                || !plugin_agentbdmosassetsync_notes_content_supported($note->content)) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=note_json');
+            }
         }
         foreach (get_object_vars($fields) as $mapping => $field) {
             if (preg_match('/\A[a-z][a-z0-9_]{0,63}\z/D', $mapping) !== 1
@@ -86,7 +105,8 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
                 plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=changed_fields_json');
             }
         }
-        $input += ['status' => 'Pending', 'retry_count' => 0, 'error' => null, 'done_at' => null];
+        $input += ['subject' => 'Asset', 'note_json' => null,
+            'status' => 'Pending', 'retry_count' => 0, 'error' => null, 'done_at' => null];
         $DB->beginTransaction();
         $this->internalCreate = true;
         try {
@@ -119,7 +139,8 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
     private function validateAcknowledgement(array $input): void
     {
         $owned = ['route_id', 'settings_version', 'a_entities_id', 'entities_id', 'itemtype',
-            'identity_json', 'changed_fields_json', 'retry_count', 'error', 'date_creation', 'date_mod', 'done_at'];
+            'subject', 'note_json', 'identity_json', 'changed_fields_json', 'retry_count', 'error',
+            'date_creation', 'date_mod', 'done_at'];
         plugin_agentbdmosassetsync_check_fields($input, ['id', 'status'], $owned);
         plugin_agentbdmosassetsync_require_fields($input, ['id', 'status']);
         if (!plugin_agentbdmosassetsync_is_uint($input['id'], 1)) {
@@ -149,6 +170,14 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
         if (!is_subclass_of($type, CommonDBTM::class)) {
             plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=itemtype');
         }
+        if (($this->fields['subject'] ?? 'Asset') === 'Note') {
+            $note = plugin_agentbdmosassetsync_json('note_json', $this->fields['note_json']);
+            if (!plugin_agentbdmosassetsync_notes_valid_payload($note, true)) {
+                plugin_agentbdmosassetsync_fail('ASB_CHANGE_IDENTITY_UNAVAILABLE: reason=note_snapshot');
+            }
+            plugin_agentbdmosassetsync_notes_check_acknowledgement($this->fields, $identity, $note);
+            return;
+        }
         $asset = new $type();
         // Concrete custom types share a table; an ID alone does not prove the snapshot's itemtype.
         $criteria = [$type::getTableField($type::getIndexName()) => $identity->b_items_id]
@@ -170,7 +199,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
         $query = 'SELECT * FROM `' . PluginAgentbdmosassetsyncWork::getTable() . '` WHERE `itemtype` = '
             . $DB::quoteValue($this->fields['itemtype']) . ' AND (`route_id` = '
             . $DB::quoteValue($this->fields['route_id']) . ' OR `b_items_id` = ' . $identity->b_items_id . ')'
-            . " AND `link_state` IN ('Active', 'Suspended') ORDER BY `id` DESC FOR UPDATE";
+            . " AND `subject` = 'Asset' AND `link_state` IN ('Active', 'Suspended') ORDER BY `id` DESC FOR UPDATE";
         $result = $DB->doQuery($query);
         $latest = [];
         while ($work = $DB->fetchAssoc($result)) {

@@ -35,7 +35,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
     public function rawSearchOptions()
     {
         return plugin_agentbdmosassetsync_search_options(static::getTable(), [
-            'id', 'work_id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype',
+            'id', 'work_id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype', 'subject',
         ]);
     }
 
@@ -55,7 +55,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             plugin_agentbdmosassetsync_fail('ASB_WORK_SUBMITTER_UNAVAILABLE');
         }
 
-        $raw += ['operation' => 'Sync', 'handled_change_ids_json' => '[]'];
+        $raw += ['operation' => 'Sync', 'handled_change_ids_json' => '[]', 'subject' => 'Asset', 'note_json' => null];
         $raw += [
             'submitted_users_id' => $userId, 'submitted_profiles_id' => $profileId,
             'a_items_id' => $identity->a_items_id, 'b_items_id' => null, 'link_state' => null,
@@ -100,7 +100,11 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             'link_state', 'processing_started_at', 'status', 'result_json', 'error',
             'date_creation', 'date_mod', 'completed_at'];
         plugin_agentbdmosassetsync_check_fields($input,
-            array_merge($required, ['operation', 'handled_change_ids_json']), $owned);
+            array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json']), $owned);
+        $subject = $input['subject'] ?? 'Asset';
+        if ($subject === 'Note') {
+            $required[] = 'note_json';
+        }
         plugin_agentbdmosassetsync_require_fields($input, $required);
 
         $invalid = [];
@@ -119,8 +123,15 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             $invalid[] = 'itemtype';
         }
         $operation = $input['operation'] ?? 'Sync';
-        if (array_key_exists('operation', $input) && !in_array($input['operation'], ['Sync', 'Suspend', 'Resume'], true)) {
+        if (array_key_exists('subject', $input) && !in_array($input['subject'], ['Asset', 'Note'], true)) {
+            $invalid[] = 'subject';
+        }
+        $operations = $subject === 'Note' ? ['Sync', 'Inventory'] : ['Sync', 'Suspend', 'Resume'];
+        if (array_key_exists('operation', $input) && !in_array($input['operation'], $operations, true)) {
             $invalid[] = 'operation';
+        }
+        if ($subject === 'Asset' && array_key_exists('note_json', $input) && $input['note_json'] !== null) {
+            $invalid[] = 'note_json';
         }
 
         $json = [];
@@ -147,14 +158,28 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         if (array_key_exists('handled_change_ids_json', $json) && !$this->validHandledIds($json['handled_change_ids_json'])) {
             $invalid[] = 'handled_change_ids_json';
         }
-        if (in_array($operation, ['Suspend', 'Resume'], true)) {
+        if ($subject === 'Note') {
+            try {
+                $note = plugin_agentbdmosassetsync_json('note_json', $input['note_json']);
+                $valid = $operation === 'Inventory'
+                    ? plugin_agentbdmosassetsync_notes_inventory_payload_valid($note)
+                    : plugin_agentbdmosassetsync_notes_valid_payload($note);
+                if (!$valid) {
+                    $invalid[] = 'note_json';
+                }
+            } catch (RuntimeException $e) {
+                $invalid[] = 'note_json';
+            }
+        }
+        if ($subject === 'Note' || in_array($operation, ['Suspend', 'Resume'], true)) {
             foreach (['a_values_json', 'a_change_times_json'] as $field) {
                 if (array_key_exists($field, $json)
                     && (!$json[$field] instanceof stdClass || get_object_vars($json[$field]) !== [])) {
                     $invalid[] = $field;
                 }
             }
-            if (($json['handled_change_ids_json'] ?? []) !== []) {
+            if (($subject !== 'Note' || $operation === 'Inventory')
+                && ($json['handled_change_ids_json'] ?? []) !== []) {
                 $invalid[] = 'handled_change_ids_json';
             }
         }
@@ -277,6 +302,11 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
                 $DB->rollBack();
                 return false;
             }
+            if (($this->fields['subject'] ?? 'Asset') === 'Note'
+                && ((array_key_exists('b_items_id', $values) && $values['b_items_id'] !== null)
+                    || (array_key_exists('link_state', $values) && $values['link_state'] !== null))) {
+                throw new RuntimeException('Note Work cannot change Asset link evidence');
+            }
             if (isset($values['status']) && !in_array($values['status'], ['Accepted', 'Done', 'Held', 'Failed'], true)) {
                 throw new RuntimeException('Invalid internal Work status');
             }
@@ -301,7 +331,8 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
 
         plugin_agentbdmosassetsync_check_fields($values, ['b_items_id', 'link_state', 'result_json']);
         $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
-        if (!$this->getFromDB($id) || $this->fields['status'] !== 'Accepted'
+        if (!$this->getFromDB($id) || ($this->fields['subject'] ?? 'Asset') !== 'Asset'
+            || $this->fields['status'] !== 'Accepted'
             || $this->fields['processing_started_at'] === null || $this->fields['b_items_id'] !== null) {
             return false;
         }
