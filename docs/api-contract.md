@@ -36,6 +36,16 @@ shapes and behavior. The authorized
 records RC01–RC22 results, fixes and remaining variants. It does not certify
 Controller A integration or another deployment.
 
+**Scalar evidence continuity and first-copy fix (0.4.1):** section 5.6
+defines preservation across unchanged Setting publications, actual-binding
+identity, separate current-value provenance and verified first-copy initialization.
+This is an internal additive upgrade, with no new request/result keys. The
+authorized [local runtime run](manual-tests.md#mapping-version-and-first-copy-local-runtime-verification--29-october-2026)
+deployed the candidate on localhost:8081: twelve MV cases passed, four were
+partial, and all eight direct first-copy checks passed. Clone fault results
+are identified separately. Remaining variants and Controller A integration
+are not certified.
+
 ## Contract status and sources
 
 The confirmed requirements below come from [the B spec](../spec-b-agent.md),
@@ -80,6 +90,7 @@ examples use illustrative IDs and values.
 | Work table | `glpi_plugin_agentbdmosassetsync_works` |
 | Change table | `glpi_plugin_agentbdmosassetsync_changes` |
 | Internal Notes association table, no REST itemtype | `glpi_plugin_agentbdmosassetsync_notelinks` |
+| Internal scalar current-value evidence table, no REST itemtype (0.4.1) | `glpi_plugin_agentbdmosassetsync_scalarstates` |
 
 The repository folder is not the deployment folder. GLPI allows only
 alphanumeric characters in the installed plugin directory name; the user
@@ -135,7 +146,8 @@ GLPI's ordinary `entities_id` column. No separate `b_entities_id` column exists:
 
 B persists A's settings but must never revise their content itself. No status,
 result, error, B-managed timestamp, delete marker, or archive marker is defined
-on Setting.
+on Setting. Version 0.4.1 adds hidden B-owned continuity metadata; it does not
+change the public Setting content or let B advance its version.
 
 | Field | SQL / REST type | Required/default | Who may supply/change it |
 |---|---|---|---|
@@ -148,6 +160,11 @@ on Setting.
 | `enabled_itemtypes_json` | `JSON_TEXT`, inner array of unique `ITEMTYPE` strings | Required; `[]` permits disabling all types | A |
 | `field_mappings_json` | `JSON_TEXT`, inner array of mapping objects | Required; `[]` permits no mappings | A |
 | `notes_itemtypes_json` | `JSON_TEXT`, array of unique enabled parent `ITEMTYPE` strings supporting native Notes | Optional; create/upgrade default `[]`; omission on replacement preserves current selection | A |
+
+Internal-only `evidence_bindings_json` is nullable LONGTEXT, B-owned, initialized
+by the additive upgrade and maintained with Setting publications. GLPI's
+undisclosed-fields mechanism excludes it from native record responses/search;
+A must never supply it, including null. It is not a client capability switch.
 
 The Notes selection must be a subset of enabled_itemtypes_json. It does not
 enable GLPI Notes capabilities automatically. It uses per-note Both authority,
@@ -1387,6 +1404,162 @@ option, save/verification failure, stale work, and uncertain creation. The
 result must explain the actual condition; it must not fabricate evidence.
 Age alone does not make work stale. Approved Q9 defines recovery behavior.
 
+### 5.6 Scalar genuine evidence across Setting versions (0.4.1)
+
+A settings publication is configuration activity, never a field edit. For an
+unchanged continuously enabled binding, a reliable original field time remains
+usable after a higher Setting version. B does not replace that time with the
+publication, Work execution, queue order, polling time or asset `date_mod`.
+New Work still requires the exact current Setting version; stale Work does not
+gain permission to execute because some field evidence remains valid.
+
+Continuity requires the same route, typed parent and entity pair; mapping ID,
+itemtype, both selectors, A/B/Both authority and conversion meaning must match.
+B also fingerprints actual local storage/type metadata, Fields container and
+field IDs, and custom-asset/custom-field definition identity where applicable.
+Names alone are insufficient after a definition is deleted/recreated. A JSON
+object's property order or an unrelated mapping/Notes publication does not
+change the binding's meaning. B cannot inspect A's physical definitions;
+A must change its mapping definition/identity when a remote selector is
+repurposed, rather than reuse the same selector with a new meaning.
+
+The hidden Setting manifest preserves an opaque generation only for an exact
+unchanged active binding. Removal, changed semantics, route/type/mapping
+disable and later re-enable start a new generation. Supported Agent B
+activation/deactivation invalidates prior capture continuity; observed Fields
+enable/disable invalidates Fields bindings. Supported Fields/container and core
+custom-definition metadata hooks invalidate affected bindings around semantic
+changes, disable/enable, deletion/restoration and creation. They establish a new
+generation when the physical metadata is available at that hook stage; otherwise
+the binding stays unproven until a later valid Setting publication. The local
+recreation check observed a missing manifest entry; its exact cause was not
+established. A just-recreated field must not inherit old proof merely because
+its name matches.
+Suspend/Resume invalidates current
+scalar proof for that parent because edits during suspension are not captured.
+These are proof invalidations, not asset writes or synthetic human edits.
+
+The internal scalarstates table holds current-value provenance for a scoped
+typed parent/mapping. Immutable Change rows retain genuine local human-edit
+history independently. A verified genuine capture can establish a new current
+proof after persisting its Change. A sync write can retain the winning A
+value's original reliable genuine time as copied provenance; it never creates
+a new local human edit. Copied proof additionally requires the originating
+Work's durable completed field receipt. Equality alone preserves the existing
+proof and creates neither a timestamp nor a native update. A matching current
+value/hash is a consistency check, never sufficient evidence by itself.
+
+Selected explicit sync writes and capture-observed mutation candidates
+invalidate the previous current proof before saving. A
+missed/unrepresentable captured edit or an unresolved write must not recover an
+older timestamp merely because a later value happens to match it. Unknown
+write/proof completion remains unreliable; verified sibling progress retains
+its own field receipt. Lookup validates binding continuity, scoped parent,
+current value and originating proof. The processor still decides from fresh
+locked native/Fields values, so a delayed Work cannot overwrite a newer
+captured genuine edit by relying on its admission-time state.
+The proof also identifies the actual storage row; recreating a Fields storage
+row cannot inherit the old row's edit evidence. Pre-save input comparisons
+use normalized copies only, before GLPI prepares its final updates. If a
+candidate cannot be proven unchanged and native validation/no-op processing
+produces no completion hook, its proof may conservatively remain unknown;
+B must not invent a successful capture or interfere with the ordinary save.
+
+Both keeps exactly the existing wire outcomes: equal values → AlreadyEqual
+without save; different values with two reliable genuine times → the strictly
+newer instant wins (B newer → ReturnToA, A newer → AppliedToB); a tie or missing/
+unreliable time → Conflict. Extended fields retain EVIDENCE_CONFLICT and the
+existing certainty schema. Authority A/B, selection, scope/permissions and
+recovery policies are unchanged. Notes have their separate existing evidence
+mechanism and are not changed by this fix.
+
+This does not relax Change acknowledgement: automatic correction/coverage
+still requires the exact current-version whole snapshot. A prior-version time
+can be valid for arbitration without making that prior snapshot automatically
+covered. Existing external exact-ID Done acknowledgement remains available
+only after A handles the entire snapshot and B's normal scope/link checks pass.
+
+**Upgrade boundary:** 0.4.0 Changes/Works lack the new actual-binding and
+capture-continuity proof. The 0.4.1 upgrade does not backfill reliable scalar
+states from matching old values, alter historical payloads, or reconstruct an
+unrecorded older Setting definition. Existing values may therefore remain
+unresolved until fresh trustworthy evidence is established. An unavailable
+definition/permission at initialization leaves that binding unproven; repair
+and a valid subsequent Setting publication can establish a new generation.
+Never replay/reopen old jobs to manufacture that evidence.
+New first-copy executions initialize the same current-proof store after native
+asset/field reread verification and atomic association/receipt persistence, in
+the checked creation transaction. Each proof binds the exact current mapping
+generation, typed parent/entity pair and concrete storage row. Reliable genuine
+A evidence retains its original timestamp; missing/unreliable A evidence stays
+unreliable. Neither creation nor copy time becomes a human edit or feedback
+Change. Skipped mappings receive no fabricated proof.
+
+First-copy proofs carry an internal origin marker and require the originating
+Work's **final Done**, completed timestamp, Active association, matching created
+parent ID and AppliedToB field receipt. Provisional Accepted or restarted
+Held/Failed first-copy receipts cannot certify them. The provisional stored
+result has `created_b_items_id:null`; a positive confirmed creation ID is
+published only with final Done. Marked interrupted Accepted first copies become
+Held with null creation claim and provisional AppliedToB outcomes changed to
+Skipped/ASB_FIRST_COPY_UNCERTAIN. Indexed B identity and copied proof remain
+retained; historical terminal records are never repaired or relabelled.
+Loss of a final response
+is handled by reading the original Work: a durably saved Done is usable; a
+started operation without confirmed completion Holds without replay. B does
+not scan old recovery Works to initialize or bless their historical values.
+After the native commit returns, a fresh configured observer reuses the existing
+same-backend/decoding checks and verifies the exact committed association,
+provisional receipt and newly stored scalar states before B can finalize Done.
+A savepoint-only commit from a leaked nested transaction cannot pass that
+independent visibility check. Observer/read/cleanup uncertainty stops the worker
+with the original durable marker retained. The lock-owning session stays open.
+Final Done metadata is saved strictly and observed independently while the
+route lock is still held. The final check observes the Work receipt; a later
+legitimate human edit may advance current field provenance. A possibly committed
+Done is not overwritten with Held after observation or lock-release uncertainty.
+
+Before a possible new creation, B separately persists the existing Work.error
+machine category `ASB_FIRST_COPY_IN_FLIGHT`. Unknown transaction boundaries stop
+the worker before same-connection readback/finalization can claim durability.
+Restart retains `ASB_FIRST_COPY_UNCERTAIN` on the original Work. Only positively
+known no-native-attempt completion may produce
+`ASB_FIRST_COPY_NOT_APPLIED: <safe reason>`. These are processing error strings
+in the existing field, not new statuses or REST keys. Final verified Done
+clears the creation marker. A new Work ID cannot bypass a prior started same-
+identity operation with no confirmed B association: only positive NOT_APPLIED
+evidence for every such earlier start permits the next creation. NOT_APPLIED
+describes that one request; a newer rejected request never clears an older
+uncertain creation. A must retain the original request correlation and uncertainty.
+Historical unmarked starts are conservatively
+unresolved; B never classifies them by parsing English error text. Existing
+verified-link/complete serial lookup can still find the current asset normally;
+this guard applies before creating another asset, not as permission to replay.
+No v2 first-copy reference or automatic creation recovery is added. Arbitrary
+hook side effects and unprovable historical stages remain outside these claims.
+An attempted native save followed by a returned rollback is still treated as
+uncertain; rollback alone does not certify all effects were absent.
+
+**Verification boundary:** the [29 October local ledger](manual-tests.md#mapping-version-and-first-copy-local-runtime-verification--29-october-2026)
+records the authorized additive upgrade and bounded MV/first-copy checks,
+including restart, delayed Work, copied-value ABA, capture failure and
+independent siblings. Each partial case retains its precise unrun variant;
+faults isolated on a clone are not localhost:8081 writes. Unobserved
+out-of-band SQL, definition recreation that deliberately reuses identity, or
+capture mechanisms bypassed without a supported lifecycle boundary cannot be
+certified by a matching value. Do not claim automatic resolution of such gaps
+or end-to-end Controller A readiness from these B-only observations.
+If evidence invalidation itself cannot be persisted and its failure fallback
+also cannot be persisted, non-blocking capture cannot prove that the old state
+was tainted. GLPI saves still proceed and the capture failure is logged; a
+matching old proof cannot certify that outage. Supported hook capture with
+working persistence and independently verified worker transaction boundaries
+is the scope of the continuity guarantee. If both invalidation paths fail, an
+old stored row may remain; matching values cannot establish that no edit was
+missed. This is not a guarantee for arbitrary native-hook side effects or a
+total proof-store outage. An unrelated hook can mutate excluded sibling fields;
+this patch does not explicitly read/write those fields or certify their origin.
+
 ## 6. Enable GLPI V1 and create the service account (deliverable 5)
 
 These are administrator setup instructions. The supplied disposable B has
@@ -1398,7 +1571,7 @@ permissions and field-capability details.
 1. Confirm the exact GLPI 11.x patch, HTTPS base URL, and routed B entities.
    Install/enable the implemented plugin under `plugins/agentbdmosassetsync`;
    installation registers its three resource tables, the internal Notes-link
-   table, classes, entity checks,
+   and (0.4.1) scalar provenance tables, classes, entity checks,
    profile tab/rights and automatic action. The reviewed target is 11.0.7;
    use the actual configured HTTPS Legacy base for the deployment.
 2. In **Setup/Configuration > General > API**, use the **Legacy API** section.

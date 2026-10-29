@@ -65,6 +65,24 @@ This extension preserves existing authority/evidence rules; it does not add a
 new source-specific equal-observation protocol. Legacy result shapes remain
 unchanged unless a new non-null opt-in is explicitly submitted.
 
+Agent B **0.4.1** corrects scalar evidence continuity across unchanged Setting
+publications without changing this wire format. The normative
+[API section 5.6](api-contract.md#56-scalar-genuine-evidence-across-setting-versions-041)
+defines internal binding generations, current-value versus local-human history,
+capture/uncertain-write invalidation and the non-retrospective upgrade boundary.
+An older genuine edit may remain valid while the **new Work** still must use the
+current Setting version. Snapshot correction/coverage rules remain exact;
+cross-version field evidence alone never completes a Change. The
+[29 October local runtime ledger](manual-tests.md#mapping-version-and-first-copy-local-runtime-verification--29-october-2026)
+records twelve MV passes, four partial cases and eight direct first-copy passes;
+it distinguishes localhost:8081 observations from clone faults and unrun variants.
+
+First-copy requests remain outside explicit field selection. The completed
+0.4.1 first-copy integration initializes the same current-value provenance only
+after verified seeding/association, with a final-Done trust gate and original
+genuine A times. It does not change selected linked Work shapes, permit v1
+creation, or initialize reliable proof from historical matching values.
+
 ## Extended result and certainty
 
 Only opted-in Work uses the extended shape. The six legacy business members

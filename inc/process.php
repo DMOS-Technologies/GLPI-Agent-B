@@ -36,8 +36,25 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
                 if (plugin_agentbdmosassetsync_field_sync_enabled($work->fields)) {
                     plugin_agentbdmosassetsync_field_sync_interrupted($work);
                 } else {
-                    $work->saveProcessorFields((int) $row['id'], ['status' => 'Held',
-                        'error' => 'Uncertain previous processing: reconcile saved outcomes before issuing new Work']);
+                    $firstCopy = in_array($work->fields['error'],
+                        ['ASB_FIRST_COPY_IN_FLIGHT', 'ASB_FIRST_COPY_UNCERTAIN'], true);
+                    $updates = ['status' => 'Held', 'error' => $firstCopy ? 'ASB_FIRST_COPY_UNCERTAIN'
+                        : 'Uncertain previous processing: reconcile saved outcomes before issuing new Work'];
+                    if ($firstCopy) {
+                        $pendingResult = json_decode($work->fields['result_json'] ?? '');
+                        if (is_object($pendingResult)) {
+                            $pendingResult->created_b_items_id = null;
+                            $outcomes = is_array($pendingResult->field_outcomes ?? null) ? $pendingResult->field_outcomes : [];
+                            foreach ($outcomes as $outcome) {
+                                if (is_object($outcome) && ($outcome->outcome ?? null) === 'AppliedToB') {
+                                    $outcome->outcome = 'Skipped';
+                                    $outcome->reason = 'ASB_FIRST_COPY_UNCERTAIN: completion was not confirmed';
+                                }
+                            }
+                            $updates['result_json'] = json_encode($pendingResult, JSON_THROW_ON_ERROR);
+                        }
+                    }
+                    $work->saveProcessorFields((int) $row['id'], $updates);
                 }
             } else {
                 if (!$work->saveProcessorFields((int) $row['id'], ['processing_started_at' => Session::getCurrentTime()],
@@ -247,6 +264,7 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
     $status = 'Done';
     $reason = null;
     $correctionAttempted = false;
+    $firstCopyStarted = false;
     try {
         if ($work['operation'] !== 'Sync') {
             plugin_agentbdmosassetsync_process_control($record, $result);
@@ -262,14 +280,8 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
             return [$route, $asset];
         });
         if ($asset === null) {
+            $firstCopyStarted = true;
             plugin_agentbdmosassetsync_first_copy($record, $result);
-            $status = 'Done';
-            $reason = null;
-            if (!$record->saveProcessorFields((int) $work['id'], ['status' => $status, 'error' => $reason,
-                'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
-                'completed_at' => $status === 'Done' ? Session::getCurrentTime() : null])) {
-                throw new RuntimeException('Cannot finalize verified first copy; started marker prevents replay');
-            }
             return;
         }
         $result['b_items_id'] = (int) $asset->getID();
@@ -345,8 +357,16 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
             $result['covered_change_ids'] = array_values(array_diff($result['covered_change_ids'], $result['handled_change_ids_done']));
         }
     } catch (Throwable $e) {
+        if ($e->getCode() === 9101) {
+            throw $e;
+        }
         $status = $e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Save failed:') ? 'Failed' : 'Held';
         $reason = $e instanceof RuntimeException ? $e->getMessage() : 'Processing interrupted; outcome requires review';
+        if ($e->getCode() === 9102) {
+            $reason = 'ASB_FIRST_COPY_NOT_APPLIED: ' . $reason;
+        } elseif ($firstCopyStarted) {
+            $reason = 'ASB_FIRST_COPY_UNCERTAIN: ' . $reason;
+        }
         if ($correctionAttempted) {
             foreach ($handledIds as $id) {
                 try {

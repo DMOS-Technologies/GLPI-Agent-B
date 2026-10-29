@@ -1,5 +1,17 @@
 <?php
 
+function plugin_agentbdmosassetsync_activate(): void
+{
+    require_once __DIR__ . '/inc/evidence.php';
+    plugin_agentbdmosassetsync_evidence_reset();
+}
+
+function plugin_agentbdmosassetsync_deactivate(): void
+{
+    require_once __DIR__ . '/inc/evidence.php';
+    plugin_agentbdmosassetsync_evidence_reset();
+}
+
 function plugin_agentbdmosassetsync_install()
 {
     global $DB;
@@ -15,6 +27,7 @@ function plugin_agentbdmosassetsync_install()
             `enabled_itemtypes_json` LONGTEXT NOT NULL,
             `notes_itemtypes_json` LONGTEXT NOT NULL,
             `field_mappings_json` LONGTEXT NOT NULL,
+            `evidence_bindings_json` LONGTEXT NULL DEFAULT NULL,
             PRIMARY KEY (`id`), UNIQUE KEY `route_id` (`route_id`),
             KEY `entities_id` (`entities_id`)",
         'works' => "
@@ -67,6 +80,18 @@ function plugin_agentbdmosassetsync_install()
             `done_at` DATETIME NULL DEFAULT NULL,
             PRIMARY KEY (`id`), KEY `entities_id` (`entities_id`),
             KEY `status` (`status`), KEY `route_id` (`route_id`)",
+        'scalarstates' => "
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `route_id` VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+            `itemtype` VARCHAR(255) NOT NULL,
+            `a_entities_id` INT UNSIGNED NOT NULL,
+            `entities_id` INT UNSIGNED NOT NULL,
+            `a_items_id` INT UNSIGNED NOT NULL DEFAULT 0,
+            `b_items_id` INT UNSIGNED NOT NULL,
+            `mapping_id` VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+            `state_json` LONGTEXT NOT NULL,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `mapped_parent` (`route_id`, `itemtype`, `b_items_id`, `mapping_id`)",
         'notelinks' => "
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
             `route_id` VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -96,7 +121,8 @@ function plugin_agentbdmosassetsync_install()
 
     // Additive upgrades preserve retained request and snapshot payloads.
     $additiveColumns = [
-        'settings' => ['notes_itemtypes_json' => 'LONGTEXT NULL DEFAULT NULL'],
+        'settings' => ['notes_itemtypes_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'evidence_bindings_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
             'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
@@ -114,6 +140,13 @@ function plugin_agentbdmosassetsync_install()
     $DB->doQuery("ALTER TABLE `$settingsTable` MODIFY COLUMN `notes_itemtypes_json` LONGTEXT NOT NULL");
 
     require_once __DIR__ . '/inc/functions.php';
+    require_once __DIR__ . '/inc/fields.php';
+    require_once __DIR__ . '/inc/evidence.php';
+    foreach ($DB->request(['FROM' => $settingsTable, 'WHERE' => ['evidence_bindings_json' => null]]) as $route) {
+        // No historical Change row is backfilled: the upgrade starts a new provable generation.
+        $DB->update($settingsTable, ['evidence_bindings_json' => plugin_agentbdmosassetsync_evidence_publication($route, null)],
+            ['id' => (int) $route['id'], 'settings_version' => (int) $route['settings_version'], 'evidence_bindings_json' => null]);
+    }
     foreach (plugin_agentbdmosassetsync_rights() as $name) {
         foreach ($DB->request(['FROM' => 'glpi_profiles']) as $profile) {
             $DB->updateOrInsert('glpi_profilerights', [
@@ -146,7 +179,7 @@ function plugin_agentbdmosassetsync_uninstall()
         return false;
     }
     // An administrator's explicit uninstall removes this plugin's records only.
-    foreach (['settings', 'works', 'changes', 'notelinks'] as $suffix) {
+    foreach (['settings', 'works', 'changes', 'notelinks', 'scalarstates'] as $suffix) {
         $DB->doQuery('DROP TABLE IF EXISTS `glpi_plugin_agentbdmosassetsync_' . $suffix . '`');
     }
     return true;

@@ -1,5 +1,294 @@
 # GLPI B manual curl review checklist
 
+## Mapping-version and first-copy local runtime verification — 29 October 2026
+
+The user authorized the **0.4.1** candidate deployment/additive upgrade on
+`http://localhost:8081` and manual MV01–MV16 plus direct first-copy checks using
+new disposable fixtures. This current ledger records actual observations only.
+The preparation sections below retain their original cases and historical
+NOT RUN labels. Source review and PHP syntax are not runtime passes. No
+Controller A or hosted-environment changes are authorized by this run.
+
+**Final bounded B-side result:** MV01–MV16 have **12 PASS and 4 PARTIAL**;
+FCP01–FCP08 have **8 PASS**. Each partial row identifies its unrun variant.
+The initial provisional-created-ID diagnostic failure was fixed and verified
+with fresh requests; its earlier terminal evidence remains unchanged. These
+results do not certify Controller A or full A/B integration.
+
+Private evidence and recoverable backups are under
+`/tmp/agentb-firstcopy-mv-20261029.fPFhUh/`. CORE uses localhost:8081; FAULT uses
+the isolated local B clone at localhost:8082. Paths below are relative to that
+root. Credentials/raw backups remain private and are not copied into this file.
+
+### Deployment, backup and protected baseline
+
+- Main target: Docker `assetsync2-glpib`, GLPI **11.0.7**, active Fields
+  **1.24.4**, active plugin path `/var/glpi/marketplace/agentbdmosassetsync`.
+  The previous deployed plugin was 0.4.0. Root used native update detection,
+  additive installation without force, and activation for the 0.4.1 candidate;
+  no uninstall/reinstall or table erasure occurred.
+- Backup: `backup/glpi-before.sql`, `backup/deployed-plugin/` and
+  `backup/repository-candidate-before.tar`; hashes are in `backup/manifest.json`.
+  The database backup is 41,211,386 bytes, SHA256
+  `64bae80eb66b228c069c3575ae80c983dfe9fa21132c438639fd06c51a0a974a`.
+- Root's immediate post-upgrade and final post-fixture comparisons found all original columns of
+  **1,036 Works, 188 Changes, 41 Settings and 49 Note links unchanged**, including
+  Works 1–7. The new hidden Setting metadata/internal scalar store are additive.
+  The final comparison also preserves every original plugin-right row.
+- Initial main/clone and final MAIN hashes match all **20 PHP files** in the
+  reviewed candidate. Docker PHP syntax passed for the original deployment and
+  the four finalization files changed afterward. These are static checks.
+- Root paused only the idle B `processWork` native task through supported GLPI
+  methods. Prior task state was Waiting, external mode, 60 seconds. Fixture
+  processing selected only newly owned Work IDs; no broad worker processed
+  existing recovery requests. Native task51 was restored to state1/Waiting,
+  external mode2/frequency60. The operator confirmed the original external
+  scheduler command remained alive (PID1325); no Running task was reset.
+
+Evidence: `deployment/target-info.json`, `deployment/upgrade-preservation.json`,
+`deployment/hash-comparison.json`, `deployment/php-syntax.json`,
+`deployment/finalization-syntax.json`, `deployment/closure-hash-comparison.json`,
+`deployment/final-target-info.json`, `deployment/task-restoration.json`,
+`protected-record-comparison.json`, native upgrade/activation logs and
+`task-before.json`. The clone is a separate B database/files
+environment; clone fault results must not be represented as localhost:8081 writes.
+
+### MV01–MV16 observed results
+
+| Case | Result | Actual evidence and remaining subvariants |
+|---|---|---|
+| MV01 | PARTIAL | MAIN native additive upgrade preserved every original column of1036 Works/188 Changes/41 Settings/49 Note links, initialized hidden binding metadata, and added an empty scalar store without historical backfill. FRESH localhost:8083 had no Agent tables/catalog row: authenticated native control GET succeeded, missing Work resource returned400 without asset changes, native first install/activate produced empty REST resources, and fresh Work1 Done created258/two original-time proofs/zero Changes. Actual prior-version schema with candidate source before upgrade remains NOT RUN. `deployment/upgrade-preservation.json`, `before-summary.json`, `after-upgrade-summary.json`; `fresh/evidence.md`, `before-install-read.log`, `before-install-work.body`, `installed-empty-*.body`, `fresh-work-read.body`, `final-read.log`. |
+| MV02 | PASS | MAIN genuine Change189 at version1 survived an unrelated m_text publication to version2; Work1044 returned Name with the exact original B time, without overwriting it. Version3 cosmetic/unchanged publication and separate worker processes preserved current copied proof in1050. CLONE Notes-only publication25 kept exact scalar states/times/History/Changes unchanged, also unchanged after the bounded Notes run. `core/human-b-one.jsonl`, `setting-v2*`, `setting-v3*`, `published-b-newer.worker`, `copied-after-v3.worker`; `fault/mv02-{before,after}-notes-publication.snapshot.json`, `mv14-after-notes.snapshot.json`. |
+| MV03 | PASS | MAIN1045 applied genuinely newer A under version2, with VerifiedApplied and copied original A time.1050 later returned that copied time under version3 against an older differing A revision. History9→10, Change189 remained the sole captured human row. `core/published-a-newer.worker`, `after-a-newer.jsonl`, `copied-after-v3.worker`. |
+| MV04 | PASS | MAIN1040/1041/1042 exercised v1/legacy/v2 equal values: no native History change8→8, zero feedback Changes, and original proof unchanged.1051 equal on missing-proof Computer246 stayed unreliable/null;1052's later differing request Held Conflict. `core/equal-*.worker`, `after-firstcopy.jsonl`, `after-equalities.jsonl`, `equal-unproven.worker`, `after-unproven-equal.jsonl`, `still-unproven.worker`. |
+| MV05 | PASS | CLONE1038 preserved reliable proof after cosmetic object order. Changed A selector1039, B selector1040, authority1041/1042, conversion1043, mapping ID1044, remove/re-add1045 and itemtype publication/admission denial/restore1046 prevented old-generation inheritance. B-authority1041 returned the live value with unreliable time rather than inventing a timestamp; restoring Both conflicted. Unaffected proof retained its original time. `fault/mv05-*.response.json`, worker logs and snapshots. |
+| MV06 | PASS | CLONE route disable/re-enable with actual human away/back gave1047 Conflict; type gap1048 Conflict; mapping gap1049 Conflict while unaffected ftext still returned reliable genuine evidence. No configuration exclusion cleared an asset value or silently removed a saved mapping. `fault/mv06-route.snapshot.json`, `mv06-type.snapshot.json`, `mv06-map.snapshot.json`, matching request/readback/worker/native files. |
+| MV07 | PASS | CLONE Fields field92 disable/re-enable, container17 cycle, text→textarea→text and same-name recreation92→96 each rejected prior proof in1050–1053. Missing manifest after recreation had an unestablished cause; valid publication22 plus fresh genuine edit restored reliable ReturnToA1057 without changing1053. Separate native custom-type route: semantic default change/revert1073/1074 invalidated only custom proof; type disable/enable1075 invalidated affected bindings; valid publication/fresh custom edit1085 returned its genuine time while unproven native Name still conflicted. Actual Fields same-name recreation and native custom semantic/lifecycle variants passed; native custom-field delete/recreate itself was not performed. `fault/mv07-*`; `custom/evidence.md`, `read-1071/1072/1073/1074/1075/1085*`, `summary.json`, lifecycle logs. |
+| MV08 | PASS | CLONE Fields disable/enable1054/1056 retained reliable native n proof but invalidated Fields proof;1056 began with a positively established fresh reliable Fields proof. Agent B disable, actual human away/back, then activate1055 invalidated both mappings. Ordinary separate-process readback retained continuity. Final Agent/Fields active; clone automatic task remains disabled. `fault/mv08-*.snapshot.json`, lifecycle/native files and exact Work readbacks. |
+| MV09 | PASS | MAIN1046–1049 Held Conflict/EVIDENCE_CONFLICT for tied, missing A, unreliable A and missing B times;1039 also conflicted on explicitly unreliable copied B evidence. Native History10 and the one genuine Change stayed unchanged through the conflict group. These are genuine field-evidence comparisons, not Work/date_mod ordering. `core/tied.worker`, `missing-a.worker`, `unreliable-a.worker`, `missing-b.worker`, `unreliable-copy.worker`, `after-conflicts.jsonl`. |
+| MV10 | PARTIAL | CLONE1082 copied newer A after genuine Local capture; a fixture-only sync-guard return to the old Local value did not revive its old time, and1083 Held Conflict. Actual Change INSERT refusal allowed the human save, retained17 immutable Changes and left current n proof unreliable; restoring its old value did not revive proof. Unreadable dropdown0 plus healthy text saved normally, captured only healthy text and retained the dropdown barrier; guarded option restoration stayed unreliable. Existing native log retained explicit queue/field capture errors. Invalid stored-date variant remains NOT RUN; no unsafe SQL-mode/direct invalid-date setup was used. `fault/mv10-aba-*`, `mv10-before-queue.snapshot.json`, `mv10-after-queue-{fail,restore}.snapshot.json`, `mv10-{choice-reliable,unreadable-choice,choice-restore}.snapshot.json`, actor log evidence. |
+| MV11 | PASS | CLONE first-copy proof/verification/commit/rollback/observer faults and actual SIGKILL retained effective uncertainty/no replay; the initial provisional-created-ID defect was corrected and fresh1095–1101 verified the changed boundaries (FCP07). Linked1084 preserved spare VerifiedApplied while n became Unknown/JOURNAL_UNCERTAIN;1086 real COMMIT/return-loss remained Unknown/COMMIT_UNCERTAIN. Fresh1087 VerifiedEqual made no rewrite or invented time, retaining1086's exact row. Final-source1102 was actually killed after the durable barrier before native write: original value unchanged, restart Held/Unknown/INTERRUPTED. Distinct v2 catch-up1103 Applied spare/Equal n and retained original1102 unchanged. `fault/mv11-proof-sibling.snapshot.json`, `mv11-linked-*`, `mv11-final-*`, `fcp-final-*`. |
+| MV12 | PASS | MAIN1062 was admitted before genuine B edit/Change190 and returned its newer time without overwrite. CLONE1089 positively waited on the owned Fields storage row, then returned the holder's genuine10:10:42 edit.1090 positively waited on native parent245, then returned genuine10:11:09. Both holders used actual REPEATABLE READ snapshots before the barrier; observed SQL LOCK WAIT and positive completion exclude a timeout-only pass. All sessions exited. `core/queued-window.worker`, `human-queued.jsonl`; `fault/mv12-{native,fields}-actual-wait.tsv`, `mv12-native-observed-read.response.json`, `mv12-fields-lock-read.response.json`, holder/worker logs. |
+| MV13 | PASS | MAIN1053 invalid date,1054 missing dropdown,1055 invalid numeric,1056 read-only field and1061 real ambiguous Fields options each rejected only that mapping/NotAttempted while healthy Both Name VerifiedApplied.1057 repaired a field through a distinct Work.1059 actual parent UPDATE denial,1060 inactive account and1083 queued route disable Held with PARENT_SCOPE/ACCOUNT_DENIED/SETTING_SCOPE.1082 excluded an inactive Fields definition while Name succeeded. All owned rights/user/definition state restored. Native State uniqueness prevented1058's intended duplicate fixture, so1058 legitimately applied a unique option and is not ambiguity-denial evidence. `core/siblings-*.worker`, `repair-text.worker`, `parent-denied.worker`, `account-denied.worker`, `excluded-unavailable.worker`, `queued-disable.worker`, corresponding native before/restored files. |
+| MV14 | PASS | MAIN1063 cleared supported nullable native Comment while rejecting Fields date/dropdown nulls;1064 returned B despite differing A;1065 selected no fields.1071 first-copied Monitor7 with A/B/Both seeds/proofs;1072 returned original B/Both evidence. All sync writes suppressed feedback. Bounded CLONE Notes regression:1091 Inventory,1092 formatted Created/original A time,1093 AlreadyEqual/exact native row unchanged, genuine edit then1094 ReturnToA, scalar proof unchanged. This is the named policy regression, not the full31-case Notes suite. `core/native-clear.worker`, `b-authority.worker`, `empty-selection.worker`, `firstcopy-monitor.worker`, `monitor-return.worker`; `fault/mv14-notes-*-read.response.json`, `mv14-{created,equal}-note-native.response.json`, `mv14-after-notes.snapshot.json`. |
+| MV15 | PARTIAL | MAIN old-version Change189 was not auto-covered;1077 Held SNAPSHOT_INVALID. Full correction1078 completed193/retry1. Mixed194 stayed Pending/retry0 after1079's verified Name/INCOMPLETE_SNAPSHOT and1080's Contact return;1081 retained the Held Work's verified sibling proof. Exact external ACK194+absent2147483647 returned native207 with only194true; GET194Done,195Pending/retry0, absent404. Actual A handling was forbidden: `simulated-a-coverage.json` is explicitly simulation, not A-save proof. `core/old-version-correction.worker`, `full-correction.worker`, `after-full-correction.jsonl`, `mixed-name.worker`, `after-mixed-name.jsonl`, `mixed-contact.worker`, `held-sibling-return.worker`, `mixed-ack.body`, `mixed-ack-read.body`, `later-change-read.body`, `missing-change-read.body`. |
+| MV16 | PARTIAL | MAIN Suspend1066 invalidated proof, suppressed capture during a successful native edit and blocked1067. Resume1068 retained245;1069 stayed unproven until fresh genuine edit/1070. Moving the owned parent caused1074 and ACK190 scope denial; return did not revive old proof1075, while fresh edit1076 did.1085 on parent246 and another route's1086 could not borrow245's proof/link. Alias route disabled afterward. Arbitrary hook effects, bypassed capture and simultaneous total invalidation-store failure are not certified by these scope tests. `core/suspend*.worker`, `resume.worker`, `resumed-*.worker`, `moved-scope.worker`, `moved-ack.body`, `restored-*.worker`, `separate-parent-proof.worker`, `otherroute-*.worker`, `final-summary.json`. |
+
+### Direct first-copy observed results
+
+| Case | Result | Actual evidence and remaining subvariants |
+|---|---|---|
+| FCP01 | PASS | MAIN1037 Done/new Computer245 had ten copied seeds/proofs with original A time and zero feedback. After the final receipt/observer correction, fresh MAIN1087 Done/new Computer247 again had ten exact-parent copied proofs, original reliable2026-10-28T11:10:00+08:00, positive confirmed created ID and zero feedback. CLONE1037 independently passed seven seeds. `core/firstcopy-read.body`, `firstcopy-proof-summary.json`, `after-firstcopy.jsonl`, `postfinal-firstcopy-read.body`, `postfinal-firstcopy.worker`, `postfinal-summary.json`; `fault/seed-read.response.json`, `seed.snapshot.json`. |
+| FCP02 | PASS | MAIN1037 stored explicitly unreliable Contact proof as false/null;1039 later conflicted. MAIN1043/new Computer246 omitted Name/Contact times: proofs stayed false/null, and1049 Held Conflict. Final-source CLONE1095 likewise retained intentionally unreliable ftext as null/false while reliable siblings kept original08:00. No copy/creation/Work/date_mod time was substituted. `core/firstcopy-proof-summary.json`, `unreliable-copy.worker`, `firstcopy-missing.worker`, `after-firstcopy-missing.jsonl`, `missing-b.worker`; `fault/fcp-final-success-after-process.snapshot.json`. |
+| FCP03 | PASS | MAIN genuine native Name edit produced Change189/local proof; current-version1044 returned its newer B value/time without overwrite. The earlier copied proof was replaced by real Local origin, not promoted by publication. `core/human-b-one.jsonl`, `published-b-newer.worker`. |
+| FCP04 | PASS | MAIN1045 saved the later reliable A revision and stored Copied origin with its original A time. No new human Change/feedback was emitted; Change189 stayed retained. `core/published-a-newer.worker`, `after-a-newer.jsonl`. |
+| FCP05 | PASS | MAIN Setting version1→2 changed only independent m_text; retained Name proof correctly selected newer B in1044 and newer A in1045 using current-version requests. `core/setting-initial.json`, `setting-v2.json`, `published-b-newer.worker`, `published-a-newer.worker`. |
+| FCP06 | PASS | MAIN v1/legacy/v2 equal1040–1042 produced AlreadyEqual with unchanged History8/Changes0 and copied proof, including unreliable sibling. After the final patch, fresh1088 VerifiedEqual again left all ten proof rows, native History8/date_mod, zero parent Changes and original1087 completed row exactly unchanged. `core/equal-*.worker`, `after-firstcopy.jsonl`, `after-equalities.jsonl`, `postfinal-equal-read.body`, `postfinal-before-equal.json`, `postfinal-after-equal.json`, `postfinal-summary.json`. |
+| FCP07 | PASS | Initial CLONE1058–1070 verification/proof/commit/rollback/observer faults and actual kills preserved effective uncertainty, but1061/1065/1066/1070 exposed a false positive pending created-ID claim: initial diagnostic FAIL, retained unchanged. The correction leaves pending created ID null, strictly persists/independently observes final Done and downgrades provisional Applied outcomes only on a marked restart. Fresh final-source1096 native COMMIT/return-loss,1097 final-save refusal,1098 actual nested final save and actual postcommit kill1101 restarted Held/null/Skipped/untrusted without replay. Final-Done COMMIT return-loss1099 and observer cleanup failure1100 independently read back genuine durable Done/positive created ID/trusted proof; no false Hold was forced. Normal1095 retained reliable and explicitly unreliable evidence correctly. `fault/fcp-final-*.snapshot.json`, exact original readbacks, worker/events and real `.kill.json`; earlier `fcp-*` failure evidence retained. Method-return loss is not actual network packet loss. |
+| FCP08 | PASS | CLONE1067 blocked a fresh-ID attempt after1058's uncertain unassociated creation;1068's fresh linked Both request left1061 unchanged and conflicted on untrusted proof.1076 positively failed before native CREATE; after restoring CREATE, distinct1077 Done created once with original reliable proofs. Unmapped-serial uncertain1078 could not be bypassed by1079. Newly owned unmarked-history simulation1080 blocked1081;1080's complete REST row remained identical. A later NOT_APPLIED guard does not resolve an older uncertain operation. No old recovery request was reset/reopened. `fault/fcp-new-id-creation-guard.snapshot.json`, `fcp-committed-fresh-both.snapshot.json`, `fcp-known-no-attempt.snapshot.json`, `fcp-distinct-repaired.snapshot.json`, `fcp-unmapped-serial-{fault,guard}.snapshot.json`, `fcp-unmarked-history-{before,after}.response.json`. |
+
+### Closure and remaining limits
+
+CORE is frozen: **52 new Works1037–1088:35 Done,17 Held,zero Accepted**; eight
+Changes189–196:193 Done through correction/retry1,194 Done through exact ACK/
+retry0, six Pending retained. Computers245/246/247 and Monitor7 remain in the new
+entity18. Setting42 is enabled/version6; alias43 disabled/version2. Fields92–95
+are active/read-write and owned service user22/Computer rights restored.
+First-copy1037's final REST row matches its original completed row. These IDs
+refer to MAIN only; clone IDs may overlap in its separate database.
+`core/final-summary.json`, `final-manifest.json`, `firstcopy-final-read.body`,
+`postfinal-summary.json`. The last two requests confirm the final narrow patch
+on MAIN without replaying any earlier operation.
+
+FAULT is frozen: its dedicated route has **61 Works:18 Done,43 Held,zero
+Accepted**, 28 Changes and Setting42/version25. The separate CLONE custom-type
+route has six Works/two Done/four Held; all clone fixture Works are terminal.
+No owned paused process or advisory lock remains. Agent0.4.1 and Fields1.24.4
+are active; clone task51 is disabled and the clone has no scheduler. Final
+comparison preserved all original columns of imported1,036 Works/188 Changes/
+41 Settings/49 Note links, including Works1–7. Separately, all47 pre-correction
+terminal fault fixture rows remain identical; no historical result was repaired
+to hide the initial created-ID failure. `fault/final-summary.json`,
+`protected-after-final-summary.json`, `old-fault-receipt-preservation.json`,
+`custom/evidence.md`.
+
+At closure the isolated clone web/database containers and both fresh-install
+web containers were stopped; their private databases, files and backups were
+retained. This did not stop or reconfigure MAIN's scheduler.
+
+Final MAIN preservation comparison confirms every original column/right row
+above unchanged, including exact Works1–7. MAIN now has1,088 Works
+(831 Done/254 Held/3 Failed/zero Accepted),196 Changes,43 Settings and49 Note
+links. Existing Failed/Held rows remain historical; none was repaired/reset.
+The final active0.4.1 source matches all20 repository PHP hashes, and native
+task51 is restored as described above. `protected-record-comparison.json`,
+`deployment/closure-hash-comparison.json`, `deployment/final-target-info.json`,
+`deployment/task-restoration.json`.
+
+B-only observations
+cannot certify Controller A scheduling, ReturnToA saves, exact coverage ledger
+or full A/B end-to-end readiness. Historical provenance is not backfilled; old
+recovery requests are never reset/reopened or used as fixtures.
+
+FRESH localhost:8083 was a separate clean schema/files namespace on the isolated
+clone backend. Its native first installation and Work1 success precede the
+narrow provisional-created-ID correction; Work1 was never replayed. Both fresh
+web containers are now stopped, with schemas/files retained and no scheduler
+ever started. FRESH Work1 is unrelated to protected MAIN Works1–7.
+
+Unrun variants remain explicit: actual old-version-schema use before upgrade
+(MV01); genuinely invalid stored-date capture (MV10); real Controller A save/
+coverage handling (MV15); arbitrary native-hook effects, bypassed capture and
+simultaneous total invalidation-store failure (MV16). No actual network-packet
+fault was injected: real server commit plus lost method return and real process
+kill were tested separately. Native custom-field delete/recreate itself was
+not run; actual Fields recreation and native custom semantic/lifecycle paths
+were exercised. A recreated Fields binding may remain unavailable until a valid
+publication/fresh capture; its exact same-request missing-metadata cause is
+unestablished. Historical current-value evidence is not reconstructed from a
+matching old value. No Controller A, hosted environment, billing or UUID change,
+automated test, commit or push occurred; Notes source was unchanged and only the
+bounded named regression ran.
+
+## Mapping-version scalar evidence candidate — 29 October 2026
+
+**Historical preparation:** this section describes the earlier source-only
+implementation task. The subsequent authorization and actual observations are
+recorded in the current local runtime ledger above; the cases remain unchanged.
+
+Agent B **0.4.1** is a local source candidate for
+[API section 5.6](api-contract.md#56-scalar-genuine-evidence-across-setting-versions-041).
+**MV01–MV16: NOT RUN.** This task authorizes implementation/source review only;
+no deployment, upgrade, fixture writes, Work submission or runtime verification
+has been performed. The 0.4.0 ledger below predates this patch and cannot certify
+its new persistence or arbitration behavior. No automated tests were added/run.
+
+Source review completed with two programmers and an independent reviewer, all
+reading AGENTS.md. Review corrections covered stale predecessor/CAS races,
+human invalidation after a race, profile-dependent custom-definition hashes,
+definition lifecycle gaps and actual GLPI pre-hook timing. No remaining source
+blocker was found within the documented capture/persistence boundaries.
+Local `php -l` passed for all ten changed PHP files; `git diff --check` passed.
+Installed GLPI 11.0.7 Plugin/CommonDBTM/CustomFieldDefinition/Hook source was
+read without executing saves. These are static checks, not manual runtime
+passes. Total invalidation-store failure, bypassed capture, hook side effects,
+no-completion-hook conservative unknowns and unavailable historical provenance
+remain explicit limitations; none is certified by the earlier RC run.
+
+Use separately authorized disposable fixtures only: a new route, scoped service
+profile/user, native and Fields/custom scalar mappings, linked parents and new
+Work IDs. Record source/version, actual GLPI/Fields patches, table engines,
+fixture IDs, full requests/responses, before/after native values/History,
+Change snapshots and internal proof state. Keep credentials out of the report.
+Keep Works 1–7 and all pre-existing recovery jobs unchanged. Do not reset/reopen
+a test Work; a repeated attempt uses a distinct newly prepared current request.
+Fault/kill/permission cases require an explicitly bounded fixture environment.
+
+### Prepared manual curl sequence
+
+Set private operator-supplied `B_API_BASE`, `B_APP_TOKEN`, `B_SESSION_TOKEN` and
+fresh fixture IDs. These are instructions, not an executed script. Log in with
+the normal `GET /initSession` flow if a session is needed. Use the current
+contract's complete request bodies; all `*_json` values are JSON strings.
+
+1. POST a disposable Setting using the main contract section 4.2, with a native
+   text mapping `asset_name` configured Both, plus an independent sibling.
+   Establish a verified Active linked parent through separately approved native
+   fixture setup and the existing legacy first-copy/link protocol. No first-copy
+   result is evidence of a newly made human edit.
+2. Make a genuine B edit in its normal GLPI form; GET the new Pending Asset
+   Change. Save its exact `changed_at`, mapping/value and settings version.
+3. Save a **full replacement** Setting JSON in `setting-next.json`. Increase
+   settings_version, changing only the unrelated sibling or Notes selection;
+   preserve the Both mapping exactly, including its ID/selectors/conversion.
+
+```sh
+curl --silent --show-error --request PUT \
+  "$B_API_BASE/PluginAgentbdmosassetsyncSetting/$FIXTURE_SETTING_ID" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Content-Type: application/json' --header 'Accept: application/json' \
+  --data-binary @setting-next.json
+```
+
+Expect native HTTP 200 with the exact Setting ID true; GET the Setting to verify
+the new version and complete public content. No new human Change should appear
+for the publication. Hidden `evidence_bindings_json` must not be returned.
+
+4. Prepare `both-next.json` as a new linked Sync request at that current version,
+   selecting asset_name with v1 (or v2 and an eligible newly owned terminal
+   reference). Supply a different A value and its genuine older reliable time.
+   Use `handled_change_ids_json:"[]"` for the first arbitration check: the
+   prior-version Change is not automatically a current correction snapshot.
+
+```json
+"field_sync_json":"{\"version\":1,\"mapping_ids\":[\"asset_name\"]}"
+```
+
+```sh
+curl --silent --show-error --request POST \
+  "$B_API_BASE/PluginAgentbdmosassetsyncWork" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" \
+  --header 'Content-Type: application/json' --header 'Accept: application/json' \
+  --data-binary @both-next.json
+curl --silent --show-error \
+  "$B_API_BASE/PluginAgentbdmosassetsyncWork/$NEW_WORK_ID?get_hateoas=false&expand_dropdowns=false" \
+  --header "App-Token: $B_APP_TOKEN" \
+  --header "Session-Token: $B_SESSION_TOKEN" --header 'Accept: application/json'
+```
+
+POST 201 means admission only. Let only the authorized fixture worker execute,
+then poll the newly returned exact Work ID. Decode result_json; expect
+ReturnToA/NotAttempted with the unchanged original genuine B time and value,
+no native save/History/feedback Change, and no automatic old-version coverage.
+Repeat the variants below with new current requests and genuine evidence.
+
+### Prepared cases and evidence to retain
+
+| Case | Manual check and required outcome | Result |
+|---|---|---|
+| MV01 | Fresh install and additive upgrade from 0.4.0: new hidden Setting metadata/internal scalarstates only, no old Work/Change/Notes payload alteration. Current definitions initialize without a new A key. No reliable backfill from pre-upgrade matching Changes; missing definition/permission stays unproven. Verify unsupported unupgraded use fails safely. | NOT RUN |
+| MV02 | Capture newer B genuine edit at version N, publish N+1 changing only an unrelated mapping, then differing A older → ReturnToA with the original B changed_at; B value/History unchanged. Repeat a Notes-only publication and several unchanged versions/restart. | NOT RUN |
+| MV03 | Same publication boundary, differing A with genuinely newer reliable field time → AppliedToB/VerifiedApplied, exact native value and copied original A time; no synthetic B human edit/feedback. Later differing older A must lose to that copied proof without treating it as a B human edit. | NOT RUN |
+| MV04 | Equal Both values after publication → AlreadyEqual/VerifiedEqual, no asset update/History/Change and no new evidence time. Equality without valid prior evidence must not bootstrap a later differing winner. Exercise legacy/v1/v2 result shapes. | NOT RUN |
+| MV05 | Individually change mapping ID, selector A/B, authority, conversion or itemtype; remove/re-add a mapping; change then revert it in separate publications → no old-generation proof inherited. Equivalent JSON property order alone should preserve continuity. | NOT RUN |
+| MV06 | Disable/re-enable route, itemtype or mapping through Settings; edit during gap, including away-and-back to an old value → old proof invalid; differing Both conflicts until fresh valid proof. Unrelated still-enabled mappings retain their own continuity. | NOT RUN |
+| MV07 | Delete/recreate a disposable Fields/custom definition with the same names, and separately disable/re-enable its definition/container or change/revert semantic options. New ID/observed lifecycle must defeat old proof; no hardcoded customer selectors. | NOT RUN |
+| MV08 | Agent B disable/re-enable and Fields plugin disable/re-enable with separately authorized fixture edits during gaps. Old affected proof invalidated; unrelated native proof survives a Fields-only plugin gap. Ordinary process restart without a capture gap preserves proof. | NOT RUN |
+| MV09 | Differing Both with absent, unreliable or exactly tied times → Held Conflict/EVIDENCE_CONFLICT without save. Use equivalent instants/offset rules permitted by the existing contract; never compare Work IDs/date_mod/queue order. | NOT RUN |
+| MV10 | Genuine local edit → sync copy → a later value coincidentally matching the old local value: never resurrect its old local edit time. Repeat with unreadable dropdown/date, capture skip or queue failure, retaining explicit logged failure and old immutable Change history. | NOT RUN |
+| MV11 | Interrupt after durable pre-mutation barrier, after native write before proof, after real commit before final receipt, and on proof/commit/rollback uncertainty. Restart preserves Unknown/unreliable proof and original Work; no replay. Fresh separately accounted reconciliation never invents historical success. | NOT RUN |
+| MV12 | Queue a Work, then make a newer genuine B edit before worker execution; B uses locked current value/time. Exercise a concurrent native/Fields save during lock wait in isolated fixtures: stale prior proof/token must not replace newer capture; timeout is not proof of a successful concurrent decision. | NOT RUN |
+| MV13 | Select healthy Both plus invalid format, missing/ambiguous dropdown and field-denied siblings in separate requests. Healthy field resolves, rejected siblings retain NotAttempted, no evidence leak between mappings. Account/parent/route failure remains work-context failure. Excluded fields are not explicitly processed. | NOT RUN |
+| MV14 | A/B authority and supported null clears unchanged; sync-origin capture suppression remains; first-copy and Notes creation/edit/Inventory policies unchanged. A newly copied asset without scalar proof must not acquire invented human evidence. | NOT RUN |
+| MV15 | Prior-version reliable time may decide Both but does not auto-cover/complete its old Change. Current-version mixed/excluded snapshots remain whole Pending until fully accounted; exact external ID/status ACK only after actual A handling, with existing scope/link checks. | NOT RUN |
+| MV16 | Suspend → genuine edit during gap → Resume retains link but invalidates current scalar proof. Moved/other parent/entity/route or reused mapping names cannot read another row's proof. Native-hook side effects, total evidence-store failure and bypassed capture must be reported precisely, not treated as universally covered. | NOT RUN |
+
+Actual Controller A integration, its genuine evidence/physical definition
+identity, ReturnToA handling and whole-snapshot ledger require fresh A/B checks.
+The table above is preparation, not an integration-readiness claim.
+
+### First-copy evidence integration — prepared direct checks
+
+The subsequent local verification authorization includes the following fresh
+fixture checks in addition to the unchanged MV01–MV16 cases above. They are
+NOT RUN at preparation time. Use legacy first-copy requests (no field_sync_json)
+and distinct serial/A IDs in the dedicated disposable route. Poll exact Work
+IDs; read actual native values and internal proof rows independently. No
+historical recovery Work may be reused as a test fixture.
+
+| Case | Required check | Preparation |
+|---|---|---|
+| FCP01 | Reliable A genuine evidence is retained byte-for-byte after verified first copy and final Done; current proof references the exact origin/parent/binding/storage. No human Change or feedback is created. | NOT RUN |
+| FCP02 | Missing and explicitly unreliable A evidence remain unreliable; copy/creation/Work/date_mod times never replace it. A later differing Both request remains Conflict without two reliable times. | NOT RUN |
+| FCP03 | Later genuine B edit newer than copied A → ReturnToA; preserve B's original genuine time and native value. | NOT RUN |
+| FCP04 | Later reliable genuine A edit newer than copied current evidence → AppliedToB with that A time, not a synthetic B edit. | NOT RUN |
+| FCP05 | Publish unrelated higher Setting version after first copy → original proof remains valid; exercise B-newer and A-newer decisions under current Work version. | NOT RUN |
+| FCP06 | Equal values → AlreadyEqual without redundant native History/update, new human evidence or feedback. | NOT RUN |
+| FCP07 | In an isolated clone inject verification/provenance failure, pre-commit interruption, real-commit-before-final-Done interruption, lost commit return and leaked nested transaction. No failed/interrupted first-copy proof is trusted; original Work retains uncertainty/restart Holds without replay. Exact committed Done readback may establish completion after a lost response. | NOT RUN |
+| FCP08 | Unassociated uncertain creation cannot be bypassed through a fresh Work ID, including when serial is not mapped. Positive no-native-attempt NOT_APPLIED may allow a distinct repaired request; unmarked historical-stage fixtures remain unresolved. Preserve all original request/result/evidence bytes except the normal new fixture's own processing transitions. | NOT RUN |
+
 ## Automatic scalar reconciliation local runtime verification — 29 October 2026
 
 The user subsequently authorized deploying **0.4.0** to local Docker B
@@ -1329,6 +1618,7 @@ and concurrency evidence is separately indexed in the R0/R1/R2 section.
 
 | Completed scope | Preserved evidence | Review status |
 |---|---|---|
+| Mapping-version continuity and first-copy current proof (0.4.1) | [Current MV/FCP local ledger](#mapping-version-and-first-copy-local-runtime-verification--29-october-2026), private `agentb-firstcopy-mv-20261029.fPFhUh` evidence | Independent source/evidence review; 12 MV cases PASS/4 PARTIAL, all8 FCP cases PASS. Initial created-ID diagnostic failure retained; correction/fresh boundary verification and final protected comparison/scheduler restoration complete. |
 | Install, schema, profile rights, Setting | [foundation-runtime.md](foundation-runtime.md) | Coordinator-preserved initial foundation pass; protected-target initial failure and fix retained |
 | Work admission | [inbound-a-runtime.md](inbound-a-runtime.md) | Independently reviewed 173 curl entries |
 | Genuine capture and capability gate | [outbound-a-runtime.md](outbound-a-runtime.md) | Independently reviewed 62 curl/23 local entries; custom hook/readonly initial failures retained |

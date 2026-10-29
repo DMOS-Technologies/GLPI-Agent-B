@@ -135,6 +135,24 @@ not make an old value appear newer. B rechecks current values and authority
 immediately before a possible native save. Ordinary human saves remain
 unchanged, and sync-origin guards continue to suppress feedback Changes.
 
+The **0.4.1** internal evidence-continuity fix is specified in
+[API section 5.6](api-contract.md#56-scalar-genuine-evidence-across-setting-versions-041).
+It preserves trustworthy current-value proof across an unchanged continuously
+enabled binding, rather than requiring the human edit to have occurred at the
+new Work's settings version. Changed bindings/gaps/uncertain writes do not inherit
+trust, and copied original times remain separate from B's human Change history.
+No version 3 option or Controller A wire key is introduced. The separate
+[0.4.1 local runtime ledger](manual-tests.md#mapping-version-and-first-copy-local-runtime-verification--29-october-2026)
+records the additive upgrade, bounded MV/first-copy checks and precise remaining
+gaps. Earlier 0.4.0 evidence below applies to that earlier deployment.
+
+The first-copy evidence integration described in API section 5.6 does not widen
+version 2 eligibility. An original first-copy request with null B identity still
+cannot authorize reconciliation. Its provisional created-value proof requires
+the originating Work's final Done; uncertainty/started recovery never becomes
+reliable merely because current values match. Existing original-ID readback and
+verified-link/serial lookup remain distinct from any permission to create again.
+
 The six ordinary extended result members and field outcome/certainty pairs
 are unchanged. The `field_sync` member has the version 1 keys plus the exact
 reference, and `version` is 2:

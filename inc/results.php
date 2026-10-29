@@ -82,54 +82,17 @@ function plugin_agentbdmosassetsync_begin_corrections(array $work, CommonDBTM $a
 function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset, string $mappingId, $value,
     bool $lockCurrent = false): array
 {
-    global $DB;
     if (!Session::haveRight(PluginAgentbdmosassetsyncChange::$rightname, READ)) {
         return ['changed_at' => null, 'reliable' => false];
     }
-    $criteria = ['FROM' => PluginAgentbdmosassetsyncChange::getTable(), 'WHERE' => [
-        'subject' => 'Asset', 'route_id' => $work['route_id'], 'itemtype' => $work['itemtype'],
-        'entities_id' => (int) $work['entities_id'], 'a_entities_id' => (int) $work['a_entities_id'],
-        'settings_version' => (int) $work['settings_version']], 'ORDER' => 'id DESC'];
-    if ($lockCurrent) {
-        // A locking read sees changes committed while the actual Fields storage lock was awaited.
-        $query = new DBmysqlIterator($DB);
-        $query->buildQuery($criteria);
-        $rows = [];
-        $stored = $DB->doQuery($query->getSql() . ' FOR UPDATE');
-        while ($row = $DB->fetchAssoc($stored)) {
-            $rows[] = $row;
-        }
-    } else {
-        $rows = $DB->request($criteria);
+    $route = plugin_agentbdmosassetsync_current_route($work);
+    $mappings = plugin_agentbdmosassetsync_mapping_map($route, $work['itemtype']);
+    if (!isset($mappings[$mappingId])) {
+        return ['changed_at' => null, 'reliable' => false];
     }
-    foreach ($rows as $row) {
-        $identity = json_decode($row['identity_json'], false, 512, JSON_THROW_ON_ERROR);
-        if (!$identity instanceof stdClass || ($identity->b_items_id ?? null) !== (int) $asset->getID()
-            || ($identity->a_items_id !== null && $identity->a_items_id !== (int) $work['a_items_id'])) {
-            continue;
-        }
-        $fields = json_decode($row['changed_fields_json'], false, 512, JSON_THROW_ON_ERROR);
-        if (!$fields instanceof stdClass || !property_exists($fields, $mappingId)) {
-            continue;
-        }
-        $change = new PluginAgentbdmosassetsyncChange();
-        if ($lockCurrent) {
-            $change->getFromResultSet($row);
-        } elseif (!$change->getFromDB($row['id'])) {
-            break;
-        }
-        if (!$change->can($row['id'], READ)) {
-            break;
-        }
-        $field = $fields->$mappingId;
-        if (plugin_agentbdmosassetsync_object_keys($field, ['value', 'changed_at', 'reliable'])
-            && plugin_agentbdmosassetsync_scalar_equal($field->value, $value) && $field->reliable === true
-            && plugin_agentbdmosassetsync_evidence_time($field->changed_at) !== null) {
-            return ['changed_at' => $field->changed_at, 'reliable' => true];
-        }
-        break; // A later genuine edit cannot be replaced with an older coincidentally matching value.
-    }
-    return ['changed_at' => null, 'reliable' => false];
+    $mapping = $mappings[$mappingId];
+    $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+    return plugin_agentbdmosassetsync_provenance_read($work, $asset, $mapping, $descriptor, $value, $lockCurrent);
 }
 
 function plugin_agentbdmosassetsync_return_value(array $work, stdClass $mapping, int $assetId): array

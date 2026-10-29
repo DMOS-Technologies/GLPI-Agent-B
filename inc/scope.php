@@ -26,6 +26,8 @@ function plugin_agentbdmosassetsync_process_control(PluginAgentbdmosassetsyncWor
         plugin_agentbdmosassetsync_current_route($work);
         $asset = plugin_agentbdmosassetsync_find_existing($work, false, true, true);
         plugin_agentbdmosassetsync_check_asset($asset, $work, READ);
+        // Human edits are not captured while suspended; Resume cannot revive their old proof.
+        plugin_agentbdmosassetsync_provenance_invalidate_parent($work, $asset);
         $result['b_items_id'] = (int) $asset->getID();
         $state = $work['operation'] === 'Suspend' ? 'Suspended' : 'Active';
         // One local Work update commits successful control state and completion together.

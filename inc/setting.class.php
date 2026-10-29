@@ -3,6 +3,7 @@
 class PluginAgentbdmosassetsyncSetting extends CommonDBTM
 {
     public static $rightname = 'plugin_agentbdmosassetsync_setting';
+    public static $undisclosedFields = ['evidence_bindings_json'];
     private ?array $clientCreateInput = null;
 
     public static function getTypeName($nb = 0)
@@ -50,7 +51,8 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
         if (!$creating) {
             $allowed[] = 'id';
         }
-        plugin_agentbdmosassetsync_check_fields($input, $allowed, $creating ? ['id'] : []);
+        plugin_agentbdmosassetsync_check_fields($input, $allowed,
+            array_merge(['evidence_bindings_json'], $creating ? ['id'] : []));
         $required = array_merge(self::contentFields(), [$creating ? 'route_id' : 'id']);
         plugin_agentbdmosassetsync_require_fields($input, $required);
 
@@ -259,6 +261,7 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
             if (plugin_agentbdmosassetsync_read_setting($raw['route_id']) !== null) {
                 plugin_agentbdmosassetsync_fail('ASB_ROUTE_EXISTS: route_id=' . $raw['route_id']);
             }
+            $raw['evidence_bindings_json'] = plugin_agentbdmosassetsync_evidence_publication($raw, null);
             $id = parent::add($raw, $options, $history);
             if ($id !== false) {
                 $this->verifySaved((int) $id, $raw);
@@ -299,6 +302,8 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
                 plugin_agentbdmosassetsync_fail('ASB_SETTINGS_VERSION_NOT_NEWER: submitted='
                     . $input['settings_version'] . ' stored=' . $this->fields['settings_version']);
             }
+            $next = array_replace($this->fields, $input);
+            $input['evidence_bindings_json'] = plugin_agentbdmosassetsync_evidence_publication($next, $this->fields);
             $saved = parent::update($input, $history, $options);
             if ($saved) {
                 $this->verifySaved($input['id'], $input);

@@ -383,6 +383,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             throw $e;
         }
         $rollingBack = false;
+        $completionAttempted = false;
         try {
             $DB->doQuery('SELECT `id` FROM `' . static::getTable() . '` WHERE `id` = ' . $id . ' FOR UPDATE');
             if (!$this->getFromDB($id) || $this->fields['status'] !== 'Accepted') {
@@ -405,9 +406,13 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
                 return false;
             }
             $this->verifyCreated($id, $values);
+            $completionAttempted = true;
             $DB->commit();
             return true;
         } catch (Throwable $e) {
+            if ($strictTransaction && $completionAttempted) {
+                throw new RuntimeException('Work metadata commit is uncertain; stop this worker without replay', 9101, $e);
+            }
             if ($strictTransaction && $rollingBack) {
                 throw new RuntimeException('Work metadata rollback is uncertain; stop this worker without replay', 9101, $e);
             }

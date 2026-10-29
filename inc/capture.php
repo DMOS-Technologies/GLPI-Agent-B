@@ -84,17 +84,63 @@ function plugin_agentbdmosassetsync_capture_owner(CommonDBTM $storage, string $t
     return $asset;
 }
 
-function plugin_agentbdmosassetsync_capture_candidate(CommonDBTM $storage, stdClass $selector): bool
+function plugin_agentbdmosassetsync_capture_candidate(CommonDBTM $storage, stdClass $selector, bool $before = false): bool
 {
     $names = [$selector->name];
     if ($selector->kind === 'fields') {
         $names[] = 'plugin_fields_' . $selector->name . 'dropdowns_id';
     }
-    $changed = !isset($storage->input['id']) ? array_keys($storage->input) : ($storage->updates ?? []);
+    $changed = $before || !isset($storage->input['id']) ? array_keys($storage->input) : ($storage->updates ?? []);
     if ($selector->kind === 'native' && str_starts_with($selector->name, 'custom_')) {
         $names[] = 'custom_fields';
     }
     return (bool) array_intersect($names, $changed);
+}
+
+function plugin_agentbdmosassetsync_capture_mappings(array $route, CommonDBTM $asset, CommonDBTM $storage,
+    bool $before = false): array
+{
+    $eligible = [];
+    foreach (json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR) as $mapping) {
+        if (!$mapping->enabled || $mapping->itemtype !== $asset::class) {
+            continue;
+        }
+        $selector = $mapping->b_field;
+        if (($selector->kind === 'fields') !== ($asset::class !== $storage::class)
+            || ($selector->kind === 'fields'
+                && PluginFieldsContainer::getClassname($asset::class, $selector->container) !== $storage::class)) {
+            continue;
+        }
+        if (plugin_agentbdmosassetsync_capture_candidate($storage, $selector, $before)) {
+            $eligible[] = $mapping;
+        }
+    }
+    return $eligible;
+}
+
+/** The pre hook precedes GLPI's updates array. Skip a barrier only for a provably unchanged input copy. */
+function plugin_agentbdmosassetsync_capture_input_unchanged(CommonDBTM $storage, CommonDBTM $asset,
+    stdClass $mapping): bool
+{
+    try {
+        $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+        $column = $descriptor['value_column'];
+        if (!array_key_exists($column, $storage->input)) {
+            return false;
+        }
+        $before = $descriptor['custom_field_id'] !== null ? ($asset->fields[$column] ?? null)
+            : ($storage->fields[$column] ?? $descriptor['sql']['Default']);
+        $incoming = $storage->input[$column];
+        $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
+        $incoming = plugin_agentbdmosassetsync_capture_input_value($descriptor, $incoming);
+        if ($descriptor['kind'] === 'dropdown') {
+            return $before === $incoming; // Equal labels do not prove equal selected option IDs.
+        }
+        return plugin_agentbdmosassetsync_scalar_equal(plugin_agentbdmosassetsync_field_value($descriptor, $before),
+            plugin_agentbdmosassetsync_field_value($descriptor, $incoming));
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 /** Normalize capture copies only; GLPI and Fields own their saved input. */
@@ -174,7 +220,35 @@ function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
         }
         $GLOBALS['plugin_agentbdmosassetsync_captures'][$key] = ['asset' => clone $asset,
             'storage_fields' => $storage->fields, 'routes' => $routes,
-            'time' => plugin_agentbdmosassetsync_capture_time(), 'rows' => []];
+            'time' => plugin_agentbdmosassetsync_capture_time(), 'rows' => [], 'provenance' => []];
+        foreach ($routes as $route) {
+            if (!$asset->isEntityAssign() || (int) $asset->getEntityID() !== (int) $route['entities_id']) {
+                continue;
+            }
+            try {
+                if (array_key_exists('entities_id', $storage->input)
+                    && (int) $storage->input['entities_id'] !== (int) $asset->getEntityID()) {
+                    plugin_agentbdmosassetsync_provenance_invalidate_parent($route, $asset);
+                }
+                $identity = plugin_agentbdmosassetsync_capture_identity($asset, $route);
+                if ($identity === null) {
+                    continue;
+                }
+                foreach (plugin_agentbdmosassetsync_capture_mappings($route, $asset, $storage, true) as $mapping) {
+                    try {
+                        if (plugin_agentbdmosassetsync_capture_input_unchanged($storage, $asset, $mapping)) {
+                            continue;
+                        }
+                        $GLOBALS['plugin_agentbdmosassetsync_captures'][$key]['provenance'][$route['route_id']][$mapping->mapping_id]
+                            = plugin_agentbdmosassetsync_provenance_capture_begin($route, $asset, $mapping, $identity);
+                    } catch (Throwable $e) {
+                        plugin_agentbdmosassetsync_capture_log($storage, 'evidence_before', $e, $route['route_id'], $mapping->mapping_id);
+                    }
+                }
+            } catch (Throwable $e) {
+                plugin_agentbdmosassetsync_capture_log($storage, 'evidence_route', $e, $route['route_id']);
+            }
+        }
     } catch (Throwable $e) {
         plugin_agentbdmosassetsync_capture_log($storage, 'before', $e);
     }
@@ -238,19 +312,13 @@ function plugin_agentbdmosassetsync_capture_collect(int $key, CommonDBTM $storag
         }
         try {
             $eligible = [];
+            $changedMappings = plugin_agentbdmosassetsync_capture_mappings($route, $asset, $storage);
             foreach (json_decode($route['field_mappings_json'], false, 512, JSON_THROW_ON_ERROR) as $mapping) {
                 if (!$mapping->enabled || $mapping->itemtype !== $asset::class) {
                     continue;
                 }
-                $selector = $mapping->b_field;
-                if (($selector->kind === 'fields') !== ($asset::class !== $storage::class)) {
-                    continue;
-                }
-                if ($selector->kind === 'fields'
-                    && PluginFieldsContainer::getClassname($asset::class, $selector->container) !== $storage::class) {
-                    continue;
-                }
-                if (plugin_agentbdmosassetsync_capture_candidate($storage, $selector)) {
+                $proof = $capture['provenance'][$route['route_id']][$mapping->mapping_id] ?? null;
+                if ($proof !== null || in_array($mapping, $changedMappings)) {
                     $eligible[] = $mapping;
                 }
             }
@@ -263,14 +331,25 @@ function plugin_agentbdmosassetsync_capture_collect(int $key, CommonDBTM $storag
             }
             foreach ($eligible as $mapping) {
                 try {
+                    $proof = $capture['provenance'][$route['route_id']][$mapping->mapping_id] ?? null;
+                    if ($proof === null && plugin_agentbdmosassetsync_capture_candidate($storage, $mapping->b_field)) {
+                        try {
+                            $proof = plugin_agentbdmosassetsync_provenance_capture_begin($route, $asset, $mapping, $identity);
+                        } catch (Throwable $e) {
+                            plugin_agentbdmosassetsync_capture_log($storage, 'evidence_after', $e, $route['route_id'], $mapping->mapping_id);
+                        }
+                    }
                     $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
                     if (!plugin_agentbdmosassetsync_capture_changed($storage, $capture, $descriptor)) {
+                        plugin_agentbdmosassetsync_provenance_restore($proof);
                         continue;
                     }
                     $value = plugin_agentbdmosassetsync_capture_value($storage, $asset, $descriptor);
                     $capture['rows'][$route['route_id']] ??= ['route' => $route, 'identity' => $identity, 'fields' => []];
                     $capture['rows'][$route['route_id']]['fields'][$mapping->mapping_id] = [
                         'value' => $value, 'changed_at' => $capture['time'], 'reliable' => true];
+                    $capture['rows'][$route['route_id']]['proofs'][$mapping->mapping_id] = [
+                        'context' => $proof, 'mapping' => $mapping, 'descriptor' => $descriptor, 'asset' => clone $asset];
                 } catch (Throwable $e) {
                     plugin_agentbdmosassetsync_capture_log($storage, 'field', $e, $route['route_id'], $mapping->mapping_id);
                 }
@@ -332,12 +411,24 @@ function plugin_agentbdmosassetsync_capture_flush(int $key): void
         $route = $row['route'];
         try {
             $change = new PluginAgentbdmosassetsyncChange();
-            $change->createCapturedChange(['route_id' => $route['route_id'],
+            $changeId = $change->createCapturedChange(['route_id' => $route['route_id'],
                 'settings_version' => (int) $route['settings_version'],
                 'a_entities_id' => (int) $route['a_entities_id'], 'entities_id' => (int) $route['entities_id'],
                 'itemtype' => $capture['asset']::class,
                 'identity_json' => json_encode($row['identity'], JSON_THROW_ON_ERROR),
                 'changed_fields_json' => json_encode((object) $row['fields'], JSON_THROW_ON_ERROR)]);
+            foreach ($row['proofs'] as $id => $proof) {
+                if ($proof['context'] === null) {
+                    continue;
+                }
+                try {
+                    plugin_agentbdmosassetsync_provenance_capture_finish($proof['context'], $route, $proof['asset'],
+                        $proof['mapping'], $proof['descriptor'], $row['fields'][$id]['value'],
+                        $row['fields'][$id]['changed_at'], $changeId);
+                } catch (Throwable $e) {
+                    plugin_agentbdmosassetsync_capture_log($capture['asset'], 'evidence_after', $e, $routeId, $id);
+                }
+            }
         } catch (Throwable $e) {
             plugin_agentbdmosassetsync_capture_log($capture['asset'], 'queue', $e, $routeId);
         }

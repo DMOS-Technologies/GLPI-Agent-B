@@ -23,6 +23,34 @@ in [reconciliation-contract.md](reconciliation-contract.md). Its authorized
 records deployment, owned-session/catch-up observations and remaining gaps;
 it does not certify Controller A integration or the real environment.
 
+Version **0.4.1** adds scalar mapping-version evidence continuity and verified
+first-copy provenance. It needs an additive administrator upgrade: hidden
+B-only Setting
+`evidence_bindings_json` and internal `glpi_plugin_agentbdmosassetsync_scalarstates`
+storage. There are still only three public REST resources, unchanged rights and
+unchanged request/result formats. Read
+[API section 5.6](api-contract.md#56-scalar-genuine-evidence-across-setting-versions-041)
+before deployment. Old matching Change values are not backfilled as reliable
+current provenance. Fresh verified capture/copy proof is required; unavailable
+definitions/permissions during initialization remain unproven until repaired and
+validly republished. Normal process restarts preserve stored evidence; supported
+plugin/definition capture gaps invalidate it. The authorized
+[29 October local runtime run](manual-tests.md#mapping-version-and-first-copy-local-runtime-verification--29-october-2026)
+upgraded localhost:8081 from 0.4.0, preserving all original record columns and
+rights, including Works 1–7. Twelve MV cases passed, four were partial and eight
+direct first-copy checks passed. Fault/lifecycle checks on a separate local
+clone and the exact unrun variants are labelled in that ledger. This is not
+verification of Controller A or another deployment.
+
+The completed first-copy integration uses this same internal store and adds no
+schema or wire keys beyond the 0.4.1 additive upgrade. It atomically saves copied
+proof with verified creation/association, then requires final Done before that
+proof is trusted. Existing recovery records are never backfilled/replayed.
+Started unassociated historical operations without positive no-write evidence
+block another creation for that identity; an administrator must account for
+their actual outcome rather than reset or resend them. New machine error
+categories use the existing Work.error field; API section 5.6 defines them.
+
 ## Deploy and enable
 
 1. Copy `setup.php`, `hook.php`, and the complete `inc/` directory into
@@ -34,12 +62,13 @@ it does not certify Controller A integration or the real environment.
    `glpi_plugin_agentbdmosassetsync_settings`,
    `glpi_plugin_agentbdmosassetsync_works`, and
    `glpi_plugin_agentbdmosassetsync_changes`, plus the internal
-   `glpi_plugin_agentbdmosassetsync_notelinks` association/evidence table.
+   `glpi_plugin_agentbdmosassetsync_notelinks` association/evidence table and,
+   from 0.4.1, internal `glpi_plugin_agentbdmosassetsync_scalarstates` table.
    Only the original three record classes are exposed through REST.
    It registers plugin profile
    rights and the native automatic action. Service rights are not granted
    automatically.
-3. For an existing installation, deploy the complete version 0.4.0 source and
+3. For an existing installation, deploy the complete reviewed source and
    perform GLPI's plugin upgrade as an administrator before opting into the
    new scalar protocol (and before enabling Notes on a pre-0.2 installation).
    The upgrade adds missing columns and the internal table without replacing
@@ -53,7 +82,10 @@ it does not certify Controller A integration or the real environment.
    column and does not rewrite existing Work/result evidence. A subsequently
    authorized local Docker upgrade and separate fresh/old-version clone checks
    are recorded in the current runtime ledger; other deployments remain manual.
-4. Uninstall removes all four tables, rights and registered task. It requires
+   Version 0.4.1 initializes new binding continuity at the current Setting
+   without revising A's mappings/version or historical Work/Change payloads;
+   it cannot reconstruct unrecorded earlier definitions or capture gaps.
+4. Uninstall removes all five tables, rights and registered task. It requires
    explicit approval and is not an upgrade/reset procedure. Preserve required
    Work/Change evidence; there is no autonomous cleanup of terminal records.
 

@@ -14,13 +14,25 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
     $completionAttempted = false;
     $transaction = false;
     $preparedIds = [];
+    $primaryFailure = null;
+    $copyEvidence = null;
+    $finalized = false;
     try {
+        plugin_agentbdmosassetsync_first_copy_check_previous($work);
+        if (!$record->saveProcessorFields((int) $work['id'], ['error' => 'ASB_FIRST_COPY_IN_FLIGHT'], true)) {
+            throw new RuntimeException('Hold: first-copy reservation could not be saved', 9101);
+        }
         plugin_agentbdmosassetsync_first_copy_isolation();
         // Native CronTask does not open a transaction; the durable start save already committed.
         // saveFirstCopyEvidence deliberately performs no begin/commit of its own.
-        $DB->beginTransaction();
+        try {
+            $DB->beginTransaction();
+        } catch (Throwable $e) {
+            throw new RuntimeException('First-copy transaction start is uncertain; stop this worker', 9101, $e);
+        }
         $transaction = true;
-        plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $record, &$result, &$attempted, &$preparedIds, $DB) {
+        plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $record, &$result, &$attempted,
+            &$preparedIds, &$copyEvidence, $DB) {
             $route = plugin_agentbdmosassetsync_current_route($work);
             $type = $work['itemtype'];
             $identity = json_decode($work['identity_json'], false, 512, JSON_THROW_ON_ERROR);
@@ -47,8 +59,14 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
             if (!$type::canCreate()) {
                 throw new RuntimeException('Hold: submitting user lacks current asset CREATE permission');
             }
+            plugin_agentbdmosassetsync_field_sync_transactional($asset, ['table' => $asset::getTable()]);
             [$input, $containers, $seeds] = plugin_agentbdmosassetsync_first_copy_values($asset, $route, $work, $result);
             $preparedIds = array_column($seeds, 'mapping_id');
+            foreach ($seeds as $seed) {
+                if ($seed['binding'] === null) {
+                    throw new RuntimeException('Hold: first-copy field binding is not proven');
+                }
+            }
             // The installed Fields pre/post-add hooks validate/save one container during native add.
             if ($containers) {
                 $first = reset($containers);
@@ -109,23 +127,48 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
             $result['b_items_id'] = (int) $id;
             $result['created_b_items_id'] = (int) $id;
             // Leave status Accepted until the outer commit is confirmed. Its start marker remains durable.
+            $pendingResult = $result;
+            $pendingResult['created_b_items_id'] = null;
             if (!$record->saveFirstCopyEvidence((int) $work['id'], ['b_items_id' => (int) $id,
-                'link_state' => 'Active', 'result_json' => json_encode($result, JSON_THROW_ON_ERROR)])) {
+                'link_state' => 'Active', 'result_json' => json_encode($pendingResult, JSON_THROW_ON_ERROR)])) {
                 throw new RuntimeException('Save failed: verified first-copy link could not be saved atomically');
             }
+            $copyEvidence = plugin_agentbdmosassetsync_provenance_first_copy($work, $asset, $seeds);
         });
         $completionAttempted = true;
-        $DB->commit();
+        try {
+            $DB->commit();
+        } catch (Throwable $e) {
+            throw new RuntimeException('First-copy transaction completion is uncertain; stop this worker', 9101, $e);
+        }
         $transaction = false;
+        plugin_agentbdmosassetsync_provenance_first_copy_visible($work, $copyEvidence);
+        try {
+            if (!$record->saveProcessorFields((int) $work['id'], ['status' => 'Done', 'error' => null,
+                'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
+                'completed_at' => Session::getCurrentTime()], true)) {
+                throw new RuntimeException('First-copy completion could not be saved');
+            }
+            // Human edits may legitimately advance current proof after the verified asset commit.
+            plugin_agentbdmosassetsync_provenance_first_copy_visible($work, ['work' => $record->fields, 'states' => []]);
+            $finalized = true;
+        } catch (Throwable $e) {
+            throw new RuntimeException('First-copy completion evidence is uncertain; stop this worker', 9101, $e);
+        }
     } catch (Throwable $e) {
-        $uncertain = $completionAttempted || ($attempted
-            && !($e instanceof RuntimeException && str_starts_with($e->getMessage(), 'Save failed:')));
+        $primaryFailure = $e;
+        if ($e->getCode() === 9101) {
+            throw $e;
+        }
+        $uncertain = $completionAttempted || $attempted;
         if ($transaction) {
             try {
                 $DB->rollBack();
                 $transaction = false;
             } catch (Throwable $rollbackError) {
-                $uncertain = true;
+                $primaryFailure = new RuntimeException('First-copy transaction rollback is uncertain; stop this worker',
+                    9101, $rollbackError);
+                throw $primaryFailure;
             }
         }
         // A returned ID is never claimed as confirmed when transaction completion is uncertain.
@@ -147,16 +190,45 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
                     : ($attempted ? 'First-copy transaction was rolled back' : 'First copy was not attempted: ' . $e->getMessage())];
         }
         if ($uncertain) {
-            throw new RuntimeException('Hold: first-copy outcome is uncertain; reconcile asset/link before new Work', 0, $e);
+            throw new RuntimeException('Hold: first-copy outcome is uncertain; reconcile asset/link before new Work', 9103, $e);
         }
-        throw $e;
+        throw new RuntimeException($e instanceof RuntimeException ? $e->getMessage()
+            : 'First copy did not apply; inspect its rejected fields before a new request', 9102, $e);
     } finally {
         try {
-            $DB->doQuery("SELECT RELEASE_LOCK('$lock')");
+            $released = $DB->fetchAssoc($DB->doQuery("SELECT RELEASE_LOCK('$lock') AS released"));
+            if ((int) ($released['released'] ?? 0) !== 1) {
+                throw new RuntimeException('First-copy route lock release was not confirmed');
+            }
         } catch (Throwable $e) {
+            if ($primaryFailure !== null && $primaryFailure->getCode() === 9101) {
+                throw $primaryFailure;
+            }
             $result['created_b_items_id'] = null;
-            throw new RuntimeException('Hold: first-copy route lock release failed; reconcile saved asset/link before new Work', 0, $e);
+            throw new RuntimeException('Hold: first-copy route lock release failed; reconcile saved asset/link before new Work',
+                $finalized ? 9101 : 9103, $e);
         }
+    }
+}
+
+/** A different request ID is not evidence that an earlier unassociated creation had no effects. */
+function plugin_agentbdmosassetsync_first_copy_check_previous(array $work): void
+{
+    global $DB;
+    foreach ($DB->request(['FROM' => PluginAgentbdmosassetsyncWork::getTable(), 'WHERE' => [
+        'subject' => 'Asset', 'operation' => 'Sync', 'route_id' => $work['route_id'],
+        'itemtype' => $work['itemtype'], 'a_items_id' => (int) $work['a_items_id'],
+        'a_entities_id' => (int) $work['a_entities_id'], 'entities_id' => (int) $work['entities_id'],
+        'b_items_id' => null]]) as $previous) {
+        if ((int) $previous['id'] === (int) $work['id'] || $previous['processing_started_at'] === null) {
+            continue;
+        }
+        $error = $previous['error'] ?? '';
+        if ($error === 'ASB_FIRST_COPY_NOT_APPLIED' || str_starts_with($error, 'ASB_FIRST_COPY_NOT_APPLIED: ')) {
+            continue;
+        }
+        // Historical unmarked starts cannot prove which native creation stages executed.
+        throw new RuntimeException('Hold: an earlier unassociated asset operation needs reconciliation before creation');
     }
 }
 
@@ -175,9 +247,15 @@ function plugin_agentbdmosassetsync_first_copy_values(CommonDBTM $asset, array $
                 throw new RuntimeException('A supplied no value for this enabled first-copy mapping');
             }
             $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+            plugin_agentbdmosassetsync_field_sync_transactional($asset, $field);
             $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping,
                 plugin_agentbdmosassetsync_exact_work_value($work, $mapping->mapping_id, $values->{$mapping->mapping_id}));
             $expected = plugin_agentbdmosassetsync_field_value($field, $local);
+            try {
+                $binding = plugin_agentbdmosassetsync_evidence_binding($route, $mapping, $field);
+            } catch (Throwable $e) {
+                throw new RuntimeException('Hold: first-copy field binding is not proven', 9102, $e);
+            }
             if ($field['container_id'] === null) {
                 $input[$field['value_column']] = $local;
             } else {
@@ -186,8 +264,12 @@ function plugin_agentbdmosassetsync_first_copy_values(CommonDBTM $asset, array $
                 $containers[$id]['values'][$field['value_column']] = $local;
                 $containers[$id]['selectors'][] = $mapping->b_field;
             }
-            $seeds[] = ['mapping_id' => $mapping->mapping_id, 'field' => $field, 'expected' => $expected];
+            $seeds[] = ['mapping_id' => $mapping->mapping_id, 'mapping' => $mapping,
+                'binding' => $binding, 'field' => $field, 'expected' => $expected];
         } catch (RuntimeException $e) {
+            if ($e->getCode() === 9102) {
+                throw $e;
+            }
             $result['field_outcomes'][] = ['mapping_id' => $mapping->mapping_id, 'outcome' => 'Skipped', 'reason' => $e->getMessage()];
         }
     }

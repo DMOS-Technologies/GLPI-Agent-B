@@ -23,6 +23,13 @@ run records RC01–RC22 results and remaining variants in
 [docs/manual-tests.md](docs/manual-tests.md#automatic-scalar-reconciliation-local-runtime-verification--29-october-2026).
 The original source-only FI/RC checklists remain historical plans, not claims
 that every variant or Controller A integration has passed.
+Version 0.4.1 adds binding continuity and first-copy current-value provenance
+under [API section 5.6](docs/api-contract.md#56-scalar-genuine-evidence-across-setting-versions-041),
+without new wire keys. Its authorized
+[local runtime ledger](docs/manual-tests.md#mapping-version-and-first-copy-local-runtime-verification--29-october-2026)
+records twelve MV passes, four partial cases and eight direct first-copy passes,
+with clone fault checks distinguished from localhost:8081 and explicit remaining
+limits. B-only verification does not certify Controller A integration.
 
 ## Decisions already made
 
@@ -147,6 +154,15 @@ and the Notes contract. For each Asset record:
    - Copy all enabled mapped A fields once, ignoring per-field source.
    - Save the new B ID, confirm the link, verify values.
    - If the creation outcome is uncertain, keep it visible. Never blindly create again.
+   - Initialize current-value Copied provenance in the same checked transaction
+     after verified native values and the durable association/field receipt.
+     Preserve reliable original A times; missing evidence stays unreliable.
+     Trust first-copy proof only after final Done, never from an interrupted
+     provisional receipt. Sync copies create no human Change.
+   - A durable creation marker prevents a fresh Work ID bypassing an earlier
+     unassociated uncertain creation. Keep supported restart Held/readback;
+     no old Work backfill, automatic reopen or duplicate creation. See API 5.6
+     for exact existing error-field machine categories and historical limits.
 6. **Save the result on the Work record** and mark the work complete only after the local save succeeds. The result includes:
    - B values that A may apply,
    - the queue IDs of Pending Change records that those values cover.
@@ -300,6 +316,16 @@ GLPI registers plugin hooks per asset type. Register the hook for every supporte
 
 Additional rules:
 - **Both, cannot decide:** values differ and change times are equal, missing, or unreliable. Keep both values unchanged and record a visible field conflict.
+- **Setting publications are not edits (0.4.1):** preserve reliable original
+  scalar evidence across an unchanged continuously enabled mapping using actual
+  binding identity, route/typed-parent/entity scope and internal continuity
+  metadata. A version increase alone must not discard a newer genuine edit.
+  Changed selectors/authority/conversion/definitions and disabled/capture gaps
+  must not inherit old proof. Current-value/copied provenance is distinct from
+  immutable local human Change history; sync/equality/publication never creates
+  a human edit. Decide using fresh locked values. Old matching values alone
+  cannot backfill missing provenance. See API section 5.6 for the additive
+  upgrade, exact boundaries and recorded MV manual results; no wire key changes.
 - **Values already match:** no write.
 - **Unmapped fields:** unchanged.
 - **Fields differ per asset type.** Write only mapped fields that exist on that asset type. A mapped field that does not exist or is not safely writable on that type is skipped with a visible reason (Open Question 11).
