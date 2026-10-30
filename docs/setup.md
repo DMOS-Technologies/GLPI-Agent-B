@@ -6,6 +6,20 @@ built-in Legacy REST API V1 on Setting, Work and Change records. It performs
 asset and native Notes operations locally and makes no outbound requests.
 There are no custom HTTP routes, authentication methods or log files.
 
+**Blank-text patch deployed to localhost only:** the post-`61795e5` candidate treats
+NULL and exact empty string as equal only for verified supported scalar text
+bindings, before a native write or History arbitration. Original 0.6.0 release
+and its version string do not prove this support. Confirm the exact deployed
+build contains the field-aware comparison call sites; do not replay old Works
+to test it. No additive schema or rights change is required by this patch.
+Controller A must align concrete-text returned-value/current-state comparison,
+preserve actual values and old receipts, and retain exact whole-snapshot
+accounting. See the [precise contract and build boundary](history-contract.md#blank-text-comparison--local-patch-after-060).
+The authorized disposable-fixture [BT runtime ledger](manual-tests.md#blank-text-localhost-deployment-and-bt-runtime--31-october-2026)
+records results and remaining gaps. The separate hosted nonempty native Name
+save failure is not a blank pair;
+read the relevant runtime logs/permissions/native rules before attributing it.
+
 The reviewed deployment uses GLPI **11.0.7** and active Fields **1.24.4**.
 The plugin declares GLPI 11.0.7 through 11.0.x compatibility; other patches have
 not been exercised by these manual passes. See [the evidence index](manual-tests.md#current-evidence-index)

@@ -28,6 +28,72 @@ field rejection/Held behavior. A newer timestamp means a later recorded field
 write; it does not mean that its author was a human or that its original source
 content was newer. The user explicitly selected this simpler policy.
 
+## Blank text comparison — local patch after 0.6.0
+
+The local candidate built after released commit `61795e5` adds an equality-only
+rule for supported scalar **text** descriptors: actual SQL NULL and exact `""`
+are both unfilled. This patch is not included in the original 0.6.0 release;
+its version metadata is unchanged. Verify the deployed source/build includes
+`plugin_agentbdmosassetsync_blank_text_equal()` and its legacy/v1/v2 call sites
+before relying on it. The authorized localhost deployment and bounded BT manual
+results are recorded in [the runtime ledger](manual-tests.md#blank-text-localhost-deployment-and-bt-runtime--31-october-2026);
+hosted deployment and full A/B readiness are not claimed. No new wire key, option
+version, schema column or timestamp meaning is introduced.
+
+After current parent/scope/field permissions and locked storage reads, two
+text blanks are `AlreadyEqual` (`VerifiedEqual` on opted-in v1/v2 Work), before
+History lookup or a native write. This applies under A, B and Both authority.
+Both stored representations and all existing History stay unchanged. Ordinary
+source-A prewrite permission checks remain; a no-op does not authorize clearing
+an otherwise unsupported nullable destination. Source B needs an actually
+supplied A comparison value; omission is not a blank. When that optional value
+and current B text are both blank, B emits AlreadyEqual with no return tuple.
+Otherwise source B retains ReturnToA with B's actual value and History evidence.
+Nonblank A/B/Both behavior is unchanged.
+
+The text kind comes from the actual native search/storage metadata, Fields
+scalar text/textarea/URL definition or supported core custom String/Text/URL
+field descriptor. Whitespace-only text is nonempty and remains byte-for-byte
+significant. The rule does not treat false, numeric zero, dates, dropdowns,
+Notes, multiple/rich-text core custom fields or unsupported bindings as blank
+text. Read/permission/storage-column failures are failures, not NULL. Existing
+explicit-clear validation still applies when the current value differs.
+
+For example, an enabled direct text mapping named `shared_contact`, selected
+in a fresh v1/v2 Work, can supply these existing-shaped properties:
+
+```json
+{
+  "a_values_json":"{\"shared_contact\":\"\"}",
+  "a_change_times_json":"{\"shared_contact\":{\"changed_at\":null,\"reliable\":false}}"
+}
+```
+
+If the locked permitted B value is SQL NULL, its field receipt is:
+
+```json
+{"mapping_id":"shared_contact","outcome":"AlreadyEqual","certainty":"VerifiedEqual","error_code":null,"reason":null}
+```
+
+The reverse NULL/empty-string pair has the same no-write outcome. These are
+properties inside the existing complete Work schema, not a new partial endpoint.
+A legacy outcome retains only `mapping_id`, `outcome` and `reason`. AlreadyEqual
+adds no `b_values_for_a` tuple; A must not invent B's representation or infer it
+from an older Conflict. A must use verified concrete field metadata to apply the
+same equality-only rule when handling actual returned values/current A reads,
+without coercing another type or rewriting either stored representation.
+
+Exact nonblank save verification, immutable snapshots, returned snapshot values
+and whole-snapshot acknowledgement predicates are unchanged. Logical blank
+convergence alone does **not** cover an exact NULL-versus-empty snapshot or
+supply missing/timely returned evidence. Mixed unresolved snapshots remain
+Pending/Held as before; A must account for every exact field/revision before its
+normal exact-ID acknowledgement. A must preserve old Unknown/Conflict receipts.
+After original terminal readback and normal Active parent/scope/Accepted guards,
+a distinct contracted fresh current-state operation can establish convergence;
+it cannot certify that an earlier write succeeded. A's corresponding code and
+integration have not been changed or verified by this B patch.
+
 ## Existing GLPI storage and permissions
 
 B reads native `glpi_logs` for the typed asset, exact parent ID and actual

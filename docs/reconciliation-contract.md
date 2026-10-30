@@ -21,6 +21,17 @@ current-value evidence exists. See [API section 5.6](api-contract.md#56-scalar-g
 The 0.6.0 History policy above supersedes that arbitration dependency; retained
 binding/provenance receipts still do not certify an old operation's completion.
 
+The local post-0.6.0 [blank text patch](history-contract.md#blank-text-comparison--local-patch-after-060)
+adds permitted locked NULL/empty-string no-op equality for concrete text fields
+under A/B/Both. It changes neither v2 admission nor History timestamp meaning.
+VerifiedEqual describes current logical convergence, not exact old values or
+an earlier Unknown write. No B tuple is synthesized and exact whole-snapshot
+coverage still applies. Original 0.6.0 lacks this patch; verify deployed build,
+aligned A returned-value handling and snapshot accounting before relying on it.
+The candidate is deployed only to localhost; [the BT runtime ledger](manual-tests.md#blank-text-localhost-deployment-and-bt-runtime--31-october-2026)
+records actual bounded results and remaining variants. Hosted deployment and
+Controller A integration are not certified.
+
 ## Purpose and boundary
 
 The optional [participation contract](participation-contract.md) (0.5.0) is a

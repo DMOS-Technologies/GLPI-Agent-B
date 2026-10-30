@@ -8,13 +8,19 @@ function plugin_agentbdmosassetsync_route_action(array $work, callable $action)
     if ((int) $row['acquired'] !== 1) {
         throw new RuntimeException('Hold: route is busy');
     }
+    $primaryFailure = null;
     try {
         return plugin_agentbdmosassetsync_as_submitter($work, $action);
+    } catch (Throwable $e) {
+        $primaryFailure = $e;
+        throw $e;
     } finally {
         try {
             $DB->doQuery("SELECT RELEASE_LOCK('$lock')");
         } catch (Throwable $e) {
-            throw new RuntimeException('Hold: route lock release is uncertain; reconcile Work evidence', 0, $e);
+            if ($primaryFailure === null || $primaryFailure->getCode() !== 9101) {
+                throw new RuntimeException('Hold: route lock release is uncertain; reconcile Work evidence', 0, $e);
+            }
         }
     }
 }

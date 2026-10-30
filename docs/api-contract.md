@@ -55,6 +55,16 @@ This changes existing timestamp semantics without new wire keys. Native `logs`
 READ and Controller A timestamp alignment are required; A has not been changed.
 It does not change Notes, save certainty or historical Work outcomes.
 
+**Blank scalar text patch (localhost only, not released):** the candidate after commit
+`61795e5` implements [logical blank equality](history-contract.md#blank-text-comparison--local-patch-after-060)
+for concrete supported text bindings. SQL NULL and exact empty string compare
+equal under A/B/Both after permitted locked reads, before History/write. It
+preserves storage and History, adds no null writer, does not coerce other types,
+and does not relax exact snapshot/acknowledgement or postwrite verification.
+AlreadyEqual emits no B tuple; source B can use this no-op only when A actually
+supplied a blank comparison value. Released 0.6.0 does not include the patch;
+no version-string capability or hosted/runtime success is implied.
+
 ## Contract status and sources
 
 **Optional participation flags (0.5.0, local candidate):**

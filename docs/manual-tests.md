@@ -1,5 +1,219 @@
 # GLPI B manual curl review checklist
 
+## Blank-text localhost deployment and BT runtime — 31 October 2026
+
+The same-version blank-text candidate after `61795e5` was deployed to
+`http://localhost:8081`, container `assetsync2-glpib`, active directory
+`/var/glpi/marketplace/agentbdmosassetsync`. Actual versions: GLPI 11.0.7,
+Fields 1.24.4, Agent B metadata 0.6.0. The original released 0.6.0 does not
+contain this patch: `deployment/candidate-hashes.json` identifies the exact
+21-file PHP build, and deployed hashes matched before runtime verification.
+
+Private recoverable database, deployed-plugin and candidate backups, SHA-256
+manifest and evidence are under:
+`/var/folders/f7/xn34k9qn1r9d6qqvzn8nmvrc0000gn/T/agentb-bt-20261031-cfr1upnc/`.
+No credentials or raw customer values are reproduced here. Preserve this private
+directory separately if the temporary workspace is cleaned.
+
+B was initially stopped. Only its database was started first; a separate
+maintenance runtime booted native GLPI, verified the task was idle and paused
+`processWork` through native methods before the original app could run queued
+work. The patch adds no schema, so the unsupported same-version guarded upgrade
+was not used and no uninstall/install/reactivation was performed. Source files
+were replaced while the app was stopped; a fresh app then served HTTP 200.
+`deployment/preservation.json` confirms all original columns/fingerprints of
+1,192 Works, 205 Changes, 46 Settings, 82 scalar states, 51 Note links and 2,688
+profile rights remained exact at deployment, including Works 1–7. New fixtures
+and final preservation are accounted for below. Controller A and hosted systems
+were not changed; no commits or pushes were performed.
+
+### Actual BT results
+
+Two runtime agents executed the finite checks. A third agent independently
+reviewed the stored REST/native evidence and accepted **7 bounded PASS, 5
+PARTIAL**; no BT assertion was recorded FAIL. PASS means the stated bounded
+observations below, not every asset/backend/fault permutation. An actual
+numeric-zero uncertain write is recorded under BT05 and is not a successful
+save or proof of a new blank-patch regression.
+
+BT01–BT07 ran on localhost:8081. BT08–BT12 ran on a **separate disposable B
+clone**, `agentb-bt-recovery-20261031-web` / `-db`, with its own volume and
+network, copied from the private predeployment backup and patched source.
+Clone Work IDs overlap localhost IDs and must never be treated as the same
+requests. Clone app/database are now stopped; their volumes/evidence remain.
+All fixture processing targeted exact newly created Work IDs under the normal
+worker lock; no broad worker was used to execute fixtures.
+
+| Case | Result | Actual observation and limits |
+|---|---|---|
+| BT01 | PASS | Local native and Fields text/textarea SQL NULL versus empty string in both directions, A/B/Both and legacy/v1/v2 returned AlreadyEqual/VerifiedEqual. Storage representations remained exact, without field History or B return tuples. Fresh Works1193–1201; `runtime/core/adoptions.json`, `bt01-selected.json`, `bt01-reverse.json`, `bt01-after.json`. |
+| BT02 | PARTIAL | Native field-specific History plus equal blanks passed; denying History READ on the disposable profile still allowed locked native/Fields blank equality. Rights were restored. Fields relation logs were observed, but do not establish selected-field History; actual Fields/core-custom field-History variants remain unrun. Local Works1202/1203, `runtime/core/bt02.json`. |
+| BT03 | PASS, bounded | Exact native/Fields nonempty equality retained A/B/Both behavior; source-A space/tab text saved byte-for-byte. B returned actual values; native Both used B History and Fields Both with no History retained Conflict. Every legacy permutation and newline-only text were not run. Local Works1210/1211, `runtime/core/bt03.json`, `final-fixtures.json`. |
+| BT04 | PARTIAL | Native/Fields backends passed BT01. Core custom String/Text default-null versus A-empty comparisons passed A/B/Both through legacy/v1/v2 with unchanged JSON `[]`. This is logical null/default coverage, not a separate SQL NULL text column. Core reverse stored-empty/A-null and URL subtype remain unrun. Local Works1207–1209, `runtime/core/bt04-custom.json`, `final-custom-and-rights.json`. |
+| BT05 | PARTIAL | False/zero sent to actual text bindings were Rejected/INVALID_VALUE, never blank-equal. Actual Boolean false was VerifiedEqual. Fields numeric zero entered the native writer and produced Unknown/VERIFICATION_FAILED in local Work1216; it remains Held and was not retried. Fresh v2 Work1219 referenced1216 and selected only date/dropdown, both Rejected/NotAttempted/INVALID_VALUE. Notes/multiple/unsupported-binding variants and a successful numeric-zero save remain unverified. `runtime/core/bt05-*.json`. |
+| BT06 | PASS | Explicit supplied B-source text blanks returned AlreadyEqual with no tuple/time. Different or omitted A input retained ReturnToA with actual B NULL and its actual History evidence. Local Works1197/1198/1213/1214, `runtime/core/bt06-different.json`, `bt06-omitted.json`. |
+| BT07 | PARTIAL | Disposable parent READ denial produced Held/PARENT_SCOPE; Fields READ denial produced Rejected/FIELD_UNAVAILABLE, neither VerifiedEqual. Rights were restored. Missing row, missing column and separate entity-denial variants remain unrun. Local Works1204/1217, `runtime/core/bt07-parent.json`, `bt07-fields.json`. |
+| BT08 | PASS, bounded clone | Native nonempty Computer Name save succeeded (1194). Transient hooks scoped only to the disposable asset exercised native false return (1195), exception (1196), and true-return/mismatching reread (1197), yielding Unknown/SAVE_UNCONFIRMED or Unknown/VERIFICATION_FAILED as appropriate. No customer uniqueness/business-rule configuration was reproduced; this does not diagnose hosted Work44. `runtime/recovery/bt08-results.json`. |
+| BT09 | PASS, clone | Work1198 preserved an earlier sibling's VerifiedApplied after Name became Unknown. Distinct exact-reference v2 Work1199 completed current Name; the old1198 receipt remained exact. `runtime/recovery/bt09-results.json`. |
+| BT10 | PARTIAL, clone | Actual SIGKILL exited137 in Work1202, leaving durable Accepted/Unknown evidence. Supported fresh worker handling retained Held/INTERRUPTED without replay; distinct exact-reference1203 completed current state and preserved old receipt. Work1204 ignored the POST response body and used exact search/GET before processing without resend. Actual packet loss, postcommit kill and all commit/result-persistence windows were not run. `runtime/recovery/bt10-sigkill-results.json`, `bt10-lost-response-results.json`. |
+| BT11 | PASS, clone | Mixed Change206 stayed Pending after excluded-member Work1205 and after Work1206's logical blank equality still failed exact representation coverage. Work1207 supplied complete exact handling and completed only206. Native History remained9; no redundant update. `runtime/recovery/bt11-results.json`. |
+| BT12 | PASS, bounded clone | Work1208 logical blank equality preserved the asset, History9 and Change206 exactly. An ordinary native human save succeeded and captured the mixed snapshot. Existing Notes/links, first-copy proof and participation-related rows/source were preserved; no new Notes/participation/first-copy scenario was run. `runtime/recovery/bt12-results.json`, `protected-preservation-summary.json`. |
+
+### Requests, preservation and final scheduler
+
+Private evidence has **59 localhost curl invocations** in `runtime/core/` and
+**47 clone curl invocations** in `runtime/recovery/`. Each records method/path,
+HTTP status, exact request where applicable, response and invocation exit;
+credentials and headers remain private. They use native API V1 only:
+
+| Environment | Native REST calls recorded |
+|---|---|
+| Localhost | GET initSession/getActiveProfile/killSession; POST Setting and Work; PUT the new disposable Setting; GET exact new Work IDs. |
+| Clone | GET initSession/killSession; POST changeActiveProfile/changeActiveEntities, Setting and Work; GET exact new Work and Change IDs; GET Work collection with exact identity after ignored response. |
+
+Native PHP calls created only disposable fixtures/definitions and processed
+exact owned requests. No custom endpoint, schema upgrade or product-code fault
+injection was added. Clone transient fault hooks were temporary, scoped by the
+new fixture's identity, and not copied to localhost or the repository.
+
+`deployment/final-preservation.json` independently confirms **every original
+row fingerprint remains exact** on localhost: 1,192 Works (including Works1–7),
+205 Changes, 46 Settings, 82 scalar states, 51 Note links and 2,688 profile-right
+rows. All21 deployed PHP hashes still match the candidate. Final totals were
+1,220 Works, 213 Changes, 49 Settings, 121 scalar states, 51 Note links and 2,825
+profile-right rows. New rows include disposable fixtures and concurrent local
+activity outside the BT namespaces; those concurrent requests are not counted
+as BT evidence. Existing requests were never reset/reopened/rewritten or used
+as write fixtures.
+
+The original idle automatic-action configuration was restored through native
+methods: task51 Waiting1, external mode2, frequency60. There were zero Accepted
+Works before normal scheduler restoration. The dedicated www-data scheduler
+runs `/opt/glpi/scheduler.sh --interval 60 --name 'Agent B Scheduler' -- php
+/var/www/glpi/front/cron.php processWork`; `deployment/scheduler-final.txt`
+records it and final HTTP status is200. Clone app/database are stopped. Disposable
+local fixtures remain for review, including numeric Unknown Work1216; no cleanup
+replayed or erased their evidence.
+
+Operator corrections are retained privately and are not product passes: a
+permissions fix preceded fixture-helper execution; a custom Setting HTTP400
+under stale cached rights required a fresh service session; an initial clone
+signal hook referenced an unavailable constant and its caught-exception Work1200
+was retained, with distinct1202 used for actual process death. Original admitted
+requests were not resubmitted. No automated test suite, Controller A change,
+hosted deployment, commit or push was performed. Hosted Name cause, the PARTIAL
+variants, numeric-zero save verification and full A/B integration remain open.
+
+## Pre-deployment blank scalar text plan and Name investigation — 31 October 2026
+
+Historical preparation status: local implementation/source investigation only;
+**every BT case in the original plan below was NOT RUN at preparation**. The
+authorized runtime results above supersede that plan status. During source-only
+preparation no hosted or local database, permissions, scheduler or deployed
+plugin was changed. No existing Work, including 1–7, 44, 45 or 47, was processed or
+rewritten. Old Conflict/Unknown receipts remain historical evidence. The
+unrelated June ticket/database errors do not diagnose the native Name refusal.
+
+### Native Name source investigation (not a runtime diagnosis)
+
+The supplied Work 44 receipt is `Unknown / Unknown / SAVE_UNCONFIRMED` for a
+nonempty source-A native Name. This is not equal blank text. In
+`plugin_agentbdmosassetsync_field_sync_mapping()` the worker rebuilds the
+recorded submitting user/profile via `as_submitter()`, validates the routed
+parent, checks parent UPDATE and the writable descriptor, then invokes native
+`$asset->update()` under the sync-origin guard. The stage becomes
+`SAVE_UNCONFIRMED` before invocation. A false native return and an exception
+from the native save or its hooks share that stage; the receipt alone cannot
+distinguish them. A true return followed by a failed/mismatched reread instead
+uses `VERIFICATION_FAILED`. Those statements describe this candidate source;
+identity with the hosted deployed files is not independently established here.
+
+The catch attempts rollback, retains durable Unknown for an attempted write,
+and stops on uncertain transaction/session cleanup. Present SQL NULL is not
+proof that no hook or earlier write had effects. There is no demonstrated
+Name-specific B defect authorizing a bypass of native validation, uniqueness,
+permissions or business rules; no speculative Name save change was made.
+
+Read-only review of the user-authorized “Write GLPI A contract” chat found the
+same combined `/var/log/glpi/php-errors.log` and `sql-errors.log` command and
+June SQL ticket errors, plus the confirmed model/raw SQL NULL diagnostics.
+It supplied no Work 44 processing timestamp or relevant native Name exception;
+those paths are candidate log locations, not verification of live `GLPI_LOG_DIR`.
+No message was sent to that chat and no Controller A files were changed.
+
+The exact hosted Work processing instant and actual runtime log directory
+remain unavailable. Docker read-only inventory also failed because the local
+daemon is not running; it was not started. Native source material can describe
+possible refusal/hook paths but cannot establish the installed hosted GLPI
+patch, active plugins/rules, original exception or actual rollback outcome.
+
+For the next **read-only** diagnostic, retain Work 44's exact
+`processing_started_at`, submitting user/profile, settings version, terminal
+receipt and installed B build hashes. Resolve `GLPI_LOG_DIR` from that installed
+GLPI's bootstrap/downstream/local configuration (default locations are not proof
+of its live value); inspect each relevant PHP/SQL/GLPI log separately for that
+instant and timezone before truncating excerpts. Include PHP-FPM/web-server or
+CLI stderr destinations if the native log has no entry. Inspect the original
+account's rights/entity scope, native Name uniqueness configuration, applicable
+business rules and loaded hooks without invoking a save. Native refusal may
+produce only a session message and no exception log, so an absent log is not
+proof of no refusal. If original diagnostics were not retained, exact historical
+cause may remain unestablished; only separately authorized disposable fixtures
+may exercise a new refusal/success. Do not retry Work 44 to obtain a log.
+
+Use only separately authorized disposable routes, typed assets and fields, with
+fresh immutable Work IDs. Run each applicable case in legacy, selected v1 and
+linked current-state v2; use the original account/profile permissions. Read the
+exact terminal Work, current model/raw storage and relevant field History.
+Acceptance alone is not a pass. For v2 recovery, supply the exact terminal
+`reconcile_work_id`, verified Active parent/current route-version and no
+overlapping Accepted execution. Never use the old hosted Works as fixtures.
+
+Native REST readback (read-only; preserve exact Work IDs):
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H "App-Token: $B_APP_TOKEN" -H "Session-Token: $B_SESSION_TOKEN" \
+  -H 'Accept: application/json' \
+  "$B_V1/PluginAgentbdmosassetsyncWork/$NEW_WORK_ID"
+```
+
+When write verification is authorized, prepare a complete fresh request using
+the API/field-sync/reconciliation contracts, then POST it to that native Work
+resource with `Content-Type: application/json` and
+`--data-binary @new-disposable-sync.json`. Do not modify an admitted request.
+Use permitted native reads/History and a private raw-column inspection to prove
+SQL NULL versus exact empty string; an unreadable or absent key is not blank.
+
+Independent source review found and the candidate addresses three patch risks:
+a missing legacy Fields row must not certify blank equality; uncertain
+read-transaction errors must remain fatal even if route-lock release also
+throws; and the new locked legacy source-B read must retain the old rejection
+of an empty/unreadable dropdown. These are source review findings and fixes,
+not runtime passes or a diagnosis of the hosted Name incident.
+
+Final candidate checks on 31 October: independent source review reported no
+remaining actionable findings after those fixes; root reread the changes.
+One PHP syntax pass succeeded for `inc/both.php`, `inc/fieldisolation.php`,
+`inc/process.php`, `inc/results.php`, `inc/write.php` and `inc/scope.php`;
+`git diff --check` was clean. No automated tests or runtime write cases ran.
+These checks do not certify hosted resolution or A/B integration readiness.
+
+| Case | Required observation | Result |
+|---|---|---|
+| BT01 | For each A/B/Both authority, supported text A=`""`, B=SQL NULL and the reverse compare AlreadyEqual (VerifiedEqual on v1/v2) after locked permitted reads, even with no field History. No native writer, History insertion, timestamp or representation rewrite occurs. | NOT RUN |
+| BT02 | Repeat both blank directions with existing readable History and with History READ denied while parent/field READ remains permitted. Equality is decided before History lookup; native READ failures in BT07 remain failures. Preserve existing History exactly. | NOT RUN |
+| BT03 | Equal nonempty text retains existing authority outcomes. Distinct nonempty values and `" "`, tabs/newlines versus blank remain distinct, untrimmed; ordinary source A/B/Both behavior and History arbitration apply. Nonempty native writes retain exact reread verification. | NOT RUN |
+| BT04 | Exercise actual native, Fields text/textarea and core custom String/Text bindings resolved by metadata. Repeat NULL/empty directions wherever each backend supports real NULL storage; record unavailable representations explicitly rather than simulate support. | NOT RUN |
+| BT05 | False, integer/decimal zero, date/datetime, dropdown, unsupported/multiple fields and Notes do not acquire text-blank equivalence. Existing conversion/validation and clear restrictions remain. A nonblank-to-null request does not gain a nullable writer. | NOT RUN |
+| BT06 | Source B with two supplied text blanks yields AlreadyEqual without inventing a returned tuple/time. A genuinely different or omitted legacy A value retains B return behavior and exact actual B value/time. A must not infer an unreturned B representation from equality. | NOT RUN |
+| BT07 | Deny parent/entity/field/container READ or use unavailable/missing storage: no VerifiedEqual/blank substitution. Preserve actual account/profile and distinguish denied READ from a successful read of SQL NULL. Actual native write permissions remain enforced on writes. | NOT RUN |
+| BT08 | For nonempty native Name, isolate a successful permitted save versus native validation/business-rule/uniqueness refusal and a caught exception. Capture actual processing time, native return and current reread privately. False/throw after invocation remains Unknown/SAVE_UNCONFIRMED; true followed by mismatching reread remains Unknown/VERIFICATION_FAILED. Do not bypass the native reason. | NOT RUN |
+| BT09 | A Name refusal or one field rejection preserves verified sibling outcomes. Existing Unknown stop/selection behavior remains; use fresh separately selected current-state requests to give remaining fields their turn, never replay the failed request or claim siblings ran when the journal says Pending. | NOT RUN |
+| BT10 | Lost response/restart: exact original Work GET precedes any further mutation. Durable Unknown remains Unknown; a later admitted current-state equal-blank receipt establishes only present convergence. Preserve original terminal reference, retained Active parent and no Accepted overlap. | NOT RUN |
+| BT11 | Mixed Change snapshots remain unresolved when any member is excluded/rejected/unknown or exact representation/time coverage is missing. NULL/empty logical equality alone does not relax exact snapshot identity, returned-value predicates or whole-snapshot ACK. Verify exact-ID GET after any ambiguous ACK response. | NOT RUN |
+| BT12 | Verify no redundant native update, History, feedback Change or fabricated human timestamp for equal blanks; ordinary human saves still succeed. Notes, participation flags, first-copy seeding and old Work fingerprints remain unchanged by this patch. | NOT RUN |
+
 ## Native field History time — 0.6.0 manual plan
 
 ### Local deployment — 29 October 2026 (administrative only)

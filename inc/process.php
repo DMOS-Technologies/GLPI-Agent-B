@@ -308,10 +308,15 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
             $outcome = ['mapping_id' => $mapping->mapping_id, 'outcome' => 'Skipped', 'reason' => null];
             if ($mapping->source === 'B') {
                 try {
-                    $result['b_values_for_a']->{$mapping->mapping_id} = plugin_agentbdmosassetsync_return_value($work, $mapping,
-                        $result['b_items_id']);
-                    $outcome['outcome'] = 'ReturnToA';
+                    $decision = plugin_agentbdmosassetsync_return_decision($work, $mapping, $result['b_items_id']);
+                    $outcome['outcome'] = $decision['outcome'];
+                    if ($decision['return'] !== null) {
+                        $result['b_values_for_a']->{$mapping->mapping_id} = $decision['return'];
+                    }
                 } catch (RuntimeException $e) {
+                    if ($e->getCode() === 9101) {
+                        throw $e;
+                    }
                     $outcome['reason'] = $e->getMessage();
                     $status = $status === 'Failed' ? 'Failed' : 'Held';
                     $reason = $e->getMessage();

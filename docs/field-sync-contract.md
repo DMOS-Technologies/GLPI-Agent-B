@@ -20,6 +20,13 @@ Its explicit terminal Work reference permits a new operation after unknown or
 damaged prior evidence. It does not rewrite this version's recovery policy,
 wire/result shape or dedicated-CLI durability precondition.
 
+The local post-0.6.0 [blank text patch](history-contract.md#blank-text-comparison--local-patch-after-060)
+applies to legacy/v1/v2 concrete text comparisons. It is not in the original
+0.6.0 release. A/B/Both NULL/empty pairs become AlreadyEqual/VerifiedEqual only
+after permitted locked reads, with no History requirement, native write or B
+return tuple. Missing optional source-B A input is not a blank. Other source-B
+values still return B's actual tuple; other types and exact ACKs stay unchanged.
+
 ## Request and compatibility
 
 The optional A-owned, creation-only Work property `field_sync_json` is a JSON
@@ -65,7 +72,7 @@ the existing scalar writer supports it; dropdown null/empty does not clear.
 | Authority | Selected mapping | Excluded mapping |
 |---|---|---|
 | A | Require A value; validate/convert, compare, then verified local write or AlreadyEqual. | Excluded/NotAttempted; no mapped value processing. |
-| B | Read and ReturnToA/NotAttempted with B's current value/evidence; A value is optional and never authorizes a local write. Existing B-source return behavior is preserved even when A supplied an equal value. | Excluded/NotAttempted; no B value returned. |
+| B | Read and ReturnToA/NotAttempted with B's current value/evidence; A value is optional and never authorizes a local write. Existing B-source return behavior is preserved except a supplied logical text-blank pair under the local blank patch becomes AlreadyEqual/VerifiedEqual without a tuple. | Excluded/NotAttempted; no B value returned. |
 | Both | Require A value; equal becomes AlreadyEqual/VerifiedEqual without write. On B >=0.6.0 differing values use field History: newer wins, or the side with History wins over confirmed absence. Both absent/tied conflict. B-win returns B; A-win uses the verified writer. Equal Both adds no B observation. Older versions use genuine-only arbitration. | Excluded/NotAttempted; no comparison, conflict or B return. |
 
 This extension preserves authority and follows the server-version timestamp
@@ -479,8 +486,10 @@ inside its JSON string, for example:
 
 This requires an enabled `installed_date` mapping with an actual nullable,
 supported destination scalar. It never implies deletion, a default dropdown
-choice or a clear of any other mapping. Empty string and null are distinct
-values; arbitrary invalid input must not be normalized into a clear.
+choice or a clear of any other mapping. Empty string and null remain distinct
+stored/wire representations. Only the local blank-text comparison patch treats
+them as equal for supported text no-ops; it does not add nullable writers, change
+date/dropdown rules or normalize arbitrary invalid input into a clear.
 
 ### Admission rejection and immutable storage
 

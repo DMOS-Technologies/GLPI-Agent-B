@@ -182,6 +182,16 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                         throw new RuntimeException('Hold: A won Both but the current B write is not permitted: ' . $e->getMessage(), 0, $e);
                     }
                 }
+                if ($mapping->source === 'A'
+                    && plugin_agentbdmosassetsync_blank_text_equal($field, $value, $current)
+                    && ($field['container_id'] === null
+                        || plugin_agentbdmosassetsync_locked_fields_row($asset, $field) !== null)) {
+                    plugin_agentbdmosassetsync_comparison_value($field, $mapping, $value);
+                    $completionAttempted = true;
+                    $DB->commit();
+                    plugin_agentbdmosassetsync_provenance_restore($barrier);
+                    return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
+                }
                 $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $value);
                 $expected = plugin_agentbdmosassetsync_field_value($field, $local);
                 if ($current === $expected) {

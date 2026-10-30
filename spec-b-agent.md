@@ -33,6 +33,19 @@ limits. B-only verification does not certify Controller A integration.
 
 ## Decisions already made
 
+The local patch after 0.6.0 commit `61795e5` implements the approved scalar
+text blank rule: SQL NULL and exact empty string mean the same unfilled value
+for supported concrete text metadata. After permitted locked current reads,
+A/B/Both two-blank pairs are AlreadyEqual, with VerifiedEqual on v1/v2, before
+History or writes. Source B requires a supplied A blank; omitted input retains
+ordinary ReturnToA. No B tuple, timestamp, nullable writer or stored replacement
+is invented. Nonempty text/whitespace, other scalar kinds, Notes, exact save
+verification and immutable whole-snapshot/ACK identity remain unchanged. This
+local build is not the original 0.6.0 release. It is deployed only to localhost;
+the bounded BT runtime results and remaining variants are recorded in
+[the manual ledger](docs/manual-tests.md#blank-text-localhost-deployment-and-bt-runtime--31-october-2026). [The precise contract](docs/history-contract.md#blank-text-comparison--local-patch-after-060)
+defines Controller A returned-value and snapshot-accounting requirements.
+
 Version 0.6.0 uses native field-specific GLPI History time for scalar comparison,
 regardless of who or what wrote the field. The later time wins; a side with
 confirmed History wins over one without it. Both absent or tied different values

@@ -29,12 +29,20 @@ function plugin_agentbdmosassetsync_comparison_value(array $field, stdClass $map
     throw new RuntimeException('A value has no compatible scalar comparison type');
 }
 
+/** Equality-only rule for supported text metadata; never use for save verification or snapshots. */
+function plugin_agentbdmosassetsync_blank_text_equal(array $field, $left, $right): bool
+{
+    return $field['kind'] === 'text' && ($left === null || $left === '')
+        && ($right === null || $right === '');
+}
+
 /** The caller holds the asset and actual field-storage locks for this fresh decision. */
 function plugin_agentbdmosassetsync_both_decision(array $work, CommonDBTM $asset, stdClass $mapping,
     array $field, $aValue, $bValue): array
 {
     $aValue = plugin_agentbdmosassetsync_comparison_value($field, $mapping, $aValue);
-    if (plugin_agentbdmosassetsync_scalar_equal($aValue, $bValue)) {
+    if (plugin_agentbdmosassetsync_scalar_equal($aValue, $bValue)
+        || plugin_agentbdmosassetsync_blank_text_equal($field, $aValue, $bValue)) {
         return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
     }
     if (plugin_agentbdmosassetsync_evidence_upgrade_pending()) {

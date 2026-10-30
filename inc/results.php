@@ -168,18 +168,52 @@ function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset,
     return plugin_agentbdmosassetsync_history_time($asset, $descriptor);
 }
 
-function plugin_agentbdmosassetsync_return_value(array $work, stdClass $mapping, int $assetId): array
+/** A source-B blank comparison still needs the same permitted locked current read. */
+function plugin_agentbdmosassetsync_return_decision(array $work, stdClass $mapping, int $assetId): array
 {
-    return plugin_agentbdmosassetsync_route_action($work, static function () use ($work, $mapping, $assetId) {
+    global $DB;
+    return plugin_agentbdmosassetsync_route_action($work, static function () use ($work, $mapping, $assetId, $DB) {
         $route = plugin_agentbdmosassetsync_current_route($work);
         $asset = plugin_agentbdmosassetsync_find_existing($work);
         $mappings = plugin_agentbdmosassetsync_mapping_map($route, $work['itemtype']);
         if ($asset->getID() != $assetId || !isset($mappings[$mapping->mapping_id]) || $mappings[$mapping->mapping_id] != $mapping) {
             throw new RuntimeException('Hold: B return mapping or link changed');
         }
-        $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
-        $value = plugin_agentbdmosassetsync_field_read($asset, $field);
-        return ['value' => $value] + plugin_agentbdmosassetsync_genuine_time($work, $asset, $mapping->mapping_id, $value);
+        try {
+            $DB->beginTransaction();
+        } catch (Throwable $e) {
+            throw new RuntimeException('Hold: field observation transaction start is uncertain', 9101, $e);
+        }
+        try {
+            plugin_agentbdmosassetsync_lock_current_asset($work, $asset, READ);
+            $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+            $value = plugin_agentbdmosassetsync_locked_value($work, $asset, $field);
+            if ($field['kind'] === 'dropdown' && $value === null) {
+                throw new RuntimeException('Dropdown has no readable selected option');
+            }
+            $aValues = json_decode($work['a_values_json'], false, 512, JSON_THROW_ON_ERROR);
+            if (property_exists($aValues, $mapping->mapping_id)
+                && plugin_agentbdmosassetsync_blank_text_equal($field, $aValues->{$mapping->mapping_id}, $value)) {
+                $decision = ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
+            } else {
+                $decision = ['outcome' => 'ReturnToA', 'reason' => null,
+                    'return' => ['value' => $value]
+                        + plugin_agentbdmosassetsync_genuine_time($work, $asset, $mapping->mapping_id, $value, true)];
+            }
+            try {
+                $DB->commit();
+            } catch (Throwable $e) {
+                throw new RuntimeException('Hold: field observation transaction completion is uncertain', 9101, $e);
+            }
+            return $decision;
+        } catch (Throwable $e) {
+            try {
+                $DB->rollBack();
+            } catch (Throwable $rollbackError) {
+                throw new RuntimeException('Hold: field observation transaction cleanup is uncertain', 9101, $rollbackError);
+            }
+            throw $e;
+        }
     });
 }
 
@@ -533,6 +567,9 @@ function plugin_agentbdmosassetsync_locked_value(array $work, CommonDBTM $asset,
             return null;
         }
         throw new RuntimeException('Hold: current field storage is missing');
+    }
+    if (!array_key_exists($field['column'], $row)) {
+        throw new RuntimeException('Hold: current field storage column is missing');
     }
     $value = $row[$field['column']];
     // Match ordinary rereads of Fields' exact saved empty scalar representation.
