@@ -53,6 +53,53 @@ categories use the existing Work.error field; API section 5.6 defines them.
 
 ## Deploy and enable
 
+Version **0.6.0 is deployed to localhost:8081, with functional checks NOT RUN**, for the
+[native field History policy](history-contract.md). It requires native `logs`
+READ and actual parent/field READ on the worker's account. A must align its
+`a_change_times_json` semantics with the latest recorded field History, including
+sync writes. No Controller A code, profile, scheduler or deployment was changed
+by this B task. Do not count old 0.5.2 evidence or the 0.6.0 administrative
+deployment readback as a functional 0.6.0 pass. The existing guarded upgrade tool
+targets 0.6.0 only when an operator explicitly authorizes a deployment.
+
+Version **0.5.2** repairs missing binding initialization through the existing
+[guarded offline procedure](upgrade-continuity.md). Use an explicitly authorized
+native administrator; the plugin does not create a privileged session itself.
+Existing valid generations survive; newly initialized bindings start fresh and
+do not certify older values, Change rows or Held Works. The user will run the
+BI manual checklist. A new unequal Both comparison can report the additive
+`FIELD_BINDING_UNAVAILABLE` mapping code; its aggregate remains `EVIDENCE_CONFLICT`.
+Controller A has not been changed to interpret this code.
+The authorized localhost deployment installed 0.5.2 and verified binding
+registration and preservation; functional BI cases remain NOT RUN. For an
+existing unresolved Both value, a real intended subsequent human edit can now
+establish proof under the fresh binding. An unchanged save cannot manufacture
+an edit timestamp. Do not force away/back edits or replay historical Works.
+
+For evidence-compatible 0.5.1 upgrades, follow
+[upgrade-continuity.md](upgrade-continuity.md). Its enforcing offline wrapper
+is the preserving path; ordinary GLPI install/activate still closes possible
+capture gaps by invalidating continuity. Do not restore old binding generations
+from a backup to bypass the earlier PF01 failure. Pending/failed controlled
+upgrades must remain offline until safely invalidated or completed.
+The authorized localhost:8081 follow-up deployed **0.5.1** through that wrapper;
+all pre-upgrade request/evidence columns and unchanged manifests survived exactly.
+See the [PF01 follow-up ledger](manual-tests.md#controlled-upgrade-evidence-continuity--pf01-follow-up)
+for actual arbitration checks, clone lifecycle checks and unrun fault variants.
+The historical 0.5.0 PF01 failure is retained and its invalidated proof is not repaired.
+
+The **0.5.0 local candidate** adds the optional
+[participation extension](participation-contract.md): nullable Setting
+`participation_flags_json` and nullable Work `participation_json`/
+`participation_state_json`. Obtain these through an additive administrator
+upgrade; existing rows stay disabled and existing recovery requests are not
+rewritten. The authorized
+[local PF run](manual-tests.md#optional-participation-flags-local-runtime-verification--29-october-2026)
+records the localhost:8081 deployment and bounded verification, including actual
+failures and remaining variants. This is not verification of another deployment.
+A must implement the new contract before enabling it. Configuration alone does not
+change existing clients' Work result shape; only explicit A→B Work opt-in does.
+
 1. Copy `setup.php`, `hook.php`, and the complete `inc/` directory into
    `<GLPI_ROOT>/plugins/agentbdmosassetsync/`. The repository directory name
    `GLPI-Agent-B` is not the installed plugin key. Keep old plugins/resources

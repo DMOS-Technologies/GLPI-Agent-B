@@ -3,8 +3,9 @@
 class PluginAgentbdmosassetsyncWork extends CommonDBTM
 {
     public static $rightname = 'plugin_agentbdmosassetsync_work';
-    public static $undisclosedFields = ['field_sync_json'];
+    public static $undisclosedFields = ['field_sync_json', 'participation_json', 'participation_state_json'];
     private ?array $clientCreateInput = null;
+    private ?array $participationCompletion = null;
 
     public static function getTypeName($nb = 0)
     {
@@ -48,6 +49,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         $this->clientCreateInput = null;
         $identity = $this->validateCreation($raw);
         $fieldSync = $this->validateFieldSync($raw, $identity);
+        $participation = plugin_agentbdmosassetsync_participation_admission($raw);
         if (!static::canCreate() || !Session::haveAccessToEntity($raw['entities_id'])) {
             return false;
         }
@@ -58,10 +60,20 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         }
 
         $raw += ['operation' => 'Sync', 'handled_change_ids_json' => '[]', 'subject' => 'Asset',
-            'note_json' => null, 'field_sync_json' => null];
+            'note_json' => null, 'field_sync_json' => null, 'participation_json' => null,
+            'participation_state_json' => $participation === null ? null : json_encode($participation, JSON_THROW_ON_ERROR)];
         if ($fieldSync !== null) {
             $raw['result_json'] = json_encode(plugin_agentbdmosassetsync_field_sync_initial_result(
                 $fieldSync['options'], $fieldSync['enabled_mapping_ids']), JSON_THROW_ON_ERROR);
+        }
+        if ($participation !== null) {
+            $result = $fieldSync === null
+                ? ['b_items_id' => null, 'created_b_items_id' => null, 'b_values_for_a' => new stdClass(),
+                    'covered_change_ids' => [], 'handled_change_ids_done' => [], 'field_outcomes' => []]
+                : json_decode($raw['result_json'], true, 512, JSON_THROW_ON_ERROR);
+            $result['b_values_for_a'] = (object) $result['b_values_for_a'];
+            $result['participation'] = $participation['progress'];
+            $raw['result_json'] = json_encode($result, JSON_THROW_ON_ERROR);
         }
         $raw += [
             'submitted_users_id' => $userId, 'submitted_profiles_id' => $profileId,
@@ -105,9 +117,10 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             'identity_json', 'a_values_json', 'a_change_times_json', 'settings_version'];
         $owned = ['id', 'submitted_users_id', 'submitted_profiles_id', 'a_items_id', 'b_items_id',
             'link_state', 'processing_started_at', 'status', 'result_json', 'error',
-            'date_creation', 'date_mod', 'completed_at'];
+            'date_creation', 'date_mod', 'completed_at', 'participation_state_json'];
         plugin_agentbdmosassetsync_check_fields($input,
-            array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json', 'field_sync_json']), $owned);
+            array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json', 'field_sync_json',
+                'participation_json']), $owned);
         $subject = $input['subject'] ?? 'Asset';
         if ($subject === 'Note') {
             $required[] = 'note_json';
@@ -473,6 +486,101 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         }
         $this->verifyCreated($id, ['result_json' => $json]);
         return true;
+    }
+
+    /** The initial owned invocation alone may enter the post-ordinary flag phase. */
+    public function beginParticipationPhase(): bool
+    {
+        global $DB;
+        $context = $GLOBALS['plugin_agentbdmosassetsync_reconcile_context'] ?? null;
+        if (!is_array($context) || $context['writer'] !== $DB || $context['work_id'] !== (int) $this->getID()
+            || !plugin_agentbdmosassetsync_participation_enabled($this->fields)
+            || !in_array($this->fields['status'], ['Done', 'Held', 'Failed'], true)
+            || ($this->fields['subject'] ?? 'Asset') !== 'Asset' || $this->fields['operation'] !== 'Sync') {
+            return false;
+        }
+        $result = json_decode($this->fields['result_json'] ?? '');
+        if (!$result instanceof stdClass || !property_exists($result, 'participation')) {
+            return false;
+        }
+        unset($result->participation);
+        $this->participationCompletion = ['status' => $this->fields['status'],
+            'completed_at' => $this->fields['completed_at'], 'b_items_id' => $this->fields['b_items_id'],
+            'link_state' => $this->fields['link_state'],
+            'ordinary' => json_encode(plugin_agentbdmosassetsync_evidence_canonical($result), JSON_THROW_ON_ERROR)];
+        return true;
+    }
+
+    /** No status, link, scalar receipt or acknowledgement may change in this metadata operation. */
+    public function saveParticipationFields(array $state, bool $insideTransaction = false): bool
+    {
+        global $DB;
+        if ($this->participationCompletion === null) {
+            return false;
+        }
+        $transaction = false;
+        $completionAttempted = false;
+        try {
+            if (!$insideTransaction) {
+                try {
+                    $DB->beginTransaction();
+                } catch (Throwable $e) {
+                    throw new RuntimeException('Participation metadata start is uncertain', 9101, $e);
+                }
+                $transaction = true;
+            }
+            $id = (int) $this->getID();
+            $row = $DB->fetchAssoc($DB->doQuery('SELECT * FROM `' . static::getTable()
+                . '` WHERE `id` = ' . $id . ' FOR UPDATE'));
+            if (!$row) {
+                throw new RuntimeException('Participation Work is unavailable');
+            }
+            foreach (['status', 'completed_at', 'b_items_id', 'link_state'] as $key) {
+                if ($row[$key] !== $this->participationCompletion[$key]) {
+                    throw new RuntimeException('Ordinary completion changed');
+                }
+            }
+            $currentState = plugin_agentbdmosassetsync_participation_state($row);
+            if ($currentState === null || $currentState['targets'] != $state['targets']
+                || $currentState['settings_version'] !== $state['settings_version']) {
+                throw new RuntimeException('Participation intent changed');
+            }
+            plugin_agentbdmosassetsync_field_sync_reconcile_guard($row);
+            $result = json_decode($row['result_json'], false, 512, JSON_THROW_ON_ERROR);
+            if (!$result instanceof stdClass || !property_exists($result, 'participation')) {
+                throw new RuntimeException('Participation result is unavailable');
+            }
+            unset($result->participation);
+            if (json_encode(plugin_agentbdmosassetsync_evidence_canonical($result), JSON_THROW_ON_ERROR)
+                !== $this->participationCompletion['ordinary']) {
+                throw new RuntimeException('Ordinary result changed');
+            }
+            $result->participation = $state['progress'];
+            $values = ['participation_state_json' => json_encode($state, JSON_THROW_ON_ERROR),
+                'result_json' => json_encode($result, JSON_THROW_ON_ERROR)];
+            if (plugin_agentbdmosassetsync_participation_state(array_replace($row, $values)) === null
+                || !parent::update(['id' => $id] + $values)) {
+                throw new RuntimeException('Participation metadata save was declined');
+            }
+            $this->verifyCreated($id, $values);
+            if ($transaction) {
+                $completionAttempted = true;
+                $DB->commit();
+            }
+            return true;
+        } catch (Throwable $e) {
+            if ($e->getCode() === 9101 || $completionAttempted) {
+                throw new RuntimeException('Participation metadata completion is uncertain', 9101, $e);
+            }
+            if ($transaction) {
+                try {
+                    $DB->rollBack();
+                } catch (Throwable $rollbackError) {
+                    throw new RuntimeException('Participation metadata rollback is uncertain', 9101, $rollbackError);
+                }
+            }
+            throw $e;
+        }
     }
 
     public static function cronInfo($name)

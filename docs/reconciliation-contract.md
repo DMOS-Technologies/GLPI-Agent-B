@@ -6,7 +6,28 @@ plugin upgrade. It extends [the API contract](api-contract.md) and
 record type, profile right, endpoint, authentication or outbound call.
 Version 1 and absent/null `field_sync_json` retain their existing behavior.
 
+B >=0.6.0 applies the [native field History policy](history-contract.md) to
+new scalar comparisons, retaining existing request/result shapes and recovery
+rules. A must send its latest field History time, including sync writes, rather
+than original copied-content time. Confirmed one-sided absence selects the side
+with History. Failed/denied History lookup is not absence. A code changes and
+runtime integration have not been performed for this policy.
+
+On 0.5.2 an unavailable current binding is identified by the mapping receipt's
+`FIELD_BINDING_UNAVAILABLE` code; the aggregate remains `EVIDENCE_CONFLICT`.
+A fresh reconciliation request cannot repair that configuration by retrying.
+After an authorized binding repair, old proof remains untrusted until genuine
+current-value evidence exists. See [API section 5.6](api-contract.md#56-scalar-genuine-evidence-across-setting-versions-041).
+The 0.6.0 History policy above supersedes that arbitration dependency; retained
+binding/provenance receipts still do not certify an old operation's completion.
+
 ## Purpose and boundary
+
+The optional [participation contract](participation-contract.md) (0.5.0) is a
+separate Work opt-in, usable with a fresh current v1/v2 Asset Sync. Its outcomes
+do not resolve prior scalar Unknown receipts or cover any Change snapshot.
+Flags cannot authorize creation or replay; first-copy and terminal original Work
+rules remain intact. A must not opt B→A-only readback requests into participation.
 
 A may automatically start a **new current-state operation** after a terminal
 linked Asset Sync Work, including one whose result is Unknown, missing or
@@ -127,11 +148,12 @@ checks remain required before deployment or an integration-readiness claim.
 |---|---|
 | A | Compare the supported current A value to B's locked live value. AlreadyEqual needs no write; a difference uses the native writer and verified reread. |
 | B | Leave B unchanged and return its current value/evidence. A must verify its own local handling before considering a Change covered. |
-| Both | Equal values need no write. Differing values use reliable genuine **per-field** edit evidence; the newer edit wins. Equal, missing or unreliable times remain Conflict. |
+| Both | Equal values need no write. On B >=0.6.0 compare recorded per-field History: newer wins; a known time wins over confirmed absence; both absent/tied with different values conflict. Earlier versions use genuine-only evidence. |
 
 GLPI's whole-asset `date_mod`, Work execution/poll times and reconciliation
-times are never substitutes for genuine field edits. A new observation must
-not make an old value appear newer. B rechecks current values and authority
+times are never substitutes for field History. In 0.6.0 an actual sync write's
+native field History does count, regardless of the original content's older time;
+an observation alone creates no new timestamp. B rechecks current values and authority
 immediately before a possible native save. Ordinary human saves remain
 unchanged, and sync-origin guards continue to suppress feedback Changes.
 

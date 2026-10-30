@@ -7,6 +7,12 @@ It never permits first copy, linking by serial, Resume, asset movement or replay
 Notes, first-copy creation and scope-control operations retain their legacy paths.
 No endpoint, authentication, outbound request or public record class is added.
 
+On B >=0.6.0 the [History policy](history-contract.md) supersedes the older
+genuine-only scalar comparison rule for legacy, v1 and v2 paths. It changes
+timestamp meaning, not request/result keys or field selection. One side with
+confirmed History wins over a side without it; unreadable History is not absence.
+Native `logs` READ and Controller A timestamp alignment are required.
+
 This document defines **version 1**. Version 2 automatic current-state
 reconciliation is defined separately in
 [reconciliation-contract.md](reconciliation-contract.md) and requires 0.4.0.
@@ -39,8 +45,9 @@ contents for reconciliation. No new raw-row keys are exposed to legacy clients.
 - Values and time entries outside the selection reject, rather than being
   silently included. A selected B-source mapping need not supply an A value.
 - Missing selected A/Both values become field-level `Rejected`/`VALUE_REQUIRED`
-  without a writer attempt. Siblings can proceed. Missing Both **time** evidence
-  retains the ordinary conflict rules; no edit time is invented.
+  without a writer attempt. Siblings can proceed. Both **time** handling follows
+  the deployed B version: on 0.6.0 one side with confirmed History wins over
+  absence on the other; both absent or tied remain Conflict. No time is invented.
 - `identity_json.b_items_id` must be positive and must match retained evidence.
   Admission validates the options against the Setting; processing rechecks the
   current Setting, retained link, concrete parent, entity and permissions.
@@ -59,9 +66,10 @@ the existing scalar writer supports it; dropdown null/empty does not clear.
 |---|---|---|
 | A | Require A value; validate/convert, compare, then verified local write or AlreadyEqual. | Excluded/NotAttempted; no mapped value processing. |
 | B | Read and ReturnToA/NotAttempted with B's current value/evidence; A value is optional and never authorizes a local write. Existing B-source return behavior is preserved even when A supplied an equal value. | Excluded/NotAttempted; no B value returned. |
-| Both | Require A value; equal becomes AlreadyEqual/VerifiedEqual without write, differing values use existing genuine evidence arbitration. B-win returns B, A-win uses verified writer, unresolved evidence conflicts. Existing equal Both result does not newly add a B observation to `b_values_for_a`. | Excluded/NotAttempted; no comparison, conflict or B return. |
+| Both | Require A value; equal becomes AlreadyEqual/VerifiedEqual without write. On B >=0.6.0 differing values use field History: newer wins, or the side with History wins over confirmed absence. Both absent/tied conflict. B-win returns B; A-win uses the verified writer. Equal Both adds no B observation. Older versions use genuine-only arbitration. | Excluded/NotAttempted; no comparison, conflict or B return. |
 
-This extension preserves existing authority/evidence rules; it does not add a
+This extension preserves authority and follows the server-version timestamp
+policy; it does not add a
 new source-specific equal-observation protocol. Legacy result shapes remain
 unchanged unless a new non-null opt-in is explicitly submitted.
 
@@ -84,6 +92,14 @@ genuine A times. It does not change selected linked Work shapes, permit v1
 creation, or initialize reliable proof from historical matching values.
 
 ## Extended result and certainty
+
+The separate optional [participation contract](participation-contract.md)
+(0.5.0) adds `participation` only when immutable Work `participation_json` opts
+in. Its two boolean targets are disjoint from enabled ordinary mappings and
+outside `mapping_ids`; no synthetic scalar values are needed. An empty explicit
+selection on a verified Active link can be used in a fresh marker catch-up.
+Ordinary certainty, whole-snapshot coverage and acknowledgement rules are
+unchanged. Flag target outcomes never count as scalar snapshot coverage.
 
 Only opted-in Work uses the extended shape. The six legacy business members
 remain and `field_sync` is added:
@@ -142,7 +158,8 @@ exception diagnostics or rejected business values.
 | `FIELD_UNAVAILABLE` | Selected descriptor/current value is unavailable or cannot be safely read; Rejected/NotAttempted before writer. |
 | `FIELD_PERMISSION` | Selected field/container permission denies the operation before writer while parent authorization remains valid; Rejected/NotAttempted. Parent UPDATE denial is a work-context PARENT_SCOPE failure, not this field rejection. |
 | `STORAGE_UNSUPPORTED` | Safe partial native storage/update or checked transactional storage could not be established before writer; Rejected/NotAttempted. |
-| `EVIDENCE_CONFLICT` | Selected Both comparison cannot establish a winner; Conflict/NotAttempted and Work Held. |
+| `EVIDENCE_CONFLICT` | Selected Both comparison cannot establish a winner; Conflict/NotAttempted and Work Held. On 0.6.0 this covers both History timestamps absent or tied with different values; one-sided confirmed absence alone is not a conflict. |
+| `FIELD_BINDING_UNAVAILABLE` (0.5.2) | In 0.5.2 this identifies missing/invalid/changed bindings or an incomplete upgrade. On 0.6.0 History arbitration no longer requires the internal manifest; this code is retained for the incomplete-upgrade fence. Conflict/NotAttempted; aggregate `EVIDENCE_CONFLICT`. Historical receipts stay unchanged. |
 | `SAVE_UNCONFIRMED` | Native writer was invoked but did not confirm save; Unknown. A native false return is not a no-effects proof. |
 | `VERIFICATION_FAILED` | Writer was invoked but reread did not establish intended saved value; Unknown. |
 | `WRITE_UNCERTAIN` | Durable in-flight marker or possible native mutation lacks confirmed completion; Unknown. |
@@ -150,6 +167,15 @@ exception diagnostics or rejected business values.
 | `JOURNAL_UNCERTAIN` | Provisional/final evidence persistence is unresolved; retain Unknown or the last durable evidence and Hold. |
 | `LOCK_RELEASE_UNCERTAIN` | Route-lock cleanup is unresolved; Unknown until sufficient durable completion evidence exists. |
 | `INTERRUPTED` | Started Work has a readable retained journal but was not safely completed; no replay. Its in-flight mapping remains Unknown. Missing/unreadable journal instead uses the status/error-only exception below. |
+
+For example, 0.5.2 may return this existing-shape per-field receipt:
+
+```json
+{"mapping_id":"shared_contact","outcome":"Conflict","certainty":"NotAttempted","error_code":"FIELD_BINDING_UNAVAILABLE","reason":"Current field binding is uninitialized; a valid Setting publication is required before fresh edit evidence can be established"}
+```
+
+This additional field code does not replace the aggregate `EVIDENCE_CONFLICT`.
+It adds no legacy result member and does not certify a previous edit after repair.
 
 Work-context failures use `field_sync.error_code/reason`, separate from
 mapping rejection. The emitted codes are `ACCOUNT_DENIED` (captured account or

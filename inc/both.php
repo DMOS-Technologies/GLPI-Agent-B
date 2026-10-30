@@ -37,6 +37,12 @@ function plugin_agentbdmosassetsync_both_decision(array $work, CommonDBTM $asset
     if (plugin_agentbdmosassetsync_scalar_equal($aValue, $bValue)) {
         return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
     }
+    if (plugin_agentbdmosassetsync_evidence_upgrade_pending()) {
+        return ['outcome' => 'Conflict',
+            'reason' => 'Field history comparison is blocked by an incomplete upgrade; administrator verification is required',
+            'return' => null,
+            'error_code' => 'FIELD_BINDING_UNAVAILABLE'];
+    }
     $aTimes = json_decode($work['a_change_times_json'], false, 512, JSON_THROW_ON_ERROR);
     $aEvidence = $aTimes->{$mapping->mapping_id} ?? null;
     $bEvidence = plugin_agentbdmosassetsync_genuine_time($work, $asset, $mapping->mapping_id, $bValue, true);
@@ -44,11 +50,17 @@ function plugin_agentbdmosassetsync_both_decision(array $work, CommonDBTM $asset
         ? plugin_agentbdmosassetsync_evidence_time($aEvidence->changed_at) : null;
     $bTime = $bEvidence['reliable'] === true
         ? plugin_agentbdmosassetsync_evidence_time($bEvidence['changed_at']) : null;
-    if ($aTime === null || $bTime === null) {
-        return ['outcome' => 'Conflict', 'reason' => 'Unequal Both values lack two reliable genuine field times', 'return' => null];
+    if ($aTime === null && $bTime === null) {
+        return ['outcome' => 'Conflict', 'reason' => 'Unequal Both values have no field history time on either side', 'return' => null];
+    }
+    if ($aTime === null) {
+        return ['outcome' => 'ReturnToA', 'reason' => null, 'return' => ['value' => $bValue] + $bEvidence];
+    }
+    if ($bTime === null) {
+        return ['outcome' => 'AppliedToB', 'reason' => null, 'return' => null];
     }
     if ($aTime == $bTime) {
-        return ['outcome' => 'Conflict', 'reason' => 'Unequal Both values have equal genuine field times', 'return' => null];
+        return ['outcome' => 'Conflict', 'reason' => 'Unequal Both values have equal field history times', 'return' => null];
     }
     if ($bTime > $aTime) {
         return ['outcome' => 'ReturnToA', 'reason' => null, 'return' => ['value' => $bValue] + $bEvidence];

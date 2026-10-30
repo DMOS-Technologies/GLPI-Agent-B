@@ -60,6 +60,22 @@ function plugin_agentbdmosassetsync_capture_time(): string
     return (new DateTimeImmutable('now', new DateTimeZone('Asia/Brunei')))->format('Y-m-d\TH:i:sP');
 }
 
+/** Asset snapshots use the same session clock and database timezone as GLPI's Log::history(). */
+function plugin_agentbdmosassetsync_capture_history_time(): string
+{
+    global $DB;
+    $time = $_SESSION['glpi_currenttime'] ?? null;
+    if (!is_string($time) || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\z/D', $time) !== 1) {
+        throw new RuntimeException('Native field history timestamp is unavailable');
+    }
+    $row = $DB->fetchAssoc($DB->doQuery('SELECT UNIX_TIMESTAMP(' . $DB::quoteValue($time) . ') AS `edited_at`'));
+    if (!is_numeric($row['edited_at'] ?? null) || (int) $row['edited_at'] <= 0) {
+        throw new RuntimeException('Native field history timestamp is unavailable');
+    }
+    return (new DateTimeImmutable('@' . (int) $row['edited_at']))->setTimezone(new DateTimeZone('Asia/Brunei'))
+        ->format('Y-m-d\TH:i:sP');
+}
+
 function plugin_agentbdmosassetsync_capture_type(CommonDBTM $storage): string
 {
     return $GLOBALS['plugin_agentbdmosassetsync_fields_classes'][$storage::class] ?? $storage::class;
@@ -220,7 +236,7 @@ function plugin_agentbdmosassetsync_capture_before(CommonDBTM $storage): void
         }
         $GLOBALS['plugin_agentbdmosassetsync_captures'][$key] = ['asset' => clone $asset,
             'storage_fields' => $storage->fields, 'routes' => $routes,
-            'time' => plugin_agentbdmosassetsync_capture_time(), 'rows' => [], 'provenance' => []];
+            'time' => plugin_agentbdmosassetsync_capture_history_time(), 'rows' => [], 'provenance' => []];
         foreach ($routes as $route) {
             if (!$asset->isEntityAssign() || (int) $asset->getEntityID() !== (int) $route['entities_id']) {
                 continue;

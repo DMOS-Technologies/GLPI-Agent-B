@@ -79,20 +79,93 @@ function plugin_agentbdmosassetsync_begin_corrections(array $work, CommonDBTM $a
     });
 }
 
+/** Resolve the same field identifier that GLPI/Fields writes into its parent History. */
+function plugin_agentbdmosassetsync_history_field_id(CommonDBTM $asset, array $descriptor): ?int
+{
+    if ($descriptor['custom_field_id'] !== null && $asset instanceof \Glpi\Asset\Asset) {
+        foreach ($asset::getDefinition()->getCustomFieldDefinitions() as $definition) {
+            if ((int) $definition->getID() === $descriptor['custom_field_id']) {
+                return $definition->getSearchOptionID();
+            }
+        }
+        return null;
+    }
+    if ($descriptor['container_id'] !== null) {
+        $match = null;
+        foreach (PluginFieldsContainer::getAddSearchOptions($asset::class, $descriptor['container_id']) as $id => $option) {
+            if (($option['field'] ?? null) === $descriptor['column']
+                || ($option['linkfield'] ?? null) === $descriptor['column']) {
+                // Fields constructHistory() keeps the last matching option for this storage column.
+                $match = (int) $id;
+            }
+        }
+        return $match !== null && $match > 0 ? $match : null;
+    }
+    [$logType] = $asset->getLogTypeID();
+    foreach (\Glpi\Search\SearchOption::getOptionsForItemtype($logType) as $id => $option) {
+        if (!is_array($option) || !isset($option['table'])) {
+            continue;
+        }
+        // This is Log::constructHistory()'s first-match rule for an ordinary asset field.
+        if ((($option['linkfield'] ?? null) === $descriptor['column'] && $logType === $asset->getType())
+            || (($option['field'] ?? null) === $descriptor['column'] && $option['table'] === $asset::getTable())) {
+            return (int) $id > 0 ? (int) $id : null;
+        }
+    }
+    return null;
+}
+
+/** History dates describe every recorded edit, including sync writes; actors and values are not inspected. */
+function plugin_agentbdmosassetsync_history_time(CommonDBTM $asset, array $descriptor): array
+{
+    global $DB;
+    $unknown = ['changed_at' => null, 'reliable' => false];
+    if (!Log::canView()) {
+        throw new RuntimeException('GLPI History read permission denied');
+    }
+    if ($asset->getID() <= 0 || !$asset->can($asset->getID(), READ)) {
+        throw new RuntimeException('Asset field History read permission denied');
+    }
+    try {
+        $fieldId = plugin_agentbdmosassetsync_history_field_id($asset, $descriptor);
+        if ($fieldId === null) {
+            throw new RuntimeException('Selected field has no supported GLPI History identifier');
+        }
+        [$logType, $logId] = $asset->getLogTypeID();
+        if ($descriptor['container_id'] !== null || $descriptor['custom_field_id'] !== null) {
+            // Fields and core custom fields log directly on their typed parent.
+            [$logType, $logId] = [$asset::class, $asset->getID()];
+        }
+        // A current read avoids an older transaction snapshot after the caller locks current field storage.
+        $row = $DB->fetchAssoc($DB->doQuery('SELECT UNIX_TIMESTAMP(`date_mod`) AS `edited_at` FROM `glpi_logs`'
+            . ' WHERE `itemtype` = ' . $DB::quoteValue($logType) . ' AND `items_id` = ' . (int) $logId
+            . ' AND `id_search_option` = ' . $fieldId . ' AND `linked_action` = 0 AND `itemtype_link` = ' . $DB::quoteValue('')
+            . ' ORDER BY `date_mod` DESC, `id` DESC LIMIT 1 LOCK IN SHARE MODE'));
+    } catch (Throwable $e) {
+        throw new RuntimeException('Selected field GLPI History could not be read', $e->getCode() === 9101 ? 9101 : 0);
+    }
+    if (!$row) {
+        return $unknown;
+    }
+    $timestamp = filter_var($row['edited_at'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    if ($timestamp === false) {
+        throw new RuntimeException('Selected field GLPI History timestamp is unavailable');
+    }
+    $time = (new DateTimeImmutable('@' . $timestamp))->setTimezone(new DateTimeZone('Asia/Brunei'));
+    return ['changed_at' => $time->format('Y-m-d\TH:i:sP'), 'reliable' => true];
+}
+
+/** Retain the existing caller signature; scalar comparison now uses GLPI's field History time. */
 function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset, string $mappingId, $value,
     bool $lockCurrent = false): array
 {
-    if (!Session::haveRight(PluginAgentbdmosassetsyncChange::$rightname, READ)) {
-        return ['changed_at' => null, 'reliable' => false];
-    }
     $route = plugin_agentbdmosassetsync_current_route($work);
     $mappings = plugin_agentbdmosassetsync_mapping_map($route, $work['itemtype']);
     if (!isset($mappings[$mappingId])) {
-        return ['changed_at' => null, 'reliable' => false];
+        throw new RuntimeException('Selected field History mapping is unavailable');
     }
-    $mapping = $mappings[$mappingId];
-    $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
-    return plugin_agentbdmosassetsync_provenance_read($work, $asset, $mapping, $descriptor, $value, $lockCurrent);
+    $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mappings[$mappingId]->b_field, false);
+    return plugin_agentbdmosassetsync_history_time($asset, $descriptor);
 }
 
 function plugin_agentbdmosassetsync_return_value(array $work, stdClass $mapping, int $assetId): array

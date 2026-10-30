@@ -12,6 +12,7 @@ function plugin_init_agentbdmosassetsync()
     require_once __DIR__ . '/inc/evidence.php';
     require_once __DIR__ . '/inc/provenance.php';
     require_once __DIR__ . '/inc/fieldisolation.php';
+    require_once __DIR__ . '/inc/participation.php';
     require_once __DIR__ . '/inc/notes.php';
     require_once __DIR__ . '/inc/capture.php';
     require_once __DIR__ . '/inc/notecapture.php';
@@ -37,7 +38,7 @@ function plugin_version_agentbdmosassetsync()
 {
     return [
         'name' => 'Agent-B-DMOS-AssetSync',
-        'version' => '0.4.1',
+        'version' => '0.6.0',
         'author' => 'DMOS',
         'license' => 'GPLv3+',
         'requirements' => ['glpi' => ['min' => '11.0.7', 'max' => '11.0.99']],

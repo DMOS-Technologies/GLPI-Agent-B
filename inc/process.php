@@ -22,7 +22,7 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
         $rows = iterator_to_array($DB->request(['FROM' => PluginAgentbdmosassetsyncWork::getTable(),
             'WHERE' => ['status' => 'Accepted'], 'ORDER' => 'id ASC', 'LIMIT' => 20]));
         foreach ($rows as $row) {
-            if (plugin_agentbdmosassetsync_field_sync_reconcile_enabled($row)) {
+            if (plugin_agentbdmosassetsync_owned_session_enabled($row)) {
                 if (plugin_agentbdmosassetsync_field_sync_reconcile_task((int) $row['id'])) {
                     ++$count;
                 }
@@ -33,29 +33,7 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
                 continue;
             }
             if ($work->fields['processing_started_at'] !== null) {
-                if (plugin_agentbdmosassetsync_field_sync_enabled($work->fields)) {
-                    plugin_agentbdmosassetsync_field_sync_interrupted($work);
-                } else {
-                    $firstCopy = in_array($work->fields['error'],
-                        ['ASB_FIRST_COPY_IN_FLIGHT', 'ASB_FIRST_COPY_UNCERTAIN'], true);
-                    $updates = ['status' => 'Held', 'error' => $firstCopy ? 'ASB_FIRST_COPY_UNCERTAIN'
-                        : 'Uncertain previous processing: reconcile saved outcomes before issuing new Work'];
-                    if ($firstCopy) {
-                        $pendingResult = json_decode($work->fields['result_json'] ?? '');
-                        if (is_object($pendingResult)) {
-                            $pendingResult->created_b_items_id = null;
-                            $outcomes = is_array($pendingResult->field_outcomes ?? null) ? $pendingResult->field_outcomes : [];
-                            foreach ($outcomes as $outcome) {
-                                if (is_object($outcome) && ($outcome->outcome ?? null) === 'AppliedToB') {
-                                    $outcome->outcome = 'Skipped';
-                                    $outcome->reason = 'ASB_FIRST_COPY_UNCERTAIN: completion was not confirmed';
-                                }
-                            }
-                            $updates['result_json'] = json_encode($pendingResult, JSON_THROW_ON_ERROR);
-                        }
-                    }
-                    $work->saveProcessorFields((int) $row['id'], $updates);
-                }
+                plugin_agentbdmosassetsync_process_interrupted($work);
             } else {
                 if (!$work->saveProcessorFields((int) $row['id'], ['processing_started_at' => Session::getCurrentTime()],
                     plugin_agentbdmosassetsync_field_sync_enabled($work->fields))) {
@@ -79,6 +57,33 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
             }
         }
     }
+}
+
+/** Interrupted ordinary work is never replayed; terminal marker phases are never selected again. */
+function plugin_agentbdmosassetsync_process_interrupted(PluginAgentbdmosassetsyncWork $work): void
+{
+    if (plugin_agentbdmosassetsync_field_sync_enabled($work->fields)) {
+        plugin_agentbdmosassetsync_field_sync_interrupted($work);
+        return;
+    }
+    $firstCopy = in_array($work->fields['error'], ['ASB_FIRST_COPY_IN_FLIGHT', 'ASB_FIRST_COPY_UNCERTAIN'], true);
+    $updates = ['status' => 'Held', 'error' => $firstCopy ? 'ASB_FIRST_COPY_UNCERTAIN'
+        : 'Uncertain previous processing: reconcile saved outcomes before issuing new Work'];
+    if ($firstCopy) {
+        $pendingResult = json_decode($work->fields['result_json'] ?? '');
+        if (is_object($pendingResult)) {
+            $pendingResult->created_b_items_id = null;
+            foreach (is_array($pendingResult->field_outcomes ?? null) ? $pendingResult->field_outcomes : [] as $outcome) {
+                if (is_object($outcome) && ($outcome->outcome ?? null) === 'AppliedToB') {
+                    $outcome->outcome = 'Skipped';
+                    $outcome->reason = 'ASB_FIRST_COPY_UNCERTAIN: completion was not confirmed';
+                }
+            }
+            $updates['result_json'] = json_encode($pendingResult, JSON_THROW_ON_ERROR);
+        }
+    }
+    $work->saveProcessorFields((int) $work->getID(), $updates,
+        plugin_agentbdmosassetsync_participation_enabled($work->fields));
 }
 
 /** Rebuild actual current authorizations; cron/inventory bypasses never enter an asset action. */
@@ -256,11 +261,13 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
     }
     if (plugin_agentbdmosassetsync_field_sync_enabled($record->fields)) {
         plugin_agentbdmosassetsync_process_field_sync($record);
+        plugin_agentbdmosassetsync_participation_process($record);
         return;
     }
     $work = $record->fields;
     $result = ['b_items_id' => null, 'created_b_items_id' => null, 'b_values_for_a' => new stdClass(),
         'covered_change_ids' => [], 'handled_change_ids_done' => [], 'field_outcomes' => []];
+    plugin_agentbdmosassetsync_participation_attach($result, $work);
     $status = 'Done';
     $reason = null;
     $correctionAttempted = false;
@@ -282,6 +289,7 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
         if ($asset === null) {
             $firstCopyStarted = true;
             plugin_agentbdmosassetsync_first_copy($record, $result);
+            plugin_agentbdmosassetsync_participation_process($record);
             return;
         }
         $result['b_items_id'] = (int) $asset->getID();
@@ -379,7 +387,9 @@ function plugin_agentbdmosassetsync_process_existing(PluginAgentbdmosassetsyncWo
     }
     if (!$record->saveProcessorFields((int) $work['id'], ['status' => $status, 'error' => $reason,
         'result_json' => json_encode($result, JSON_THROW_ON_ERROR),
-        'completed_at' => $status === 'Done' ? Session::getCurrentTime() : null])) {
+        'completed_at' => $status === 'Done' ? Session::getCurrentTime() : null],
+        plugin_agentbdmosassetsync_participation_enabled($work))) {
         throw new RuntimeException('Cannot persist final Work outcome; started marker prevents replay');
     }
+    plugin_agentbdmosassetsync_participation_process($record);
 }

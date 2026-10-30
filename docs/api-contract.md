@@ -46,7 +46,27 @@ partial, and all eight direct first-copy checks passed. Clone fault results
 are identified separately. Remaining variants and Controller A integration
 are not certified.
 
+**Scalar History policy (0.6.0, deployed locally; functional checks NOT RUN):**
+[history-contract.md](history-contract.md) replaces scalar genuine-human-edit
+timestamp arbitration with the latest native field History timestamp regardless
+of actor, including sync writes. One side with confirmed History wins over a
+side without History. Both absent or tied different values remain unresolved.
+This changes existing timestamp semantics without new wire keys. Native `logs`
+READ and Controller A timestamp alignment are required; A has not been changed.
+It does not change Notes, save certainty or historical Work outcomes.
+
 ## Contract status and sources
+
+**Optional participation flags (0.5.0, local candidate):**
+[participation-contract.md](participation-contract.md) defines optional Setting
+`participation_flags_json`, immutable Work opt-in `participation_json` and the
+gated `result_json.participation` extension. It is authoritative for exact
+schemas, definition pins, A→B direction signalling, independent marker outcomes,
+durability, upgrade and discovery requirements. Disabled/unopted clients retain
+existing request/result shapes. The authorized
+[local PF runtime ledger](manual-tests.md#optional-participation-flags-local-runtime-verification--29-october-2026)
+records deployment, actual results, candidate corrections and remaining gaps;
+Controller A support is not claimed.
 
 The confirmed requirements below come from [the B spec](../spec-b-agent.md),
 [the A-starts flowchart](asset-sync-starts-in-glpi-a.png), and
@@ -160,6 +180,7 @@ change the public Setting content or let B advance its version.
 | `enabled_itemtypes_json` | `JSON_TEXT`, inner array of unique `ITEMTYPE` strings | Required; `[]` permits disabling all types | A |
 | `field_mappings_json` | `JSON_TEXT`, inner array of mapping objects | Required; `[]` permits no mappings | A |
 | `notes_itemtypes_json` | `JSON_TEXT`, array of unique enabled parent `ITEMTYPE` strings supporting native Notes | Optional; create/upgrade default `[]`; omission on replacement preserves current selection | A |
+| `participation_flags_json` (0.5.0) | nullable `JSON_TEXT`, itemtype groups of exactly two pinned boolean targets | Create omission `[]`; replacement omission preserves; explicit `[]` disables; disabled column omitted from native GET | A; exact schema in participation contract |
 
 Internal-only `evidence_bindings_json` is nullable LONGTEXT, B-owned, initialized
 by the additive upgrade and maintained with Setting publications. GLPI's
@@ -324,6 +345,8 @@ settings GET and no remote lookup by B.
 | `a_change_times_json` | `JSON_TEXT`, object from mapping ID to time-evidence object | Required; `{}` explicitly represents no supplied evidence | A at creation only |
 | `settings_version` | `VERSION` | Required | A at creation only |
 | `handled_change_ids_json` | `JSON_TEXT`, array of distinct positive B Change IDs | Optional; inner default `[]` | A at creation only |
+| `participation_json` (0.5.0) | nullable `JSON_TEXT`, exactly `{"version":1}` | Optional; null/omission preserves legacy behavior; Asset Sync only; hidden from raw GET/search | A at creation only |
+| `participation_state_json` (0.5.0) | nullable `JSON_TEXT`, internal target snapshot/intention/receipt journal | Null for old/unopted requests; hidden from raw GET/search | B only; A may never supply it |
 | `submitted_users_id` | `ID` | Derived from authenticated GLPI user | B only |
 | `submitted_profiles_id` | `ID` | Derived from active GLPI profile | B only |
 | `a_items_id` | `ID` | Derived from validated identity JSON; indexed with route/type | B only |
@@ -365,10 +388,14 @@ For Change identities, `a_items_id` may also be `null` when no A link is known;
 
 A time-evidence object is exactly
 `{"changed_at":"2026-10-24T12:00:00+08:00","reliable":true}`. `changed_at` may
-be `null`; `reliable` is a boolean. Missing mapping entries mean missing
-evidence. A whole-asset modification time or a sync-write time must never be
-presented as a genuine field time. Missing/unreliable evidence is not grounds
-to choose an arbitrary winner for `Both`.
+be `null`; `reliable` is a boolean. For scalar processing on B >=0.6.0,
+[the History policy](history-contract.md) uses the latest recorded field-specific
+History instant, including sync writes. Missing entries or null/false report
+confirmed missing History; unreadable History is an error, not absence. The
+side with a known timestamp wins against confirmed absence on the other; both
+absent or tied times with different values remain Conflict. A whole-asset
+modification time is never substituted. Earlier scalar versions and Notes use
+their separate genuine-edit rules; historical timestamps are not relabelled.
 
 #### Work status vocabulary and transitions
 
@@ -385,18 +412,26 @@ follow approved decisions Q8/Q9.
 Only B may make `Accepted -> Done`, `Accepted -> Held`, or
 `Accepted -> Failed`. No status transition is exposed to A. `Done` is final.
 There is no automatic `Held/Failed -> Accepted` transition. A duplicate POST never reopens work.
+For optional participation, ordinary completion/status and scalar receipts remain
+final. Only the separate participation subtree/journal may advance during the
+initial post-completion marker phase; terminal requests are never reselected for
+flag recovery. A reads flag progress separately from ordinary Work Done. See
+[the participation contract](participation-contract.md).
 The single background worker must use a durable start marker; the absence
 of a public `Processing` status does not permit two workers to apply it twice.
 
 #### Work result object
 
-For Work without non-null `field_sync_json`, `result_json` is `null` until B has
+For Work without non-null `field_sync_json` or `participation_json`, `result_json` is `null` until B has
 evidence to report and, when present, has exactly these properties. Opted-in
 Asset Sync uses the explicitly versioned additional `field_sync` member and
 extended field outcomes defined in [the extension](field-sync-contract.md).
 Version 2 adds only its explicit reconciliation reference to that versioned
 member as defined in [reconciliation-contract.md](reconciliation-contract.md).
 Legacy field outcomes never gain certainty/error-code keys.
+Only explicit `participation_json` opt-in adds `participation`, with its own
+eligibility and per-target certainty. This does not modify scalar outcomes or
+ACK arrays. Its exact schema is in [participation-contract.md](participation-contract.md).
 If an opted-in started Work's retained journal is missing/unreadable, B preserves
 its exact `result_json` bytes and immutable request, changing only status/error
 to Held/`ASB_FIELD_JOURNAL_UNREADABLE`. No reconstructed result or per-field
@@ -577,6 +612,11 @@ The required asset read/create/update and dropdown/Fields permissions depend
 on the enabled types/mappings, and the authorization context follows the approved Q10 rule. No asset delete, purge, transfer, or archive rights are required for
 this integration. There is no separate API-wide entitlement that replaces
 profile and entity checks.
+
+From 0.6.0 scalar History lookup also requires native `logs` READ, verified by
+`Log::canView()`, in addition to actual parent/field READ. Plugin Change READ is
+not a substitute for this native right. An administrator must configure it; B
+does not grant it or treat a denied lookup as missing History.
 
 ## 3. GLPI V1 transport and native response rules
 
@@ -1331,8 +1371,10 @@ case (`operation` omitted defaults to Sync); unknown values produce
   are Holds, never proof of no match. First copy requires a complete,
   unambiguous lookup that positively found nothing.
 - Existing-asset rule `A`: apply A to B. Rule `B`: leave B and return its value
-  to A. Rule `Both`: later genuine per-field time wins; unequal values with
-  equal/missing/unreliable times conflict without changing either field.
+  to A. Rule `Both` on B >=0.6.0: later recorded field-specific History time
+  wins; when exactly one side has History, that side wins. Both absent or tied
+  times with different values remain Conflict. Unreadable History is not absence.
+  Earlier B versions use the historical genuine-only evidence rule.
   Equal values need no write. Unmapped fields remain unchanged.
 - First copy seeds all enabled mapped A fields once regardless of source,
   respects the routed B entity/type, saves verified link evidence, and returns
@@ -1406,6 +1448,46 @@ Age alone does not make work stale. Approved Q9 defines recovery behavior.
 
 ### 5.6 Scalar genuine evidence across Setting versions (0.4.1)
 
+**Version boundary:** the binding/current-value proof rules below describe
+0.4.1–0.5.2 behavior and remain relevant to historical receipts and durable
+save/recovery accounting. From 0.6.0 they do not determine scalar arbitration
+timestamps: [history-contract.md](history-contract.md) is authoritative for that
+decision, including one-sided absence and actor-independent native History.
+Do not reinterpret or rewrite historical results. Whole-snapshot acknowledgement,
+identity, permissions and unknown-write safeguards below remain in force.
+
+**0.5.2 initialization repair:** lifecycle initialization resolves binding metadata
+under an explicitly authorized configuration/entity context, separately from
+permission to write a particular asset. Normal Setting admission and every asset
+save retain their actual permissions. A lifecycle without the required context
+must not silently initialize an empty manifest as ready; no user is impersonated.
+The [guarded upgrade](upgrade-continuity.md) may establish fresh generations for
+previously absent, currently verifiable bindings. It preserves valid unchanged
+generations, and does not rewrite scalarstates, Change history, Work receipts or
+genuine timestamps. Changed, invalid or unavailable old definitions cannot inherit
+proof. Creating a generation does not certify an existing value: fresh valid
+capture/copy evidence or an explicitly resolved current value is still required.
+Workers and ordinary capture do not lazily create binding generations.
+
+For an unequal Both comparison, an unavailable binding produces
+`Conflict/NotAttempted`. Opted-in v1/v2 field outcomes use
+`error_code:"FIELD_BINDING_UNAVAILABLE"` and a safe configuration-specific
+`reason`. The aggregate code remains `EVIDENCE_CONFLICT`, with Work Held and
+independent sibling progress preserved. Legacy result keys are unchanged;
+legacy reasons explain the unavailable binding. Equality still needs no native
+write or new proof. Once a binding is available, genuinely missing/unreliable or
+tied edit evidence continues to use the existing `EVIDENCE_CONFLICT` field code.
+No new request keys, rights, REST resources or endpoints are introduced. A must
+handle/display this additional field code before relying on its distinction;
+this document does not claim Controller A implements it.
+
+The 0.5.1 [controlled offline upgrade protocol](upgrade-continuity.md) adds a
+strictly guarded preservation path for compatible current evidence. It does not
+remove ordinary activation/deactivation invalidation, restore historical proof,
+change A's wire format or treat a maintenance flag as capture continuity.
+Pending/uncertain upgrades fail closed for current-proof lookup; human saves
+remain nonblocking. Its implementation/runtime status is tracked separately.
+
 A settings publication is configuration activity, never a field edit. For an
 unchanged continuously enabled binding, a reliable original field time remains
 usable after a higher Setting version. B does not replace that time with the
@@ -1465,13 +1547,18 @@ candidate cannot be proven unchanged and native validation/no-op processing
 produces no completion hook, its proof may conservatively remain unknown;
 B must not invent a successful capture or interfere with the ordinary save.
 
-Both keeps exactly the existing wire outcomes: equal values → AlreadyEqual
+Historical 0.4.1–0.5.2 arbitration keeps these wire outcomes: equal values → AlreadyEqual
 without save; different values with two reliable genuine times → the strictly
 newer instant wins (B newer → ReturnToA, A newer → AppliedToB); a tie or missing/
 unreliable time → Conflict. Extended fields retain EVIDENCE_CONFLICT and the
 existing certainty schema. Authority A/B, selection, scope/permissions and
 recovery policies are unchanged. Notes have their separate existing evidence
 mechanism and are not changed by this fix.
+
+From 0.6.0, use [the History decision table](history-contract.md#decision-rule)
+instead: actor-independent field History, including the one-sided missing case.
+The outcome/certainty shapes stay unchanged. Current native History time is not
+an assertion that an old Work or its side effects succeeded.
 
 This does not relax Change acknowledgement: automatic correction/coverage
 still requires the exact current-version whole snapshot. A prior-version time

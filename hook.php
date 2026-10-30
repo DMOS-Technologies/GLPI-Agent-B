@@ -3,13 +3,19 @@
 function plugin_agentbdmosassetsync_activate(): void
 {
     require_once __DIR__ . '/inc/evidence.php';
-    plugin_agentbdmosassetsync_evidence_reset();
+    if (!plugin_agentbdmosassetsync_evidence_upgrade_activate()) {
+        plugin_agentbdmosassetsync_evidence_upgrade_block_reset();
+        plugin_agentbdmosassetsync_evidence_reset(null, null, true);
+        plugin_agentbdmosassetsync_evidence_upgrade_clear_after_reset();
+    }
 }
 
 function plugin_agentbdmosassetsync_deactivate(): void
 {
     require_once __DIR__ . '/inc/evidence.php';
+    plugin_agentbdmosassetsync_evidence_upgrade_block_reset();
     plugin_agentbdmosassetsync_evidence_reset();
+    plugin_agentbdmosassetsync_evidence_upgrade_clear_after_reset();
 }
 
 function plugin_agentbdmosassetsync_install()
@@ -28,6 +34,7 @@ function plugin_agentbdmosassetsync_install()
             `notes_itemtypes_json` LONGTEXT NOT NULL,
             `field_mappings_json` LONGTEXT NOT NULL,
             `evidence_bindings_json` LONGTEXT NULL DEFAULT NULL,
+            `participation_flags_json` LONGTEXT NULL DEFAULT NULL,
             PRIMARY KEY (`id`), UNIQUE KEY `route_id` (`route_id`),
             KEY `entities_id` (`entities_id`)",
         'works' => "
@@ -45,6 +52,8 @@ function plugin_agentbdmosassetsync_install()
             `settings_version` INT UNSIGNED NOT NULL,
             `handled_change_ids_json` LONGTEXT NOT NULL,
             `field_sync_json` LONGTEXT NULL DEFAULT NULL,
+            `participation_json` LONGTEXT NULL DEFAULT NULL,
+            `participation_state_json` LONGTEXT NULL DEFAULT NULL,
             `operation` VARCHAR(16) NOT NULL DEFAULT 'Sync',
             `submitted_users_id` INT UNSIGNED NOT NULL DEFAULT 0,
             `submitted_profiles_id` INT UNSIGNED NOT NULL DEFAULT 0,
@@ -122,9 +131,11 @@ function plugin_agentbdmosassetsync_install()
     // Additive upgrades preserve retained request and snapshot payloads.
     $additiveColumns = [
         'settings' => ['notes_itemtypes_json' => 'LONGTEXT NULL DEFAULT NULL',
-            'evidence_bindings_json' => 'LONGTEXT NULL DEFAULT NULL'],
+            'evidence_bindings_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'participation_flags_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
-            'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL'],
+            'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL', 'participation_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'participation_state_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
     ];
     foreach ($additiveColumns as $suffix => $columns) {
@@ -143,8 +154,11 @@ function plugin_agentbdmosassetsync_install()
     require_once __DIR__ . '/inc/fields.php';
     require_once __DIR__ . '/inc/evidence.php';
     foreach ($DB->request(['FROM' => $settingsTable, 'WHERE' => ['evidence_bindings_json' => null]]) as $route) {
+        if (isset($GLOBALS['plugin_agentbdmosassetsync_upgrade_context'])) {
+            continue; // The guarded activator applies its independently checked repair plan.
+        }
         // No historical Change row is backfilled: the upgrade starts a new provable generation.
-        $DB->update($settingsTable, ['evidence_bindings_json' => plugin_agentbdmosassetsync_evidence_publication($route, null)],
+        $DB->update($settingsTable, ['evidence_bindings_json' => plugin_agentbdmosassetsync_evidence_publication($route, null, true)],
             ['id' => (int) $route['id'], 'settings_version' => (int) $route['settings_version'], 'evidence_bindings_json' => null]);
     }
     foreach (plugin_agentbdmosassetsync_rights() as $name) {

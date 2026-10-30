@@ -1,5 +1,589 @@
 # GLPI B manual curl review checklist
 
+## Native field History time — 0.6.0 manual plan
+
+### Local deployment — 29 October 2026 (administrative only)
+
+The authorized guarded upgrade from0.5.2 to0.6.0 completed on localhost:8081,
+Docker `assetsync2-glpib`, GLPI11.0.7/Fields1.24.4. Private database/deployed-plugin/
+candidate backups and operation evidence are under
+`/tmp/agentb-history-deploy-20261029.ipjx2vbg/`.
+`deployment/guarded/` records Ready0.6.0 and retained75/initialized0/unavailable0
+bindings. `deployment/preservation.json` confirms all original columns of1179
+Works,204 Changes,46 Settings,50 Note links and82 scalarstates, plus original
+rights and Works1–7, remained exact. All21 deployed PHP hashes match the
+candidate. No old Work was retried, reset or reopened by this deployment.
+
+`deployment/task-restored.json` confirms idle task51 restored to Waiting1,
+external mode2, frequency60. `deployment/scheduler-after.json` records the
+dedicated scheduler PID55/UID33 with its original command; B returned HTTP200.
+Controller A and hosted environments were untouched. **This is installation/
+preservation evidence, not a functional History-policy test. H01–H12 remain
+NOT RUN.** No fixture writes, automated tests, commits or pushes were performed.
+
+The user-approved 0.6.0 policy compares the latest GLPI History instant for the
+specific scalar field, regardless of the editor or whether the edit came from
+sync. It does not compare the asset's general `date_mod`, polling time, a copied
+original human-edit time or B's internal current-proof generation. **All cases
+below are NOT RUN.** Source review and syntax checks are not runtime passes.
+This is a semantic change to the existing `changed_at`/`reliable` values, not a
+new REST shape. Controller A must supply the corresponding latest field History
+time; its code and deployment have not been changed by this B task.
+
+Use dedicated disposable fixtures and fresh immutable Work IDs only after
+runtime write verification is separately authorized. Do not edit customer assets,
+retry/reopen existing terminal requests, or alter Works 1–7 to exercise a case.
+Keep current route/version, typed parent, entity, actual permissions and the
+existing selected-field request rules. Capture each actual native History entry,
+the new Work's stored field receipt, current values and Change counts. Old
+human/copy proof and Unknown receipts remain retained evidence of their original
+operations; a readable History timestamp does not retroactively resolve them.
+
+Existing native REST V1 readback is unchanged:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H "App-Token: $B_APP_TOKEN" -H "Session-Token: $B_SESSION_TOKEN" \
+  -H 'Accept: application/json' \
+  "$B_V1/PluginAgentbdmosassetsyncWork/$NEW_WORK_ID"
+
+curl --fail-with-body --silent --show-error \
+  -H "App-Token: $B_APP_TOKEN" -H "Session-Token: $B_SESSION_TOKEN" \
+  -H 'Accept: application/json' \
+  "$B_V1/$ITEMTYPE/$B_ITEMS_ID"
+```
+
+For an authorized new disposable Sync, submit the complete prepared v1/v2 or
+legacy request through the same native Work resource using
+`--data-binary @new-disposable-sync.json` with `Content-Type: application/json`.
+Read its actual terminal result; POST acceptance alone is not synchronization.
+Use GLPI's native Historical tab and a private administrator readback to compare
+the exact field/search-option row and timestamp. Do not expose credentials,
+customer values or raw private backups in the ledger.
+
+| Case | Required manual observation | Result |
+|---|---|---|
+| H01 | An unequal Both native scalar uses the latest field-specific History instant. With both sides' times available, newer B returns B's value/time and newer A applies A through the native writer. An unrelated field save does not alter the selected field's arbitration time. | NOT RUN |
+| H02 | Fields text/textarea/dropdown and core custom-asset fields resolve their actual native search-option IDs. A long textarea whose displayed History value is truncated still uses its History timestamp; actor names and displayed value/hash matching are not required. Exercise and identify each actual backend/type rather than claiming blanket coverage. | NOT RUN |
+| H03 | A native sync write's History entry counts as a field edit time under this policy, just as an ordinary user edit does. Neither same-user nor different-user origin changes timestamp selection. Sync still creates no feedback Change for A, and no internal record is falsely relabelled as a human edit. | NOT RUN |
+| H04 | Equal values return AlreadyEqual before timestamp lookup, without redundant native updates, History, `date_mod` changes or feedback. A supported explicit clear is compared/written under the normal clear rules and, when saved, its actual field History time is available. | NOT RUN |
+| H05 | When exactly one side has a field History timestamp and the other is confirmed to have no History entry, the side with the timestamp wins: B-only time returns B; A-only time applies A. Both absent or tied times remain unresolved when values differ. A permission/query/unsupported-option failure is not a confirmed empty History result and must not silently trigger a one-sided winner. A must not mislabel an unreadable timestamp as confirmed absence. No asset-level time, polling time, old proof or guessed current time is substituted. | NOT RUN |
+| H06 | Actual parent/entity and selected-field READ rights, plus native History READ, govern lookup. History denial/read failure is visibly unavailable, never treated as confirmed absence to select a winner. Actual native write denial remains independently enforced; granting History READ alone grants no asset write. | NOT RUN |
+| H07 | SQL TIMESTAMP values are compared as absolute instants, with returned RFC3339 `+08:00` timestamps representing the same instant. Asset Change capture uses the same native session clock GLPI inserts into History, including a long-running request whose current wall clock has advanced. Compare exact Change/History instants under differing server/session display timezones and a non-default offset where available; explicitly record unrun timezone variants. Notes' separate capture clock is unchanged. | NOT RUN |
+| H08 | Explicit selection applies equally under A/B/Both: excluded fields cause no History lookup, arbitration, return or write. Independent verified siblings survive one unresolved field. B-owned returned values carry B's field History time; A-owned writes retain their authority behavior. | NOT RUN |
+| H09 | The selected History row belongs to the correct typed parent and exact native/Fields/custom definition. General asset/subitem/relation log entries are not substituted. Recreated fields, duplicate/ambiguous search options and moved/out-of-scope parents cannot read an unrelated field's time. | NOT RUN |
+| H10 | A delayed Work compares fresh locked values and current field History. Pending/malformed upgrade state remains blocked. History readback never reopens Held/Failed/Unknown Works, resolves an unknown historical commit, licenses uncertain creation, or changes Notes and Suspend/Resume behavior. | NOT RUN |
+| H11 | A successful field or partial selection cannot acknowledge an unresolved mixed Change snapshot. After a new Asset edit, including a long-running save, exact Change/History clock alignment allows the existing whole-snapshot comparison to complete when all supplied fields are actually handled. No acknowledgement predicate is weakened to compensate for clock mismatch. Explicit-ID rules and historical Works, Changes, associations and Works 1–7 remain unchanged. | NOT RUN |
+| H12 | A and B use the same 0.6.0 History-time meaning, including sync-written History, on a fresh A/B integration check. Legacy and v1/v2 result keys remain unchanged. An older A client that supplies original human/copy times is identified as a semantic compatibility gap rather than labelled fully integrated. | NOT RUN |
+
+## Binding initialization repair — 0.5.2 manual plan
+
+The 0.5.2 change addresses missing internal binding registration separately from
+missing genuine edit evidence. **Every functional case below is NOT RUN.** The
+user will perform the functional checks. Source review, syntax checks and a
+successful administrative deployment/readback do not make these runtime cases
+pass. The historical 0.4.1, PF01 and 0.5.1 results below remain unchanged.
+
+Use a disposable route/asset for writes and fresh Work IDs. Do not alter/retry
+historical Held Works, including Works 1–7, or force an away/back edit merely to
+manufacture a timestamp. A genuine later change means a real intended change to
+the value. An unchanged save, a Setting publication and the upgrade itself are
+not human edits. No Controller A code changes are part of this plan.
+
+For REST readback, use the existing V1 base and an authenticated service session:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H "App-Token: $B_APP_TOKEN" -H "Session-Token: $B_SESSION_TOKEN" \
+  -H 'Accept: application/json' \
+  "$B_V1/PluginAgentbdmosassetsyncSetting/$SETTING_ID"
+
+curl --fail-with-body --silent --show-error \
+  -H "App-Token: $B_APP_TOKEN" -H "Session-Token: $B_SESSION_TOKEN" \
+  -H 'Accept: application/json' \
+  "$B_V1/PluginAgentbdmosassetsyncWork/$NEW_WORK_ID"
+```
+
+Prepare a **new** selected Sync using the complete immutable request in
+[the field-isolation examples](field-sync-contract.md#select-name-and-serial-exclude-status)
+or the version 2 reconciliation contract, with the actual current route/version,
+Active parent link, selected mappings, current values and genuine time evidence.
+Submit only that prepared disposable request; an existing accepted Work is never
+edited:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -H "App-Token: $B_APP_TOKEN" -H "Session-Token: $B_SESSION_TOKEN" \
+  -H 'Accept: application/json' -H 'Content-Type: application/json' \
+  --data-binary @new-disposable-sync.json \
+  "$B_V1/PluginAgentbdmosassetsyncWork"
+```
+
+POST acceptance is not success. Read the exact new Work after supported native
+processing, decode its JSON-string `result_json`, and compare native values,
+History, Change rows and the private administrator binding/provenance baseline.
+The internal manifest remains hidden from the public Setting resource. Never
+publish tokens, raw backups or customer values in the result ledger.
+
+| Case | Required manual observation | Result |
+|---|---|---|
+| BI01 | Through the guarded 0.5.1→0.5.2 administrative upgrade, a valid enabled native/Fields mapping with an absent binding receives a fresh generation tied to its actual definition/scope. Existing valid generations remain exact; A-owned Setting content/version stays exact. Capture the before/after private manifest comparison. | NOT RUN |
+| BI02 | All original Works, Changes, associations, scalar states and rights remain exact during binding repair. In particular, a reliable historical Change does not become current proof solely because its value still matches. Old null/current/barrier evidence is not rewritten, and no old Work is reopened. | NOT RUN |
+| BI03 | Administrative install/activation initialization without the required verified metadata context refuses clearly instead of silently certifying an empty configuration as ready. A genuinely unavailable/replaced definition remains unavailable; it does not inherit an old generation. Ordinary human saves and conservative dependency invalidation remain nonblocking. Record the actual native lifecycle/account variant exercised. | NOT RUN |
+| BI04 | Before binding repair, a selected unequal Both field reports per-field `Conflict`/`NotAttempted`/`FIELD_BINDING_UNAVAILABLE` in opted-in v1/v2 results. Its reason identifies configuration/binding repair; the aggregate remains `EVIDENCE_CONFLICT`. Legacy result objects gain no keys. No native writer runs for that field. | NOT RUN |
+| BI05 | After fresh binding registration but before a subsequent genuine edit/copy proof, unequal Both values still conflict with `EVIDENCE_CONFLICT`. A registration token or matching value must not certify the historical time. An unchanged save also does not manufacture a timestamp. | NOT RUN |
+| BI06 | A real subsequent native and Fields human edit captures its original reliable instant under the fresh binding. A distinct current Sync with older reliable A evidence returns the newer B value/time without overwrite. A newer reliable A edit instead applies A and retains A's original time as copied proof. | NOT RUN |
+| BI07 | Equal values in legacy, selected v1 and reconciliation v2 requests return AlreadyEqual without redundant native History, `date_mod`, feedback Change or invented genuine edit/proof. No binding diagnostic overrides equality. Record each protocol/type actually run. | NOT RUN |
+| BI08 | Missing/unreliable or tied genuine times remain unresolved even with a valid binding. A verified sibling still completes when one field has unavailable binding evidence. Excluded mappings remain unread/unwritten, and A/B authority behavior and actual service-account write denial remain unchanged. | NOT RUN |
+| BI09 | A valid higher-version Setting publication preserves unchanged bindings and starts fresh generations for changed definitions/authority/conversion. The administrative metadata path does not grant native/custom asset writes or weaken service-account/native Fields permissions. | NOT RUN |
+| BI10 | Real B/Fields disable-enable, changed/recreated definitions and scope gaps remain conservative. Pending/malformed upgrade markers or a lost guard cannot authorize old proof. Run destructive/fault variants only on a separate disposable clone. | NOT RUN |
+| BI11 | A failed field or partial selection cannot complete an unresolved mixed Change snapshot. A later distinct correctly scoped whole-snapshot request or exact acknowledgement handles only the supplied complete snapshots, preserving original terminal outcomes. No feedback or false human edit is produced by sync. | NOT RUN |
+| BI12 | Lost responses require reading the original new Work before further mutation. A restart preserves Unknown/blocked evidence and original identities. No old creation/recovery request is replayed. The supported offline fence, fresh independent observer and scheduler restoration remain effective. Record unexercised fault boundaries explicitly. | NOT RUN |
+
+### Administrative deployment/readback — 29 October 2026
+
+The user authorized implementation and local deployment, and reserved functional
+testing for themselves. **BI01–BI12 remain NOT RUN.** The following observations
+are administrative deployment and preservation evidence only; they do not prove
+that a later genuine edit, arbitration or Controller A integration has passed.
+
+- MAIN: localhost:8081, Docker `assetsync2-glpib`, GLPI11.0.7,
+  Fields1.24.4, Agent **0.5.2 Active** at
+  `/var/glpi/marketplace/agentbdmosassetsync`. HTTP readback returned200.
+- The existing guarded operator procedure completed0.5.1→0.5.2 with independently
+  verified Ready state. Its private completion report records **16 retained,
+  59 initialized and0 unavailable active bindings**. Setting32's binding count
+  changed from0 to22, including Shared User Email. These are fresh binding
+  registrations; historical edit evidence was not certified by this operation.
+- The immediate pre/post deployment comparison preserves every original column
+  of **1176 Works,203 Changes,46 Settings,50 Note links and82 scalarstates**, apart
+  from the planned B-owned Setting manifest changes. A-owned Setting content
+  and versions, original rights, all16 prior binding entries and Works1–7 are
+  exact. Existing Held Works1150/1152/1155/1158 remained Held and immutable;
+  there was no recovery replay or reset.
+- The original idle automatic action51 was restored through supported native
+  methods to Waiting1, external mode2, frequency60. The dedicated scheduler was
+  observed as PID55/UID33 with its original
+  `/opt/glpi/scheduler.sh --interval 60 --name Agent B Scheduler -- php /var/www/glpi/front/cron.php processWork`
+  command. No Running task was reset.
+- Private evidence root: `/tmp/agentb-bindings-20261029.w1qyi_yj/`.
+  `deployment/guarded/completion.json` and `state.json` record completion;
+  `deployment/preservation.json` records the exact comparisons;
+  `deployment/target-after.log`, `http-after.json`, `task-restored.json` and
+  `scheduler-after.json` record final administrative state. Recoverable private
+  backups are `backup/database.sql`, `deployed-plugin.tar`, `candidate.tar` and
+  `manifest.json`. Do not expose their credentials or raw business data.
+
+The independent reviewer inspected the source changes and these saved deployment
+readbacks. The identified metadata-permission gap was fixed before deployment:
+the administrative path requires real configuration READ and UPDATE permissions,
+and missing metadata READ cannot be swallowed as a per-binding resolution error.
+No functional curl/write test, automated test, Controller A code change, hosted
+deployment, commit or push was performed as part of this follow-up.
+
+## Controlled upgrade evidence continuity — PF01 follow-up
+
+Agent B **0.5.1** adds the explicitly enforced Docker-offline path in
+[upgrade-continuity.md](upgrade-continuity.md). These affected cases are a finite
+manual plan and actual local results. Source review and PHP syntax do not
+make a runtime pass. The earlier PF01 failure below remains historical evidence;
+a guarded follow-up must name its actual procedure and must not imply ordinary
+uncontrolled activation now preserves continuity.
+
+Use a private recoverable database/plugin backup and a fresh baseline of every
+existing request, result, association, current manifest/proof and plugin right.
+Preserve Works 1–7 and all existing recovery requests. Only new disposable routes,
+typed parents, definitions and Work IDs may be used. Fault, real disable/enable
+and deliberately changed-definition checks belong on a separate local B clone,
+not the main preserving deployment. Controller A and hosted systems are excluded.
+
+Run the documented `tools/guarded-upgrade.py` operator entry point; do not replace
+its checks with a maintenance flag, manual version update or copied old manifest.
+Keep the guard/marker/topology/phase evidence private. The native REST calls
+remain the existing V1 Setting, Work and Change calls. For every Work, record its
+POST acceptance, actual restricted background processing and exact subsequent
+GET/native value/History/Change/provenance readback. A lost response requires
+reading the original request before another mutation. No broad worker or old
+terminal request replay is an acceptable shortcut.
+
+| Case | Required affected manual observation | Result |
+|---|---|---|
+| UP01 | Refuse an inactive/version-mismatched/suspended starting package, published database port or unknown/shared network peer before preservation is authorized. Record which actual preconditions were exercised and whether refusal preceded service/source/data changes; do not claim unexercised topology variants. | PARTIAL |
+| UP02 / PF01 | Perform the real supported current-version → 0.5.1 native additive upgrade through the guarded wrapper. Confirm whole B stop/drain, database fence, live guard, pending marker, fresh native installer/activator and independently durable active state. Every original Work/Change/association/scalar-state/right column and unchanged Setting manifest byte remains exact. No historical backfill or new trustworthy generation is manufactured. | PASS |
+| UP03 | Fresh reliable genuine B evidence and reliable copied A evidence seeded before the upgrade remain usable afterward. With differing values and B's newer genuine instant, Both returns B's original value/time to A without overwrite; retained local human history is unchanged. | PASS |
+| UP04 | With differing values and A's genuinely newer supplied instant, Both writes A and retains its original time as copied provenance. The upgrade/sync time is never a new human edit; verified ordinary sibling progress remains independent. | PASS |
+| UP05 | Equal values after the upgrade produce no redundant native update/History, no feedback and no new proof/time. Representative legacy/v1/v2 paths must be identified precisely; do not label an unrun backend or protocol variant passed. | PASS |
+| UP06 | Missing, explicitly unreliable and tied evidence remains unresolved when values differ. Previously invalidated PF01 generations remain invalid even when values match; equality, the upgrade and a matching old hash cannot bootstrap reliability or reopen old recovery requests. | PARTIAL |
+| UP07 | A new verified first copy and an explicitly opted-in participation Sync still preserve original copied times, native verification and final-Done trust. Flags, including AlreadyYes, do not create false human proof or feedback. Unverified first-copy origins remain ineligible. This is a bounded affected regression, not the entire first-copy/PF suite. | PARTIAL |
+| UP08 | A known independent ordinary rejection retains a verified sibling, and partial selection/flag success cannot complete an unresolved mixed Change snapshot. Exact acknowledgement IDs and prior terminal outcomes remain unchanged. | PASS |
+| UP09 | On the clone, ordinary uncontrolled B deactivation, an actual native away/back edit while capture is absent, and native reactivation invalidate old continuity. A persisted marker/Ready state or stale token alone cannot enable preservation. No matching-value inheritance is allowed. | PASS |
+| UP10 | On the clone, a real Fields disable/enable and a changed/replaced/disabled binding invalidate affected proof while unrelated valid native proof stays governed by its own identity. Route/type/mapping gaps still cannot inherit old evidence. Record the actual definition/lifecycle variants exercised. | PARTIAL |
+| UP11 | A Pending, malformed or unreadable upgrade marker makes current-proof lookup unreliable rather than granting reuse. Ordinary human saves still succeed under the established nonblocking capture policy; no fabricated timestamp or winner appears. Source inspection alone is not a marker-failure runtime pass. | PARTIAL |
+| UP12 | On the clone, interrupt before/after source publication, during installation/activation and before final verification/Ready. Record actual reached phases and independent stored state. Unconfirmed operation leaves B stopped/fenced, with Pending where actually durable; no old-generation restore, Work replay or automatic entrypoint restart. | NOT RUN |
+| UP13 | On the clone, lose Ready-CAS acknowledgement or final cleanup confirmation. Independently read actual marker/catalog/guard/snapshot state. A truly committed Ready is not falsely overwritten as Pending, but unconfirmed operator completion still leaves entrypoints fenced/stopped until explicit safe resolution. | NOT RUN |
+| UP14 | On the clone, lose the guard connection/named-lock ownership or attempt an invalid guard protocol transition. The original connection identity cannot silently reconnect/rearm; no stale capability authorizes preservation or further unsafe steps. Recovery conservatively invalidates uncertain continuity before service restoration. | PARTIAL |
+| UP15 | Prove an inactive-context client cannot bootstrap through the original application/database entrypoints during the fence. After success, maintenance runtimes have exited and only fresh B contexts start; a subsequent genuine edit is captured correctly. Final comparison preserves all existing recovery work/Works 1–7 and restores only the idle B task/scheduler's prior configuration. | PARTIAL |
+
+The Docker fence is an explicit scope boundary. Native-host/shared-database
+deployments keep conservative activation unless an equivalently enforced and
+reviewed path exists. This follow-up cannot certify arbitrary privileged SQL,
+unregistered runtimes, other GLPI/Fields patches or A/B end-to-end integration.
+
+### Actual bounded follow-up — 29 October 2026
+
+**Result: 6 PASS, 7 PARTIAL, 2 NOT RUN; no observed failure in the exercised
+follow-up cases.** This resolves PF01 for the documented guarded Docker upgrade,
+not uncontrolled activation. The historical 0.5.0 PF01 FAIL below is retained.
+Private evidence/backups: `/tmp/agentb-pf01-20261029.z4eajiny/`.
+
+- MAIN is localhost:8081, Docker `assetsync2-glpib`, GLPI11.0.7,
+  Fields1.24.4, active Agent0.5.1 in
+  `/var/glpi/marketplace/agentbdmosassetsync`. A separate disposable clone was
+  used for lifecycle/fault checks; its app/database are now stopped and its
+  volumes retained. Controller A and hosted systems were not changed.
+- `deployment/guarded/` records the actual complete oldActive0.5.0→0.5.1
+  stop/fence/guard/native-install/native-activate/Ready path. All21 deployed PHP
+  hashes match the candidate; the guard exited cleanly. The clone's
+  `clone/positive-3/` independently completed the same path. Two earlier clone
+  attempts refused before preservation: image-digest identity and absent-marker
+  iterator handling exposed operator-helper defects, which were fixed and
+  reviewed before the successful candidate deployment. They were real observed
+  refusals, not successful upgrade runs.
+- **UP02 / PF01 PASS:** `main/upgrade-comparison.json` compares the immediate
+  pre-upgrade state: all original columns of1134 Works,200 Changes,46 Settings,
+  50 Note links and55 scalarstates are exact, including every Setting manifest
+  byte and original rights. The clone independently preserved45/45 manifests
+  and all four protected stores (`clone/post-positive-summary.json`). No old
+  manifest/generation backup was restored.
+- **UP03–UP04 PASS:** fresh Work1133 established verified first-copy provenance;
+  Work1134 established newer genuine B native/Fields values before the upgrade.
+  Work1135 returned the exact same `b_values_for_a` values, original timestamps
+  and reliability after the upgrade. Work1143 applied newer reliable A evidence
+  with `VerifiedApplied`; Work1144 returned those copied values with A's original
+  timestamp. `main/proof-summary.json` shows Copied provenance with no local
+  human edit fabricated by the sync.
+- **UP05 PASS:** legacy Work1138, selected v1 Work1136 and reconciliation v2
+  Work1137 returned AlreadyEqual. Native/Fields History, native `date_mod`,
+  scalar proofs and Change rows were unchanged across equality checks. These
+  are actual Computer/native and Fields text cases, not every asset/backend.
+- **UP06 PARTIAL:** Works1139–1142 individually exercised missing B, missing A,
+  explicitly unreliable A and tied reliable times; each remained Held with
+  `EVIDENCE_CONFLICT`/NotAttempted. A first-copy unreliable value stayed unreliable.
+  All prior manifests/proofs were preserved exactly, but no fresh request was
+  issued against a previously PF01-invalidated historical asset to independently
+  exercise that conflict; existing recovery work was deliberately untouched.
+- **UP07 PARTIAL:** new post-upgrade first-copy Work1148 completed with verified
+  participation flags and preserved missing/unreliable evidence. Work1149
+  returned AlreadyEqual/AlreadyYes without changing History, `date_mod`, proof
+  or Changes. Unverified/interrupted first-copy fault variants were not rerun.
+- **UP08 PASS:** Work1145 preserved a verified serial sibling while rejecting an
+  invalid date (`INVALID_VALUE`) and unresolved dropdown (`DROPDOWN_UNRESOLVED`),
+  both NotAttempted; its two flags independently returned SetToYes/VerifiedApplied.
+  Work1146 was Held with `INCOMPLETE_SNAPSHOT` and acknowledged no Change when
+  only part of mixed Change201 was selected, despite AlreadyYes flags. A distinct
+  exact whole-snapshot Work1147 acknowledged only Change201 and completed.
+- **UP01 PARTIAL:** `clone/source-version-refusal/preflight.log` records actual
+  unsupported starting-version refusal. Inactive/suspended packages, published
+  ports and shared-network-peer variants were not all constructed at runtime.
+- **UP09 PASS:** native ordinary B disable, an actual away/back native edit on a
+  new disposable Computer while B was absent, and native reactivation retained
+  zero of10 prior generations. `clone/generation-reset-summary.json` and
+  `clone/fault-results.json` show conservative reset and unchanged protected stores.
+- **UP10 PARTIAL:** actual Fields disable/enable retained30 native tokens exactly
+  and removed all37 prior Fields tokens (`clone/fields-lifecycle-result.json`).
+  Recreated definitions and separate route/type/mapping-change variants were
+  not rerun in this bounded follow-up.
+- **UP11 PARTIAL:** actual malformed and Pending markers closed proof lookup;
+  an ordinary native human save under the malformed marker succeeded. A database
+  permission/query-read failure was not injected.
+- **UP12 and UP13 NOT RUN:** no interruption at source-copy/install/activation/
+  pre-Ready, lost Ready-CAS acknowledgement or uncertain cleanup was injected.
+  Source review of fail-closed paths is not runtime coverage for these windows.
+- **UP14 PARTIAL:** reusing the completed stale guard context was rejected with
+  error9101. A live guard kill/reconnect and every invalid protocol transition
+  were not injected.
+- **UP15 PARTIAL:** the actual successful wrapper stopped the complete original
+  app and maintenance runtimes before fresh restart; genuine native/Fields
+  edits continued to capture, and the dedicated scheduler was restored. No
+  deliberately waiting inactive-context client attack was staged. Final scheduler
+  and preservation closure are recorded below.
+
+`main/final-original-comparison.json` independently compares the actual baseline
+before disposable setup: **all1132 Works,198 Changes,45 Settings,50 Note links,
+49 scalarstates and original rights are exact**, explicitly including Works1–7.
+It also confirms pre-upgrade fixture Work rows stayed immutable. Seventeen new
+fixture Works finished12 Done/5 Held; no owned Accepted Work remained. The five
+Held results are the four intended evidence conflicts and the intended incomplete
+snapshot, not scheduler failures. No broad worker, old request replay/reset,
+uninstall/reinstall or evidence backfill was used.
+
+Final MAIN closure: `main/task-restored.json` verifies native task51 restored to
+Waiting1, external mode2, frequency60 through the supported idle-only helper.
+`main/scheduler-final.log` records the dedicated scheduler PID55/UID33 using the
+original command. The catalog is Active0.5.1; final totals are1149 Works,201
+Changes,46 Settings,50 Note links and61 scalarstates. No Accepted fixture Work
+remained before task restoration. The clone's final summary separately verifies
+its original protected stores exact and both owned containers stopped.
+
+Recoverable private backup references: `backups/` contains the database and
+original deployed plugin, plus `final-candidate.tar` and its source manifest. Source
+review and the named syntax checks are recorded separately in `review/syntax.json`;
+they are not counted as runtime passes. No commit, push or hosted deployment was
+performed. This B-only run does not establish A/B integration readiness.
+
+
+## Optional participation flags local runtime verification — 29 October 2026
+
+The user authorized the 0.5.0 localhost:8081 additive upgrade and PF01–PF24
+manual checks using new disposable fixtures. MAIN is localhost:8081; CLONE is
+the separate localhost:8084 database/files environment used for controlled faults.
+**Final bounded result: 23 PASS, 1 FAIL (PF01).** Source inspection and syntax
+are not runtime passes. Historical source plans and
+MV/FCP evidence below remain unchanged. Controller A and hosted environments were
+not changed; this does not establish A/B end-to-end readiness.
+
+Private evidence/backups: `/tmp/agentb-pf-20261029.uzsca2l7/`. Paths below are
+relative to that private root. Credentials, sessions and raw backups stay private.
+Artifact basenames grouped with a `core/` or `fault/` path use that directory.
+
+### Deployment, preservation and observed correction
+
+- MAIN: Docker `assetsync2-glpib`, GLPI11.0.7, Fields1.24.4, Agent0.5.0 active
+  at `/var/glpi/marketplace/agentbdmosassetsync`. Final source hash count is21.
+- Recoverable backups: database `backup/glpi-before.sql` (41,433,431 bytes),
+  `backup/deployed-plugin/` and `backup/repository-candidate-before.tar`.
+  Hashes are in `backup/manifest.json`. Native additive upgrade/activation used
+  no force/uninstall/reinstall/table erasure.
+- All original columns of1088 Works (including1–7),196 Changes,49 Note links,
+  33 scalarstate rows and original plugin-right rows survived the upgrade.
+  All3 new participation columns were NULL on existing rows. However native
+  activation renewed `evidence_bindings_json` in original Setting42. This
+  **fails PF01's literal unchanged-evidence-column expectation**; no old
+  generation was restored to disguise it. A-owned Setting content/version stayed
+  unchanged. Offline comparison found12 prior generation/hash matches became0;
+  11 of those rows carried reliable-current claims. That is a binding comparison,
+  not a new native-value/permission/origin eligibility test. Preserved stored
+  evidence can consequently be unusable for current Both arbitration until
+  fresh trustworthy evidence exists.
+- Initial valid native REST opt-in was actually rejected400: the admission
+  function called `current_route()` without loading `inc/process.php` in HTTP.
+  Private worker bootstrap loading was not HTTP proof. Root added a reviewed
+  conditional2-line dependency include after the no-optin early return, linted
+  only that changed file and deployed only that file; no lifecycle/schema rerun.
+  Fresh MAIN1091 and CLONE1090 then admitted/processed successfully. Original
+  rejected payloads/404 readback remain; no accepted old request was replayed.
+- Only privately guarded fixture drivers invoked the real processor. The initial
+  selection must match its source batch exactly and is narrowed to owned route,
+  work prefix and IDs>1088. Later permissions/locks/native processing are unchanged.
+  Reviewer inspected both final isolated drivers; initial shared preparation-file
+  overwrite occurred before a worker ran and was corrected by separate paths.
+- Discovery HTTP200 included encoded native custom asset/definition/field classes
+  and Fields metadata under the new normal service profile23 with extra native
+  `config=READ(1)`, not SuperAdmin. This proves this local server/profile only,
+  not a default service account or complete catalog on every deployment.
+
+Evidence: `deployment/upgrade-preservation.json`,
+`deployment/independent-evidence-continuity.json`, `deployment/hash-comparison.json`,
+`deployment/admission-fix-hash-comparison.json`, `deployment/admission-fix-syntax.log`,
+`deployment/after-target-info.json`, `core/early-positive-summary.json`,
+`core/discovery-summary.json`, `core/extra-setup.jsonl`, `fault/evidence.md`.
+
+### PF01–PF24 observed results
+
+| Case | Result | Actual observation / precise boundary |
+|---|---|---|
+| PF01 | FAIL | Native0.4.1→0.5.0 additive upgrade succeeded; all old requests/results/Changes/Note links/scalarstates/rights and Works1–7 stayed exact and new columns null. Native activation changed Setting42 hidden binding generations, so the strict evidence-column-preservation expectation failed as described above. `deployment/upgrade-preservation.json`, `deployment/independent-evidence-continuity.json`. |
+| PF02 | PASS | Disabled firstcopy1089 and enabled-config/unopted v1empty1090 retained legacy/field-sync shapes without participation member. Native disabled Setting GET hid the config. Bounded owner-session trace found0 participation-stack SQL; native whole-row/ordinary metadata reads may intrinsically include other columns. Opted owned-session SQL was not claimed traced. `core/firstcopy-disabled.worker`, `unopted-empty.worker`, matching native GETs. |
+| PF03 | PASS | Fields, core-custom BooleanType1101 and native Monitor have_micro/have_speaker1102 worked through actual normal service permissions/nativeGET. Actual multipleDropdown108 plus19 independent malformed/duplicate/ID/type/inapplicable/overlap cases rejected and retained exact Setting/version. Encoded metadata discovery HTTP200 required configREAD1. `core/config-negative-summary.json`, `cfg-invalid-multiple.body`, `extra-setup.jsonl`, `custom-firstcopy-read.body`, `monitor-firstcopy-read.body`, `discovery-summary.json`. |
+| PF04 | PASS | Equal/decreasing publication rejected; v3 omission preserved exact selection, v4[] hid config without reset and v5 restored. v12 removed only Monitor group and rejected opted Monitor request while existing Yes stayed; v13 publication alone did not set manually cleared flags. `core/settings-version-*.body`, `settings-omission-read.body`, `settings-disabled-v4-read.body`, `after-disable-no-reset.jsonl`, `group-removed-no-reset.jsonl`, `setting-restore-does-not-trigger.jsonl`. |
+| PF05 | PASS | Corrected valid control1091 alongside version/shape/malformed/subject/control/owned-journal/stale/no-group rejects; duplicate Work ID rejected. Native raw response hid request/journal and exact retained request was checked privately. `core/work-negative-summary.json`, `linked-optin-fixed-read.body`. |
+| PF06 | PASS | MAIN1091 POST left flags0/0. Only real worker then produced eligibletrue/VerifiedApplied both1/1, History7→11, no Change and six scalar proofs exact. `core/early-positive-summary.json`, `after-corrected-post.jsonl`, `after-corrected-work.jsonl`. |
+| PF07 | PASS | MAIN1092 selected NameAlreadyEqual and bothAlreadyYes; parent History11→11, current proof exact and zero feedback. `core/already-equal-read.body`, `early-positive-summary.json`. |
+| PF08 | PASS | MAIN1093 invalid date,1094 missing dropdown and1095 scalar-readonly denial each retained verified Name sibling and eligible flag progress (SetToYes/AlreadyYes). Rejected scalars remained NotAttempted. `core/partial-{format,dropdown,permission}-read.body`. |
+| PF09 | PASS | MAIN1096 unavailable target rejected while healthy marker SetToYes;1104 native custom readonly similarly preserved sibling.1126 additionally retained a real Name VerifiedApplied ordinary write while one flag Rejected/NotAttempted and the healthy flag SetToYes. Ordinary Held snapshot state/ACK arrays were unchanged by flags. `core/independent-target-read.body`, `custom-readonly-read.body`, `mixed-correction-read.body`, `after-mixed-correction.jsonl`. |
+| PF10 | PASS | Distinct repaired1097/custom1105 and replacement1113 caught up with empty scalar selection; already-Yes sibling no rewrite, old outcomes retained. `core/independent-repaired-read.body`, `custom-readonly-repaired-read.body`, `replacement-corrected-repair-read.body`. |
+| PF11 | PASS | Genuine B edit/Change197 polling and exact manual-client ACK197, plus no-optin B-authority1120 ReturnToA, left selected markers0/0 and no participation member.1120 retained reliable genuine B time from v10 after unrelated v11 publication. ACK is a B-client assertion, not actual Controller A save proof. `core/human-b-name.jsonl`, `b-only-return-read.body`, `human-change-poll.body`, `human-change-ack.body`, `after-successful-ack.jsonl`. |
+| PF12 | PASS | Valid1122 Note Inventory/1123 Note Sync/1124 Suspend/1125 Resume completed without participation and selected markers stayed0/0. Publications alone did not set flags; non-Asset/control opt-in rejected. Owner-session traces were0 participation-stack SQL. Bounded nontrigger regression, not the full Notes suite. `core/note-*-read.body`, `control-*-read.body`, `after-note-*.jsonl`, `after-control-*.jsonl`, `work-negative-summary.json`. |
+| PF13 | PASS | MAIN verified firstcopy1101 custom/1102native/1103Fields reached ordinaryDone with original copied proof before successful flags. Marker failures did not rewrite creation proof; CLONE controls/unknowns retained ordinaryDone. `core/*firstcopy-read.body`, clone stored outcomes. |
+| PF14 | PASS | CLONE native verification mismatch1104 and association refusal1110 after realadd rolled back and Held without flags; realCOMMIT returnloss1105 supportedrestartHeld, freshlinked1106 could not bless origin (eligiblefalse/PARENT_SCOPE). Finalobserver1107 correctly remained durableDone/positivecreated while initial flags stayed false/Pending. `fault/pf14-*`, protected terminal snapshots. |
+| PF15 | PASS | MAIN definitionreadonly1098 and actual status-override-only readonly1121 allowed flag writes; real container1099/parent1114 and generatedCREATE1110 denials rejected safely. Core customprofile readonly1104 remained denied; ordinary scalar readonly1095 unchanged. Stock generated UPDATE rights inherit parent rights, not an artificial separate policy. `core/*readonly*`, `status-override-created.jsonl`, `actual-parent-denied-read.body`, `real-container-denied-read.body`. |
+| PF16 | PASS | Actual missing-row nativecreate1106 used SQL defaults while invalid second target stayed unattempted;1107 repaired it. Missing mandatory sibling1108 rejected without row, native full repair enabled1109. Actual generatedCREATE denial1110 with parentUPDATE retained stopped before write;1111 repaired. Existing-row partial saves retained siblings. `core/missing-row*-read.body`, `missing-required-rejected-read.body`, `required-row-repaired-read.body`; CLONE1090. |
+| PF17 | PASS | Actual duplicate logical-storage and enabled ordinary target overlap publications rejected for A/B/Both. A separate valid ordinary mapping used uppercase container alias PFCNEWUZ with canonical writable Yes/No field109, resolving to the same selected pfcnewuz binding: proposed v14 PUT returned400/ASB_INVALID_FIELD participation_flags_json, native Setting GET bytes/SHA stayed exact at v13. Definition replacement/pin mismatch also prevented writes (PF18). Direct illegal runtime configuration was not injected; the canonical runtime guard is source-reviewed. No excluded scalar descriptor lookup was added. `core/cfg-invalid-overlap-{A,B,Both}.body`, `cfg-invalid-duplicate-storage.body`, `pf17-container-alias-result.json`, `pf17-container-alias-request.json`, `pf17-alias-{before,after}.body`, `replaced-target-old-pin-read.body`. |
+| PF18 | PASS | Old102 pin rejected after actual owned purge/recreation109 (1112), valid new publication1113 repaired. Container disabled1116/outside1117, custom type disabled1118, stale Setting1119 and moved parent1128 prevented unsafe writes. Metadata/parent restored; original requests retained. `core/replaced-target-old-pin-read.body`, `replacement-corrected-repair-read.body`, `container-*-read.body`, `type-disabled-read.body`, `stale-setting-read.body`, `moved-parent-read.body`, `final-summary.json`. |
+| PF19 | PASS | CLONE actual SIGKILL1091 beforewriter,1093 after realnativeadd/prereceipt and1094 after realCOMMIT retained ordinaryDone/Unknown+Pending. Storage absent for first2;1094 native1/0 persisted. Distinct1092/1095 caught up; original rows exact. `fault/pf19-*.kill.json`, `.events.jsonl`, nativeREST/snapshots. |
+| PF20 | PASS | CLONE realCOMMIT/lostreturn1096, actual nestedtransaction1097, journalsave refusal1098, observerconstruction1099, actualobserverclose/lostconfirmation1100 and actualrouterelease/lostconfirmation1101 retained durableUnknown and stopped mutations. Distinct1102/1103 reconciled current state; old whole rows exact. This is not actual network packet loss. `fault/fault-progress-summary.json`, `pf20-*`. |
+| PF21 | PASS | CLONE1108 paused after ordinaryDone; worker/route owners257/258 observed. Fresh1109 competing worker returned0 and remainedAccepted/unstarted; after release it returnedAlreadyYesBoth with History6→6 and exact native/storage/proof rows. `fault/pf21-summary.json`, events/readbacks. |
+| PF22 | PASS | MAIN marker/equality runs retained proofs/no feedback; CLONE1111 committed a nested mappedName edit under guardtrue. No new Change/Localproof; actual current Name's genuine_time became false/null instead of adopting sync time, with History8→11 showing the real native side effect. Bounded hooks only, not sibling immutability or arbitrary third-party safety. `fault/pf22-summary.json`, snapshots/proof/event files. |
+| PF23 | PASS | MAIN mixed Change198 (Name+Serial) stayed Pending/retry0.1126 actually applied Name with VerifiedApplied while Serial remained excluded, ordinary Held/INCOMPLETE_SNAPSHOT and ACK arrays empty; one flag rejected and the healthy flag SetToYes.1127 flags-only repair left198 Pending and1126 exact. No A save/coverage implementation was tested. `core/human-mixed.jsonl`, `mixed-correction-read.body`, `mixed-change-unacknowledged-read.body`, `mixed-flags-repaired-read.body`, `final-summary.json`. |
+| PF24 | PASS | Final MAIN/CLONE comparisons preserved every original Work/Change/Note link/scalarstate/right row, including exact Works1–7, except the separately failed PF01 hidden Setting42 generation. All40 MAIN and23 CLONE owned Works terminal; original uncertain/held results retained. MAIN idle task restored to Waiting1/mode2/60 with original scheduler alive; CLONE stopped, volume/files retained. `protected-final-comparison.json`, `deployment/task-restoration.json`, `deployment/final-scheduler.json`, `fault/protected-final-comparison.json`. |
+
+### Closure / remaining limits
+
+CLONE is frozen:23 owned Works1089–1111 (20Done/3Held/0Accepted), no owned active
+process or worker/route lock, native automatic action disabled and no scheduler.
+All21 PHP match final repository. Old1088Works/196Changes/49NoteLinks/33scalarstates
+and rights are exact; only known hidden Setting42 lifecycle generation differs.
+Sixteen retained terminal SQL snapshots and four original whole nativeRESTrows
+remained exact through distinct catch-up. Clone containers are stopped, files/
+volume retained. `fault/final-summary.json`, `protected-final-comparison.json`.
+
+MAIN is frozen:40 owned Works1089–1128 (36Done/4Held/0Accepted), Setting44
+version13, new Change197 Done/retry0 through the manual fixture ACK and198
+Pending/retry0 retained. All40 completed fixture row snapshots remain exact.
+The new parents Computer248/249, custom9 and Monitor8 are in owned entity20;
+own user/type/containers/current fields and rights are restored. An intentional
+field102→109 replacement remains explicit rather than rewriting old outcomes.
+`core/final-summary.json`, `core/final-manifest.json`, `core/case-matrix.json`,
+`core/evidence.md`. MAIN now has1128 Works,198 Changes,50 Note links and49
+scalarstates; the original1088/196/49/33 rows remain unchanged. The only original
+Setting difference is the known PF01 hidden generation renewal, not A-owned
+content/version. `protected-final-comparison.json`, `after-runtime.json`.
+
+Root restored only the idle native task51 to state1/Waiting, external mode2,
+frequency60. Original external scheduler PID1325 remains alive with its original
+command. No Running task was reset. Final Agent0.5.0/Fields1.24.4 are active and
+all21 deployed PHP files match repository source.
+`deployment/task-restoration.json`, `deployment/final-scheduler.json`,
+`deployment/final-target-info.json`, `deployment/final-hash-comparison.json`.
+
+Independent review read both actor matrices and actual native outcomes, fault
+events/snapshots, protected comparisons and restoration evidence without replaying
+requests. Initial admission failure was corrected and fresh requests verified;
+PF01's lifecycle continuity failure remains unresolved and must not be hidden by
+restoring old generations. This is not full production or A/B integration approval.
+
+Historical unconfirmed adoption, legacy Held/Failed certainty, mandatory siblings/
+unsupported storage, other GLPI/Fields patches, default-profile discovery access,
+actual network packet loss and arbitrary external hook effects remain outside
+verified coverage. Case-only container alias collision was tested through native
+Setting admission with exact unchanged readback; the separate runtime collision
+guard was not forced by injecting illegal configuration. The custom asset fixture has no native History capacity,
+so its zero History is not proof of absence of writes; native readback/receipts
+were checked, and actual History comparisons use the core/Fields fixtures.
+No automated product tests, Controller A/hosted change, commit or push occurred.
+The source-admission fix was local; no existing recovery request was reset,
+reopened, rewritten or blindly resubmitted.
+
+
+## Optional participation flags source candidate — 29 October 2026
+
+Agent B **0.5.0** adds the opt-in
+[participation contract](participation-contract.md). This section is a manual
+plan, not execution evidence: **every PF case is NOT RUN**. The existing
+localhost:8081 deployment and its MV/FCP results below concern 0.4.1, not this
+extension. No deployment, additive upgrade, runtime configuration/data write or
+worker invocation for this feature is authorized by this implementation task.
+Source review and PHP syntax checks must not be counted as runtime passes.
+
+Before any later approved run, use a separately authorized disposable B fixture
+or clone, confirm GLPI/Fields/Agent versions and active plugin path, take private
+recoverable database/plugin backups, and perform the native additive upgrade.
+Record the original scheduler state and preserve every existing request,
+especially Works 1–7. Use dedicated new routes, entities, parents, two Yes/No
+definitions and unique fresh Work IDs. Never use customer assets or old recovery
+requests as fixtures. Do not run a broad worker merely to execute these cases;
+use approved native/background processing restricted to owned new requests.
+
+Use the actual configured Legacy V1 base in `B_API`, private session/application
+tokens, and owned row IDs in the variables below. The JSON files are operator-
+prepared private request bodies following the exact contract, not committed
+credentials or product test fixtures. Basic native calls are:
+
+```bash
+# Publish a full newer Setting, including JSON-text participation_flags_json.
+curl --silent --show-error --include --request PUT \
+  "$B_API/PluginAgentbdmosassetsyncSetting/$SETTING_ROW" \
+  --header "App-Token: $APP_TOKEN" --header "Session-Token: $SESSION_TOKEN" \
+  --header 'Content-Type: application/json' --data-binary @setting-input.json
+
+# Read back the exact stored enabled selection and settings_version.
+curl --silent --show-error --include \
+  "$B_API/PluginAgentbdmosassetsyncSetting/$SETTING_ROW" \
+  --header "App-Token: $APP_TOKEN" --header "Session-Token: $SESSION_TOKEN"
+
+# New Asset Sync opts in using the JSON string participation_json={"version":1}.
+curl --silent --show-error --include --request POST \
+  "$B_API/PluginAgentbdmosassetsyncWork" \
+  --header "App-Token: $APP_TOKEN" --header "Session-Token: $SESSION_TOKEN" \
+  --header 'Content-Type: application/json' --data-binary @work-input.json
+
+# Acceptance is not success: read the original row after supported processing.
+curl --silent --show-error --include \
+  "$B_API/PluginAgentbdmosassetsyncWork/$WORK_ROW" \
+  --header "App-Token: $APP_TOKEN" --header "Session-Token: $SESSION_TOKEN"
+
+# Native parent readback; Fields additionally requires its actual generated
+# storage itemtype/row obtained from applicable permitted metadata.
+curl --silent --show-error --include "$B_API/$PARENT_ITEMTYPE/$PARENT_ROW" \
+  --header "App-Token: $APP_TOKEN" --header "Session-Token: $SESSION_TOKEN"
+curl --silent --show-error --include "$B_API/$FIELDS_STORAGE_ITEMTYPE/$FIELDS_STORAGE_ROW" \
+  --header "App-Token: $APP_TOKEN" --header "Session-Token: $SESSION_TOKEN"
+```
+
+Record HTTP statuses/native bodies, original immutable request, exact Setting
+version/target definition identities, ordinary status/result and the separate
+`participation` group. Save before/after native values, History, Changes, scalar
+provenance and original Work snapshots privately. For Fields use the actual
+source-verified generated storage resource; do not invent its class/row or
+assume the parent GET contains all plugin values. After a lost response, GET
+the original Work before any further mutation. Each pass requires stored
+outcomes and native reread, not merely POST/PUT success.
+
+| Case | Required manual observation | Result |
+|---|---|---|
+| PF01 | Additively upgrade a disposable prior installation. All old request/result/link/evidence/right columns and Works1–7 remain identical. New configuration/request/journal columns default null; no historical participation is backfilled. | NOT RUN |
+| PF02 | With feature disabled, legacy Setting GET omits the disabled configuration key, Work request/result shapes remain unchanged, and no marker field/definition is read or written. With configuration enabled but Work opt-in omitted/null, flags and legacy result remain unchanged. | NOT RUN |
+| PF03 | Publish exactly two different native/core-custom/Fields Yes/No targets for an enabled type, using actual definition IDs. GET exact enabled JSON text/version. Reject duplicate target IDs, duplicate concrete storage, nonboolean/multiple/inapplicable targets, bad IDs, unknown keys, malformed/null configuration and unsupported type. | NOT RUN |
+| PF04 | Reject an equal/decreasing Setting version. Replacement omission preserves configuration; explicit [] disables it and hides the native response key. Removing a type group stops future flags for it. Never write No or rewrite old outcomes when disabling/removing/reselecting. | NOT RUN |
+| PF05 | Reject malformed/version-unsupported participation_json, Notes/Inventory/control opt-in and client writes to B-owned journal. Reject opt-in without current configured type/version. Retain the exact immutable request; duplicate Work IDs reject rather than upsert. | NOT RUN |
+| PF06 | POST acceptance alone leaves both native flags unchanged. After normal linked Asset Sync reaches its verified ordinary receipt, both No targets become Yes and participation.eligible is true with independent SetToYes/VerifiedApplied outcomes. Flags need no ordinary mapping or A value. | NOT RUN |
+| PF07 | An opted-in valid AlreadyEqual scalar Sync qualifies. Native flag No becomes Yes; an already-Yes flag returns AlreadyYes/VerifiedEqual with no redundant update/History. Ordinary equality/provenance is unchanged. | NOT RUN |
+| PF08 | Reject one ordinary scalar format/dropdown/field-permission value while a sibling succeeds. Verified parent/ordinary processing still permits participation; flag success does not falsely mark the rejected scalar or mixed snapshot complete. | NOT RUN |
+| PF09 | Deny actual write authorization or remove one target definition before processing. Its Rejected/NotAttempted result is independent: the valid target and verified ordinary siblings retain their progress. Reasons/codes expose no credentials, raw diagnostics or customer values. | NOT RUN |
+| PF10 | Repair PF09, then issue a distinct current opted-in linked Sync with field_sync_json version1 and mapping_ids []. It catches up flags without replaying ordinary scalar writes, changing old Work outcomes or submitting synthetic A values. Already-Yes sibling is a no-op. | NOT RUN |
+| PF11 | Native human B edit/capture, Change polling and exact Change ACK alone do not change markers. Explicit B-value collection Sync without participation opt-in also does not change them. A direction assertion is not inferred from HTTP origin or mapping source. | NOT RUN |
+| PF12 | Setting publication, native Notes/Note Inventory and Suspend/Resume produce no flag writes or participation result. Unsupported opt-in rejects, and removal/suspension never automatically resets flags to No. | NOT RUN |
+| PF13 | Verified first-copy success establishes its ordinary final Done receipt and copied proof before marker writes. Subsequent independent marker rejection/unknown cannot downgrade that confirmed creation, rewrite copied timestamps or duplicate the parent. | NOT RUN |
+| PF14 | In an approved disposable fault clone, interrupt/deny first-copy verification, commit, association or final Done observation. Unverified/rolled-back/uncertain parent never becomes participation-eligible and receives no marker mutation, including through a distinct empty-selection request using a positive retained but unconfirmed first-copy association. No old request is reopened or blindly recreated. | NOT RUN |
+| PF15 | Fields Yes/No form/status readonly metadata with actual parent/container/generated-row UPDATE rights permits the marker-only native write. Real generated-row/container/parent denial prevents it. Core custom-profile readonly remains denied. Ordinary scalar readonly behavior is unchanged. | NOT RUN |
+| PF16 | A marker-only Fields container with no row can use a narrow native generated-storage add under verified parent UPDATE, container rights and actual generated CREATE permission, checked transactional/gap-lock isolation, full current validation and SQL defaults. Confirm a positive created row ID, exact owner/container/type/entity and selected Yes reread/receipt. Unsatisfied mandatory siblings or real CREATE denial reject before write without invented sibling values. Existing rows retain partial selected-field input; no merged-container resubmission. Record unavoidable new-row defaults and any native-hook sibling effects honestly. | NOT RUN |
+| PF17 | Reject overlap between a target and an enabled ordinary B scalar mapping for every source A/B/Both, including different selectors resolving to one storage binding. Runtime canonical-selector check, exact Setting version and pinned definitions prevent contradictory writers without resolving unrelated excluded scalar descriptors. | NOT RUN |
+| PF18 | Replace/delete a selected definition, move/disable its container/type, change entity scope or stale the queued Setting. The old configured identity cannot bind to a same-named replacement; no out-of-scope marker write occurs. A valid new publication/request is required after repair. | NOT RUN |
+| PF19 | In an approved fault clone, kill after durable target Unknown intention and before/after native write. Original outcome remains Pending/Unknown as actually durable; no restart converts missing evidence to NotAttempted or reruns the old terminal Work/ordinary writes. Verified ordinary and marker siblings remain intact. | NOT RUN |
+| PF20 | In an approved clone, lose commit/receipt/observer/cleanup confirmation or leak a nested transaction. Further mutations stop; unknown evidence survives. Read original Work and live target before a distinct current check: Yes becomes AlreadyYes, No may receive a fresh Yes attempt. Old uncertainty remains unchanged. | NOT RUN |
+| PF21 | Delay a target phase after ordinary Done while a fresh catch-up is queued. Actual worker/route locking prevents overlapping mutation and the new request rereads locked current state. Terminal ordinary status alone must not be mistaken for finished marker progress. | NOT RUN |
+| PF22 | All marker writes run under sync-origin suppression: zero feedback Changes and no fabricated human timestamps/scalar proof, including indirect save hooks. AlreadyYes creates no redundant History. Recheck mapping-version continuity and first-copy evidence are unchanged. | NOT RUN |
+| PF23 | Mixed Change snapshots remain unresolved until exact ordinary coverage/external ACK requirements are met. Marker eligibility/success cannot acknowledge an excluded/rejected field or alter acknowledged-ID arrays. | NOT RUN |
+| PF24 | At closure compare every original recovery request and Works1–7 with the private baseline. Preserve unknown evidence/fixture results, stop owned fault processes, release owned locks and restore only an idle automatic action to its prior configuration. Do not reset a Running task. | NOT RUN |
+
+The above cases require later separate authorization. No full discovery/UI,
+Controller A scheduling/repair display or A/B end-to-end success can be inferred
+from implementing this B extension or from the earlier 0.4.1 runtime evidence.
+
+Independent source review inspected Setting/schema/version changes, explicit
+Work opt-in and hidden journal, initial-owned-session trigger, first-copy origin
+gate, terminal-only participation metadata update, native/Fields writers,
+permissions/definition locks and interruption evidence. The implementation is
+approved at source level within the documented boundaries. Review corrections
+removed unrelated excluded-scalar descriptor lookup and distinguished known
+route contention from account denial without parsing prose. The final missing-
+row path additionally verifies the returned native row's positive ID, READ,
+parent/type/container/entity and selected Yes before History/receipt completion.
+The original 0.4.1 first-copy final-Done/provenance mechanism is unchanged.
+Provisional target completion stays Unknown until commit, independent visibility
+and route cleanup are confirmed; an unknown target stops further mutations.
+
+This source approval does not verify PF01–PF24 at runtime. Historical unconfirmed
+adoption, legacy Held/Failed certainty, unsupported storage, missing mandatory
+siblings and arbitrary hook effects retain the exact contract limits. No reviewer
+runtime probe, automated test, deployment, data/configuration change or commit
+was performed for this extension.
+
+Root's final static checks passed: PHP syntax for all nine changed PHP files
+using the local GLPI container's PHP parser with source on stdin (no application
+execution or deployment), and `git diff --check`. No automated tests were added
+or run. These checks do not change any PF runtime case from NOT RUN.
+
 ## Mapping-version and first-copy local runtime verification — 29 October 2026
 
 The user authorized the **0.4.1** candidate deployment/additive upgrade on
@@ -1618,6 +2202,7 @@ and concurrency evidence is separately indexed in the R0/R1/R2 section.
 
 | Completed scope | Preserved evidence | Review status |
 |---|---|---|
+| Optional A→B participation flags (0.5.0) | [PF01–PF24 local runtime ledger](#optional-participation-flags-local-runtime-verification--29-october-2026), preserved [source plan](#optional-participation-flags-source-candidate--29-october-2026), [contract](participation-contract.md) | Independent evidence review:23 PASS/1 FAIL (PF01 native-activation binding renewal). Initial actual admission failure corrected and verified with fresh requests; protected Works1–7/old histories retained, scheduler restored. B-only bounded results, not A/B readiness. |
 | Mapping-version continuity and first-copy current proof (0.4.1) | [Current MV/FCP local ledger](#mapping-version-and-first-copy-local-runtime-verification--29-october-2026), private `agentb-firstcopy-mv-20261029.fPFhUh` evidence | Independent source/evidence review; 12 MV cases PASS/4 PARTIAL, all8 FCP cases PASS. Initial created-ID diagnostic failure retained; correction/fresh boundary verification and final protected comparison/scheduler restoration complete. |
 | Install, schema, profile rights, Setting | [foundation-runtime.md](foundation-runtime.md) | Coordinator-preserved initial foundation pass; protected-target initial failure and fix retained |
 | Work admission | [inbound-a-runtime.md](inbound-a-runtime.md) | Independently reviewed 173 curl entries |

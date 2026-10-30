@@ -11,6 +11,15 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
         return 'Agent-B-DMOS-AssetSync Setting';
     }
 
+    public static function unsetUndisclosedFields(&$fields)
+    {
+        parent::unsetUndisclosedFields($fields);
+        $flags = $fields['participation_flags_json'] ?? null;
+        if ($flags === null || (is_string($flags) && json_decode($flags) === [])) {
+            unset($fields['participation_flags_json']);
+        }
+    }
+
     public static function canDelete(): bool { return false; }
     public static function canPurge(): bool { return false; }
     public function pre_deleteItem() { return false; }
@@ -47,7 +56,7 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
 
     private function validateSetting(array $input, bool $creating): void
     {
-        $allowed = array_merge(self::contentFields(), ['route_id', 'notes_itemtypes_json']);
+        $allowed = array_merge(self::contentFields(), ['route_id', 'notes_itemtypes_json', 'participation_flags_json']);
         if (!$creating) {
             $allowed[] = 'id';
         }
@@ -79,6 +88,9 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
         if (array_key_exists('notes_itemtypes_json', $input)) {
             $jsonFields[] = 'notes_itemtypes_json';
         }
+        if (array_key_exists('participation_flags_json', $input)) {
+            $jsonFields[] = 'participation_flags_json';
+        }
         foreach ($jsonFields as $field) {
             try {
                 $decoded[$field] = plugin_agentbdmosassetsync_json($field, $input[$field]);
@@ -96,6 +108,10 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
         $this->validateMappings($decoded['enabled_itemtypes_json'], $decoded['field_mappings_json'], $input['entities_id']);
         if (array_key_exists('notes_itemtypes_json', $decoded)) {
             $this->validateNotes($decoded['enabled_itemtypes_json'], $decoded['notes_itemtypes_json'], $input['entities_id']);
+        }
+        if ($creating && array_key_exists('participation_flags_json', $decoded)) {
+            $this->validateParticipation($decoded['enabled_itemtypes_json'], $decoded['field_mappings_json'],
+                $decoded['participation_flags_json'], $input['entities_id']);
         }
     }
 
@@ -220,6 +236,58 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
         return true;
     }
 
+    private function validateParticipation(array $types, array $mappings, array $groups, int $entity): void
+    {
+        $seenTypes = [];
+        foreach ($groups as $group) {
+            if (!plugin_agentbdmosassetsync_object_keys($group, ['itemtype', 'targets'])
+                || !is_string($group->itemtype) || !in_array($group->itemtype, $types, true)
+                || in_array($group->itemtype, $seenTypes, true)
+                || !is_array($group->targets) || count($group->targets) !== 2) {
+                plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=participation_flags_json');
+            }
+            $seenTypes[] = $group->itemtype;
+            $asset = new ($group->itemtype)();
+            $asset->getEmpty();
+            $asset->fields['entities_id'] = $entity;
+            $targetIds = [];
+            $storage = [];
+            foreach ($group->targets as $target) {
+                if (!plugin_agentbdmosassetsync_object_keys($target, ['target_id', 'b_field', 'definition'])
+                    || !is_string($target->target_id)
+                    || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/D', $target->target_id) !== 1
+                    || in_array($target->target_id, $targetIds, true)
+                    || !$this->validSelector($target->b_field) || !$target->definition instanceof stdClass) {
+                    plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=participation_flags_json');
+                }
+                $targetIds[] = $target->target_id;
+                try {
+                    $field = plugin_agentbdmosassetsync_participation_descriptor($asset, $target);
+                    $key = plugin_agentbdmosassetsync_participation_storage($field);
+                    if (in_array($key, $storage, true)) {
+                        throw new RuntimeException('Participation targets resolve to the same storage');
+                    }
+                    $storage[] = $key;
+                } catch (Throwable $e) {
+                    plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=participation_flags_json');
+                }
+            }
+            foreach ($mappings as $mapping) {
+                if (!$mapping->enabled || $mapping->itemtype !== $group->itemtype) {
+                    continue;
+                }
+                try {
+                    $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+                    if (in_array(plugin_agentbdmosassetsync_participation_storage($field), $storage, true)) {
+                        throw new RuntimeException('Participation target overlaps an enabled mapping');
+                    }
+                } catch (Throwable $e) {
+                    plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=participation_flags_json');
+                }
+            }
+        }
+    }
+
     private function lockRoute(string $route): string
     {
         global $DB;
@@ -251,7 +319,7 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
 
         $raw = $this->clientCreateInput ?? $input;
         $this->clientCreateInput = null;
-        $raw += ['notes_itemtypes_json' => '[]'];
+        $raw += ['notes_itemtypes_json' => '[]', 'participation_flags_json' => '[]'];
         $this->validateSetting($raw, true);
         if (!static::canCreate() || !Session::haveAccessToEntity($raw['entities_id'])) {
             return false;
@@ -303,6 +371,13 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
                     . $input['settings_version'] . ' stored=' . $this->fields['settings_version']);
             }
             $next = array_replace($this->fields, $input);
+            $this->validateParticipation(
+                plugin_agentbdmosassetsync_json('enabled_itemtypes_json', $next['enabled_itemtypes_json']),
+                plugin_agentbdmosassetsync_json('field_mappings_json', $next['field_mappings_json']),
+                $next['participation_flags_json'] === null ? []
+                    : plugin_agentbdmosassetsync_json('participation_flags_json', $next['participation_flags_json']),
+                (int) $next['entities_id']
+            );
             $input['evidence_bindings_json'] = plugin_agentbdmosassetsync_evidence_publication($next, $this->fields);
             $saved = parent::update($input, $history, $options);
             if ($saved) {

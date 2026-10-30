@@ -306,7 +306,7 @@ function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array
 
 /** Fields' public validator accepts partial massive-action input; never merge stored siblings. */
 function plugin_agentbdmosassetsync_field_sync_fields_input(CommonDBTM $asset, array $field, $value,
-    string &$code): array
+    string &$code, bool $participation = false): array
 {
     global $DB;
     $code = 'STORAGE_UNSUPPORTED';
@@ -345,7 +345,8 @@ function plugin_agentbdmosassetsync_field_sync_fields_input(CommonDBTM $asset, a
             $selected['mandatory'] = $override['mandatory'];
         }
     }
-    if ($selected['is_readonly']) {
+    // Fields' Yes/No readonly option is form metadata, not generated-row authorization.
+    if ($selected['is_readonly'] && !($participation && $field['kind'] === 'boolean')) {
         throw new RuntimeException('Selected Fields value is currently read-only');
     }
     $code = 'INVALID_VALUE';

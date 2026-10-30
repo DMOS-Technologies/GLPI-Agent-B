@@ -33,6 +33,43 @@ limits. B-only verification does not certify Controller A integration.
 
 ## Decisions already made
 
+Version 0.6.0 uses native field-specific GLPI History time for scalar comparison,
+regardless of who or what wrote the field. The later time wins; a side with
+confirmed History wins over one without it. Both absent or tied different values
+remain unresolved. This explicitly supersedes genuine-human/copy-provenance
+timestamp arbitration, while leaving durable save certainty, sync capture
+suppression and exact acknowledgement rules intact. See
+[docs/history-contract.md](docs/history-contract.md). The authorized localhost
+deployment has administrative preservation/readback evidence; functional H01–H12
+are NOT RUN. No Controller A code changes were performed.
+
+Version 0.5.2 separates lifecycle binding metadata initialization from asset-write
+permissions and adds explicit unavailable-binding diagnostics. Its controlled
+offline upgrade can establish fresh missing bindings, preserving valid existing
+ones and all historical evidence without certifying old values. No worker or
+human-save hook repairs configuration implicitly. Current genuine evidence is
+still required after repair. The user will perform the new manual sync checks;
+installation/readback is not an integration pass.
+
+Version 0.5.1 adds an optional
+[controlled offline upgrade](docs/upgrade-continuity.md) for unchanged compatible
+current evidence. Positive runtime/database fencing and live guard verification
+are required. Ordinary activation, real disable/capture gaps and unknown
+completion still invalidate or block trust. Existing invalid history is never
+retroactively certified, and no A wire change or human-save blocking is added.
+
+The optional 0.5.0 A→B participation extension is specified in
+[docs/participation-contract.md](docs/participation-contract.md). A selects two
+actual B boolean targets per route/parent type, independently of scalar mappings,
+and explicitly opts an A→B Asset Sync Work into marker processing. B sets Yes
+only after ordinary processing establishes a verified permitted parent and
+durable completion, including AlreadyEqual/independent scalar failures. Flags
+never mean whole-asset success, never reset to No, never acknowledge Changes and
+never create false human evidence. Non-opted requests, Notes and controls retain
+existing behavior. This remains a candidate; its authorized
+[local PF ledger](docs/manual-tests.md#optional-participation-flags-local-runtime-verification--29-october-2026)
+records actual verification outcomes and remaining gaps, not Controller A readiness.
+
 - **A reaches B only through GLPI's built-in REST API, on plugin records.** B adds no custom HTTP routes and no custom authentication. A creates, reads, and updates records that B's plugin defines. B's behavior comes from validation inside those record classes and from a background task.
 - **All asset types must be supported by B.** The controller (A) chooses which asset types sync for each route. B never chooses. B only enforces the list of enabled types in its saved settings.
 - **First-copy creation is required for the next release.**
@@ -183,8 +220,9 @@ and processing rules above remain unchanged.
 An excluded mapping is not explicitly described, read, converted, arbitrated,
 returned or written, regardless of A/B/Both source. It remains configured and
 is not cleared. Selected A/Both mappings missing a value receive a structured
-prewrite rejection; selected siblings can still proceed. Missing genuine Both
-time evidence retains normal conflict rules. Supported explicit scalar null
+prewrite rejection; selected siblings can still proceed. Both timestamp handling
+follows the 0.6.0 History policy (or genuine-only rules on older versions).
+Supported explicit scalar null
 clears remain distinct from omission/exclusion; dropdown null/empty is rejected.
 
 Opted-in field outcomes identify a prewrite rejection (`NotAttempted`), verified
@@ -243,14 +281,14 @@ The new Work validates the current Setting and its enabled selected mappings;
 the old settings version may be older after repair but cannot exceed the new
 request's version. The reference records
 lineage, never authority to reuse stale values, old field bindings or old edit
-times. A supplies fresh current intent and genuine per-field evidence. There
+times. A supplies fresh current intent and the current policy's field timestamps. There
 is no B field named source_timestamp or parent_change_id, and a whole asset's
-date_mod or reconciliation time must never replace genuine field evidence.
+date_mod or reconciliation time must never replace a field-specific timestamp.
 
 B rechecks the terminal reference and retained Active link in the worker, then
 compares only selected live values under the normal locks. A-owned differences
-may be saved, B-owned values return to A, and Both retains genuine-evidence
-arbitration. Equal values require no native save. Structured outcomes describe
+may be saved, B-owned values return to A, and Both uses the 0.6.0 History
+policy (genuine-only evidence on older versions). Equal values require no native save. Structured outcomes describe
 this new operation only; VerifiedEqual now is not proof that the old Work
 succeeded or that every prior native-hook effect is resolved. A records incidents
 and schedules further fresh attempts; B adds no orchestration or callback.
@@ -302,7 +340,7 @@ GLPI registers plugin hooks per asset type. Register the hook for every supporte
 3. Is the asset in a routed B entity? No: stop.
 4. Queue only changes to **enabled mapped fields**. Queue an edit to an A-owned field too, because B may need correcting.
 5. Nothing eligible: stop. Create no Change record.
-6. Each queued field stores the **original change time of the genuine edit**: the moment a person changed that field. Do not store a whole-asset timestamp, and do not store the time of a sync write.
+6. Each queued field stores its underlying save time, never a whole-asset timestamp. Scalar 0.6.0 capture uses the same native GLPI session clock as History, converted to +08:00; actual History is read separately for arbitration. Sync-origin suppression above still prevents feedback Changes. Older scalar captures used a separate genuine-save clock; historical rows are unchanged.
 
 ---
 
@@ -312,11 +350,11 @@ GLPI registers plugin hooks per asset type. Register the hook for every supporte
 |---|---|
 | **A** | B receives A's value. A stays unchanged, even if B was edited more recently. |
 | **B** | B stays unchanged. A receives B's value (returned in the Work result). Starting the sync from A does not reverse this. |
-| **Both** | The newer genuine field change wins. Compare per-field change times only. |
+| **Both** | On B >=0.6.0 compare native field History, regardless of actor: newer wins, or the only side with History wins. Earlier versions compare genuine-edit evidence. |
 
 Additional rules:
-- **Both, cannot decide:** values differ and change times are equal, missing, or unreliable. Keep both values unchanged and record a visible field conflict.
-- **Setting publications are not edits (0.4.1):** preserve reliable original
+- **Both, cannot decide:** on 0.6.0 values differ and both History times are absent or tied. Keep both values unchanged and record a visible conflict. Unreadable History is an error, not absence. Older versions also conflict on one-sided missing genuine evidence.
+- **Historical provenance (0.4.1–0.5.2, retained for receipts/recovery):** preserve reliable original
   scalar evidence across an unchanged continuously enabled mapping using actual
   binding identity, route/typed-parent/entity scope and internal continuity
   metadata. A version increase alone must not discard a newer genuine edit.
@@ -438,7 +476,7 @@ current decision record and supersedes defaults where it provides an answer.
 1. **ANSWERED:** correction work is a normal Work record with an optional `handled_change_ids` field.
 2. **Status names.** Default: Work = Accepted, Done, Held, Failed. Change = Pending, Done. The contract step may refine them.
 3. **Several edits to one field before A reads?** Default: one Change record per genuine save. No merging.
-4. **ANSWERED:** genuine field evidence uses Brunei RFC 3339 `+08:00` timestamps; clocks are trusted. Compare instants. No manual-edit cooldown; equal/missing/unreliable differing values conflict. Native GLPI metadata follows its installed convention.
+4. **ANSWERED:** field timestamps use Brunei RFC3339 `+08:00`; clocks are trusted and there is no edit cooldown. Scalar 0.6.0 uses actor-independent field History with one-sided fallback; both absent/tied different values conflict. Older scalar versions and Notes retain their genuine-edit policy. Native GLPI metadata follows its installed convention.
 5. **ANSWERED:** all asset types must be supported. The controller selects which types sync.
 6. **ANSWERED:** first-copy creation is required for the next release.
 7. **Settings version mismatch on arriving work.** Default: hold with a visible status. Do not write.

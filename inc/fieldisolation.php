@@ -89,8 +89,17 @@ function plugin_agentbdmosassetsync_field_sync_journal(array $work): ?array
         if ($options->version === 2) {
             $syncKeys[] = 'reconcile_work_id';
         }
-        if (!plugin_agentbdmosassetsync_object_keys($journal, ['b_items_id', 'created_b_items_id', 'b_values_for_a',
-            'covered_change_ids', 'handled_change_ids_done', 'field_outcomes', 'field_sync'])
+        $resultKeys = ['b_items_id', 'created_b_items_id', 'b_values_for_a',
+            'covered_change_ids', 'handled_change_ids_done', 'field_outcomes', 'field_sync'];
+        if (plugin_agentbdmosassetsync_participation_enabled($work)) {
+            $state = plugin_agentbdmosassetsync_participation_state($work);
+            if ($state === null || json_encode($journal->participation ?? null, JSON_THROW_ON_ERROR)
+                !== json_encode($state['progress'], JSON_THROW_ON_ERROR)) {
+                return null;
+            }
+            $resultKeys[] = 'participation';
+        }
+        if (!plugin_agentbdmosassetsync_object_keys($journal, $resultKeys)
             || !plugin_agentbdmosassetsync_object_keys($journal->field_sync, $syncKeys)
             || $journal->field_sync->version !== $options->version
             || ($options->version === 2 && $journal->field_sync->reconcile_work_id !== $options->reconcile_work_id)
@@ -169,6 +178,12 @@ function plugin_agentbdmosassetsync_field_sync_reconcile_enabled(array $work): b
     return $options instanceof stdClass && ($options->version ?? null) === 2;
 }
 
+function plugin_agentbdmosassetsync_owned_session_enabled(array $work): bool
+{
+    return plugin_agentbdmosassetsync_field_sync_reconcile_enabled($work)
+        || plugin_agentbdmosassetsync_participation_enabled($work);
+}
+
 /** Fresh connections need the same native read decoding established during GLPI kernel boot. */
 function plugin_agentbdmosassetsync_field_sync_reconcile_initialize(DBmysql $connection, string $lock, int $ownerId): void
 {
@@ -189,7 +204,7 @@ function plugin_agentbdmosassetsync_field_sync_reconcile_initialize(DBmysql $con
 function plugin_agentbdmosassetsync_field_sync_reconcile_guard(array $work, bool $lockWork = false): void
 {
     global $DB;
-    if (!plugin_agentbdmosassetsync_field_sync_reconcile_enabled($work)) {
+    if (!plugin_agentbdmosassetsync_owned_session_enabled($work)) {
         return;
     }
     $context = $GLOBALS['plugin_agentbdmosassetsync_reconcile_context'] ?? null;
@@ -211,7 +226,8 @@ function plugin_agentbdmosassetsync_field_sync_reconcile_guard(array $work, bool
             }
             foreach (['work_id', 'route_id', 'itemtype', 'a_entities_id', 'entities_id', 'a_items_id',
                 'settings_version', 'submitted_users_id', 'submitted_profiles_id', 'subject', 'operation',
-                'identity_json', 'a_values_json', 'a_change_times_json', 'handled_change_ids_json', 'field_sync_json'] as $key) {
+                'identity_json', 'a_values_json', 'a_change_times_json', 'handled_change_ids_json', 'field_sync_json',
+                'participation_json'] as $key) {
                 if ((string) $current[$key] !== (string) $work[$key]) {
                     throw new RuntimeException('Reconciliation immutable request changed');
                 }
@@ -225,7 +241,7 @@ function plugin_agentbdmosassetsync_field_sync_reconcile_guard(array $work, bool
 /** A fresh observer cannot mistake this writer's uncommitted rows for durable proof. */
 function plugin_agentbdmosassetsync_field_sync_reconcile_visible(array $work, array $expected): void
 {
-    if (!plugin_agentbdmosassetsync_field_sync_reconcile_enabled($work)) {
+    if (!plugin_agentbdmosassetsync_owned_session_enabled($work)) {
         return;
     }
     plugin_agentbdmosassetsync_field_sync_reconcile_guard($work);
@@ -295,7 +311,7 @@ function plugin_agentbdmosassetsync_field_sync_reconcile_task(int $id): bool
         if ($work->getFromDB($id) && $work->fields['status'] === 'Accepted') {
             plugin_agentbdmosassetsync_field_sync_reconcile_guard($work->fields);
             if ($work->fields['processing_started_at'] !== null) {
-                plugin_agentbdmosassetsync_field_sync_interrupted($work);
+                plugin_agentbdmosassetsync_process_interrupted($work);
             } else {
                 $started = Session::getCurrentTime();
                 if (!$work->saveProcessorFields($id, ['processing_started_at' => $started], true)) {
@@ -303,7 +319,7 @@ function plugin_agentbdmosassetsync_field_sync_reconcile_task(int $id): bool
                 }
                 plugin_agentbdmosassetsync_field_sync_reconcile_visible($work->fields,
                     ['status' => 'Accepted', 'processing_started_at' => $started]);
-                plugin_agentbdmosassetsync_process_field_sync($work);
+                plugin_agentbdmosassetsync_process_existing($work);
             }
             plugin_agentbdmosassetsync_field_sync_reconcile_visible($work->fields,
                 array_intersect_key($work->fields, array_flip(['status', 'result_json', 'error', 'completed_at'])));
@@ -356,7 +372,7 @@ function plugin_agentbdmosassetsync_field_sync_route_action(array $work, callabl
         throw new RuntimeException('Route lock acquisition is uncertain; stop this worker', 9101, $e);
     }
     if ((int) ($row['acquired'] ?? 0) !== 1) {
-        throw new RuntimeException('Route is busy');
+        throw new RuntimeException('Route is busy', 9104);
     }
     $failure = null;
     $value = null;
@@ -717,7 +733,7 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
         }
     } else {
         plugin_agentbdmosassetsync_field_sync_outcome($result, $id, $decision['outcome'], $decision['certainty'],
-            $decision['outcome'] === 'Conflict' ? 'EVIDENCE_CONFLICT' : null, $decision['reason']);
+            $decision['outcome'] === 'Conflict' ? ($decision['error_code'] ?? 'EVIDENCE_CONFLICT') : null, $decision['reason']);
         if ($decision['return'] !== null) {
             $result['b_values_for_a']->$id = $decision['return'];
         }
