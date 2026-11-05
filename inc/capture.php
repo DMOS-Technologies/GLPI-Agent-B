@@ -144,12 +144,20 @@ function plugin_agentbdmosassetsync_capture_input_unchanged(CommonDBTM $storage,
         if (!array_key_exists($column, $storage->input)) {
             return false;
         }
-        $before = $descriptor['custom_field_id'] !== null ? ($asset->fields[$column] ?? null)
-            : ($storage->fields[$column] ?? $descriptor['sql']['Default']);
+        if ($descriptor['custom_field_id'] !== null
+            && !array_key_exists($descriptor['column'], $storage->fields)) {
+            throw new RuntimeException('Custom field storage column is missing');
+        }
+        $before = $descriptor['custom_field_id'] !== null
+            ? plugin_agentbdmosassetsync_custom_stored_value($descriptor, $storage->fields[$descriptor['column']])
+            : (array_key_exists($column, $storage->fields) ? $storage->fields[$column] : $descriptor['sql']['Default']);
         $incoming = $storage->input[$column];
         $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
         $incoming = plugin_agentbdmosassetsync_capture_input_value($descriptor, $incoming);
         if ($descriptor['kind'] === 'dropdown') {
+            if (($before === null || $before === 0) && ($incoming === null || $incoming === 0)) {
+                return true;
+            }
             return $before === $incoming; // Equal labels do not prove equal selected option IDs.
         }
         return plugin_agentbdmosassetsync_scalar_equal(plugin_agentbdmosassetsync_field_value($descriptor, $before),
@@ -183,6 +191,9 @@ function plugin_agentbdmosassetsync_capture_input_value(array $descriptor, $valu
         }
     }
     if ($descriptor['kind'] === 'dropdown') {
+        if ($value === null) {
+            return null;
+        }
         if (is_string($value) && preg_match('/\A[0-9]+\z/D', $value) === 1) {
             $value = strlen($value) <= 10 ? (int) $value : $value;
         }
@@ -361,6 +372,16 @@ function plugin_agentbdmosassetsync_capture_collect(int $key, CommonDBTM $storag
                         continue;
                     }
                     $value = plugin_agentbdmosassetsync_capture_value($storage, $asset, $descriptor);
+                    if ($value === null && plugin_agentbdmosassetsync_capture_null_input($storage, $descriptor)) {
+                        $column = $descriptor['column'];
+                        $before = array_key_exists($column, $capture['storage_fields'])
+                            ? $capture['storage_fields'][$column] : $descriptor['sql']['Default'];
+                        $before = plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
+                        if ($before === null || ($descriptor['kind'] === 'dropdown' && $before === 0)) {
+                            plugin_agentbdmosassetsync_provenance_restore($proof);
+                            continue;
+                        }
+                    }
                     $capture['rows'][$route['route_id']] ??= ['route' => $route, 'identity' => $identity, 'fields' => []];
                     $capture['rows'][$route['route_id']]['fields'][$mapping->mapping_id] = [
                         'value' => $value, 'changed_at' => $capture['time'], 'reliable' => true];
@@ -376,35 +397,54 @@ function plugin_agentbdmosassetsync_capture_collect(int $key, CommonDBTM $storag
     }
 }
 
+/** SQL NULL's native input token may remain in model memory after the database saved null. */
+function plugin_agentbdmosassetsync_capture_null_input(CommonDBTM $storage, array $descriptor): bool
+{
+    $column = $descriptor['column'];
+    return $descriptor['custom_field_id'] === null && $descriptor['sql']['Null'] === 'YES'
+        && array_key_exists($column, $storage->input) && array_key_exists($column, $storage->fields)
+        && in_array($storage->input[$column], ['NULL', 'null'], true)
+        && in_array($storage->fields[$column], ['NULL', 'null'], true);
+}
+
 function plugin_agentbdmosassetsync_capture_changed(CommonDBTM $storage, array $capture, array $descriptor): bool
 {
     $column = $descriptor['column'];
     $changed = in_array($column, $storage->updates ?? [], true);
     if ($descriptor['custom_field_id'] !== null) {
-        $name = $descriptor['value_column'];
-        $values = json_decode($storage->fields[$column], true, 512, JSON_THROW_ON_ERROR);
-        $after = $descriptor['custom_type']->formatValueFromDB($values[$descriptor['custom_field_id']] ?? null);
-        return $changed && ($capture['asset']->fields[$name] ?? null) !== $after;
+        if (!$changed) {
+            return false;
+        }
+        if (!array_key_exists($column, $capture['storage_fields']) || !array_key_exists($column, $storage->fields)) {
+            throw new RuntimeException('Custom field storage column is missing');
+        }
+        $before = plugin_agentbdmosassetsync_custom_stored_value($descriptor, $capture['storage_fields'][$column]);
+        $after = plugin_agentbdmosassetsync_custom_stored_value($descriptor, $storage->fields[$column]);
+        return !plugin_agentbdmosassetsync_scalar_equal($before, $after);
     }
     if (!$changed && (isset($storage->input['id']) || !array_key_exists($column, $storage->input))) {
         return false;
+    }
+    if (plugin_agentbdmosassetsync_capture_null_input($storage, $descriptor)) {
+        return true; // Verify the fresh database value before treating a token as an actual null.
     }
     $before = array_key_exists($column, $capture['storage_fields'])
         ? $capture['storage_fields'][$column] : $descriptor['sql']['Default'];
     $before = $before === null ? null : plugin_agentbdmosassetsync_capture_input_value($descriptor, $before);
     $after = plugin_agentbdmosassetsync_capture_input_value($descriptor, $storage->fields[$column]);
+    if ($descriptor['kind'] === 'dropdown' && ($before === null || $before === 0)
+        && ($after === null || $after === 0)) {
+        return false;
+    }
     return $before !== $after;
 }
 
 function plugin_agentbdmosassetsync_capture_value(CommonDBTM $storage, CommonDBTM $asset, array $descriptor)
 {
-    $saved = $storage->fields[$descriptor['column']];
-    if ($descriptor['custom_field_id'] !== null) {
-        $values = json_decode($saved, true, 512, JSON_THROW_ON_ERROR);
-        $saved = $descriptor['custom_type']->formatValueFromDB($values[$descriptor['custom_field_id']] ?? null);
+    if (!array_key_exists($descriptor['column'], $storage->fields)) {
+        throw new RuntimeException('Field storage column is missing');
     }
-    $value = plugin_agentbdmosassetsync_field_value($descriptor,
-        plugin_agentbdmosassetsync_capture_input_value($descriptor, $saved));
+    $saved = $storage->fields[$descriptor['column']];
     $class = $descriptor['storage_class'];
     $stored = new $class();
     $found = $descriptor['container_id'] === null ? $stored->getFromDB($asset->getID())
@@ -412,8 +452,23 @@ function plugin_agentbdmosassetsync_capture_value(CommonDBTM $storage, CommonDBT
     if (!$found) {
         throw new RuntimeException('Field storage row is missing');
     }
+    if (!array_key_exists($descriptor['column'], $stored->fields)) {
+        throw new RuntimeException('Field storage column is missing');
+    }
+    if (plugin_agentbdmosassetsync_capture_null_input($storage, $descriptor)
+        && $stored->fields[$descriptor['column']] === null) {
+        $saved = null;
+    }
+    if ($descriptor['custom_field_id'] !== null) {
+        $saved = plugin_agentbdmosassetsync_custom_stored_value($descriptor, $saved);
+    }
+    $value = plugin_agentbdmosassetsync_field_value($descriptor,
+        plugin_agentbdmosassetsync_capture_input_value($descriptor, $saved));
+    $reread = $descriptor['custom_field_id'] !== null
+        ? plugin_agentbdmosassetsync_custom_stored_value($descriptor, $stored->fields[$descriptor['column']])
+        : $stored->fields[$descriptor['value_column']];
     $reread = plugin_agentbdmosassetsync_field_value($descriptor,
-        plugin_agentbdmosassetsync_capture_input_value($descriptor, $stored->fields[$descriptor['value_column']]));
+        plugin_agentbdmosassetsync_capture_input_value($descriptor, $reread));
     if ($value !== $reread) {
         throw new RuntimeException('Saved field changed before capture verification');
     }

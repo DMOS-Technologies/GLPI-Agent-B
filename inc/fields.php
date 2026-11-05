@@ -45,6 +45,7 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
     $kind = null;
     $dropdown = null;
     $containerId = null;
+    $required = false;
     if ($selector->kind === 'fields') {
         if (!Plugin::isPluginActive('fields') || !class_exists('PluginFieldsContainer')) {
             throw new RuntimeException('Fields plugin is unavailable');
@@ -76,6 +77,7 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
             throw new RuntimeException('Fields definition missing or ambiguous: ' . $column);
         }
         $field = reset($rows);
+        $required = !empty($field['mandatory']);
         if (($forWrite && !$participation && (int) $field['is_readonly']) || (int) $field['multiple']) {
             throw new RuntimeException('Fields definition is read-only or multiple');
         }
@@ -94,6 +96,7 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
             foreach ($asset::getDefinition()->getDecodedFieldsField() as $definition) {
                 if ($definition['key'] === $column) {
                     plugin_agentbdmosassetsync_custom_options($definition['field_options'] ?? [], $forWrite, $metadataOnly);
+                    $required = !empty($definition['field_options']['required']);
                 }
             }
         }
@@ -135,10 +138,24 @@ function plugin_agentbdmosassetsync_field_descriptor(CommonDBTM $asset, stdClass
     }
     return ['storage_class' => $class, 'table' => $class::getTable(), 'column' => $column,
         'kind' => $kind, 'dropdown_class' => $dropdown, 'container_id' => $containerId,
-        'custom_field_id' => null, 'value_column' => $column, 'sql' => $sql];
+        'custom_field_id' => null, 'value_column' => $column, 'sql' => $sql, 'required' => $required];
 }
 
-/** Return transport values. Dropdowns always leave B as readable local labels. */
+/** Pin Work semantics at admission, including requests accepted before the additive upgrade. */
+function plugin_agentbdmosassetsync_work_field(array $work, CommonDBTM $asset, stdClass $selector,
+    bool $forWrite = true): array
+{
+    $field = plugin_agentbdmosassetsync_field_descriptor($asset, $selector, $forWrite);
+    $policy = (int) ($work['dropdown_empty_version'] ?? 0);
+    $field['empty_dropdown'] = $policy >= 1;
+    $field['null_values'] = $policy === 2;
+    if ($policy < 2 && $field['container_id'] !== null) {
+        $field['required'] = false; // Older first-copy seeds reach their original Fields validation path.
+    }
+    return $field;
+}
+
+/** Return transport values. A permitted unselected dropdown is explicit JSON null. */
 function plugin_agentbdmosassetsync_field_read(CommonDBTM $asset, array $descriptor)
 {
     $class = $descriptor['storage_class'];
@@ -147,6 +164,16 @@ function plugin_agentbdmosassetsync_field_read(CommonDBTM $asset, array $descrip
         : $stored->getFromDBByCrit(['items_id' => $asset->getID()]);
     if (!$found) {
         throw new RuntimeException('Field storage row is missing');
+    }
+    if (!array_key_exists($descriptor['value_column'], $stored->fields)) {
+        throw new RuntimeException('Field storage column is missing');
+    }
+    if ($descriptor['custom_field_id'] !== null && ($descriptor['null_values'] ?? true)) {
+        if (!array_key_exists($descriptor['column'], $stored->fields)) {
+            throw new RuntimeException('Custom field storage column is missing');
+        }
+        return plugin_agentbdmosassetsync_field_value($descriptor,
+            plugin_agentbdmosassetsync_custom_stored_value($descriptor, $stored->fields[$descriptor['column']]));
     }
     $value = $stored->fields[$descriptor['value_column']];
     // Fields saves cleared nullable scalar controls as an empty string.
@@ -158,11 +185,66 @@ function plugin_agentbdmosassetsync_field_read(CommonDBTM $asset, array $descrip
     return plugin_agentbdmosassetsync_field_value($descriptor, $value);
 }
 
+/** Read native custom storage before formatters can turn malformed data into an empty value. */
+function plugin_agentbdmosassetsync_custom_stored_value(array $descriptor, ?string $json)
+{
+    $stored = json_decode($json ?? '[]', false, 512, JSON_THROW_ON_ERROR);
+    if (!$stored instanceof stdClass && $stored !== []) {
+        throw new RuntimeException('Custom field storage is not an object or empty array');
+    }
+    $values = (array) $stored;
+    // Match GLPI's exposed value: a missing or null entry uses the definition's default.
+    $value = $values[$descriptor['custom_field_id']] ?? $descriptor['custom_default'];
+    if ($value === null) {
+        return null;
+    }
+    $kind = $descriptor['kind'];
+    if (in_array($kind, ['text', 'date', 'datetime'], true) && !is_string($value)) {
+        throw new RuntimeException('Custom field has an invalid stored scalar type');
+    }
+    if (in_array($kind, ['date', 'datetime'], true) && $value !== '') {
+        $format = $kind === 'date' ? 'Y-m-d' : 'Y-m-d H:i:s';
+        $time = DateTimeImmutable::createFromFormat('!' . $format, $value);
+        if (!$time || $time->format($format) !== $value) {
+            throw new RuntimeException('Custom field has an invalid stored date');
+        }
+    }
+    if ($kind === 'number') {
+        if ($value === '') {
+            return null; // NumberType explicitly defines empty text as an empty native value.
+        }
+        if ((!is_int($value) && !is_float($value) && !is_string($value))
+            || !is_numeric($value) || !is_finite((float) $value)) {
+            throw new RuntimeException('Custom field has an invalid stored number');
+        }
+    }
+    if ($kind === 'boolean' && !in_array($value, [false, true, 0, 1, '0', '1'], true)) {
+        throw new RuntimeException('Custom field has an invalid stored boolean');
+    }
+    if ($kind === 'dropdown') {
+        if ($value === '' || $value === 0 || $value === '0') {
+            return null; // Native DropdownType preserves an empty form selection as empty text.
+        }
+        if ((!is_int($value) && !(is_string($value) && preg_match('/\A[1-9][0-9]*\z/D', $value)))
+            || (int) $value <= 0 || (string) (int) $value !== (string) $value) {
+            throw new RuntimeException('Custom field has an invalid stored option ID');
+        }
+        return (int) $value;
+    }
+    return $descriptor['custom_type']->formatValueFromDB($value);
+}
+
 /** Normalize a saved scalar through the same transport rules as a local reread. */
 function plugin_agentbdmosassetsync_field_value(array $descriptor, $value)
 {
     if ($descriptor['kind'] === 'dropdown') {
-        if ($value === null || (int) $value <= 0) {
+        if (($descriptor['empty_dropdown'] ?? true) && ($value === null || $value === 0 || $value === '0')) {
+            return null;
+        }
+        if (!is_int($value) && !(is_string($value) && preg_match('/\A[1-9][0-9]*\z/D', $value))) {
+            throw new RuntimeException('Dropdown has no valid stored option ID');
+        }
+        if ((int) $value <= 0 || (string) (int) $value !== (string) $value) {
             throw new RuntimeException('Dropdown has no readable selected option');
         }
         $dropdownClass = $descriptor['dropdown_class'];
@@ -171,7 +253,8 @@ function plugin_agentbdmosassetsync_field_value(array $descriptor, $value)
             throw new RuntimeException('Dropdown option missing or unreadable');
         }
         $label = $dropdown->fields[$dropdown instanceof CommonTreeDropdown ? 'completename' : 'name'] ?? null;
-        if (!is_string($label) || $label === '') {
+        if (!is_string($label) || $label === ''
+            || (($descriptor['empty_dropdown'] ?? true) && $label === '-----')) {
             throw new RuntimeException('Dropdown option label is empty or unsupported');
         }
         return $label;
@@ -347,7 +430,8 @@ function plugin_agentbdmosassetsync_custom_descriptor(\Glpi\Asset\Asset $asset, 
         return ['storage_class' => $asset::class, 'table' => $asset::getTable(), 'column' => 'custom_fields',
             'value_column' => $name, 'kind' => $kind, 'dropdown_class' => $dropdown, 'container_id' => null,
             'custom_field_id' => (int) $definition->getID(), 'custom_type' => $type,
-            'custom_default' => $definition->fields['default_value'], 'sql' => $DB->getField($asset::getTable(), 'custom_fields')];
+            'custom_default' => $definition->fields['default_value'], 'required' => !empty($type->getOptionValues()['required']),
+            'sql' => $DB->getField($asset::getTable(), 'custom_fields')];
     }
     throw new RuntimeException('Custom asset field definition is missing: ' . $name);
 }

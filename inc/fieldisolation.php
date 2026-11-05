@@ -577,7 +577,7 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
             }
             if ($mapping->source !== 'B') {
                 $stage = 'FIELD_UNAVAILABLE';
-                $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+                $descriptor = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
                 $stage = 'JOURNAL_UNCERTAIN';
                 $barrier = plugin_agentbdmosassetsync_provenance_begin($work, $asset, $mapping, $descriptor);
             }
@@ -591,9 +591,12 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
             $stage = 'PARENT_SCOPE';
             plugin_agentbdmosassetsync_lock_current_asset($work, $asset, READ);
             $stage = 'FIELD_UNAVAILABLE';
-            $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+            $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
             $current = plugin_agentbdmosassetsync_locked_value($work, $asset, $field);
-            if ($mapping->source === 'B' && plugin_agentbdmosassetsync_blank_text_equal($field, $value, $current)
+            if ($mapping->source === 'B'
+                && (plugin_agentbdmosassetsync_blank_text_equal($field, $value, $current)
+                    || plugin_agentbdmosassetsync_empty_dropdown_equal($field, $value, $current)
+                    || plugin_agentbdmosassetsync_null_equal($field, $value, $current))
                 && property_exists(json_decode($work['a_values_json'], false, 512, JSON_THROW_ON_ERROR), $id)) {
                 $decision = ['outcome' => 'AlreadyEqual', 'certainty' => 'VerifiedEqual', 'reason' => null, 'return' => null];
             } elseif ($mapping->source === 'B') {
@@ -614,16 +617,18 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
                         throw new RuntimeException('Current asset field write permission is denied');
                     }
                     $stage = 'FIELD_PERMISSION';
-                    $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, true);
+                    $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, true);
                     $stage = $field['kind'] === 'dropdown' && is_string($value) && $value !== ''
                         ? 'DROPDOWN_UNRESOLVED' : 'INVALID_VALUE';
-                    if ($field['kind'] === 'text' && plugin_agentbdmosassetsync_blank_text_equal($field,
-                        plugin_agentbdmosassetsync_comparison_value($field, $mapping, $value), $current)) {
+                    if (plugin_agentbdmosassetsync_blank_text_equal($field,
+                        plugin_agentbdmosassetsync_comparison_value($field, $mapping, $value), $current)
+                        || plugin_agentbdmosassetsync_empty_dropdown_equal($field, $value, $current)
+                        || plugin_agentbdmosassetsync_null_equal($field, $value, $current)) {
                         $expected = $current; // Equality needs no nullable writer or representation change.
                         $local = null;
                     } else {
-                        $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $value);
-                        $expected = plugin_agentbdmosassetsync_field_value($field, $local);
+                        $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $value, $stage);
+                        $expected = plugin_agentbdmosassetsync_write_expected($field, $local, $value);
                     }
                     if (plugin_agentbdmosassetsync_scalar_equal($current, $expected)) {
                         $decision = ['outcome' => 'AlreadyEqual', 'certainty' => 'VerifiedEqual', 'reason' => null, 'return' => null];

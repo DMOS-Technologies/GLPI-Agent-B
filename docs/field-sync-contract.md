@@ -67,12 +67,16 @@ Exclusion is independent of authority: A/B/Both excluded mappings receive an
 `Excluded` outcome without field-descriptor lookup, conversion, comparison,
 return or explicit write. Exclusion does not clear a field or edit its mapping.
 An explicit null value remains a separately validated clear request only where
-the existing scalar writer supports it; dropdown null/empty does not clear.
+the binding has a supported native empty representation. The 0.7.0 general-null
+revision accepts explicit null for every supported scalar kind under its new
+admission policy2. Omission/exclusion, false and numeric0 stay distinct. The
+normative API general-scalar-null section defines exact supported writers,
+per-binding native limitations, historical policies0/1 and the A-owner handoff.
 
 | Authority | Selected mapping | Excluded mapping |
 |---|---|---|
 | A | Require A value; validate/convert, compare, then verified local write or AlreadyEqual. | Excluded/NotAttempted; no mapped value processing. |
-| B | Read and ReturnToA/NotAttempted with B's current value/evidence; A value is optional and never authorizes a local write. Existing B-source return behavior is preserved except a supplied logical text-blank pair under the local blank patch becomes AlreadyEqual/VerifiedEqual without a tuple. | Excluded/NotAttempted; no B value returned. |
+| B | Read and ReturnToA/NotAttempted with B's current value/evidence; A value is optional and never authorizes a local write. Existing B-source return behavior is preserved except a supplied logical text-blank pair, policy1 dropdown-null pair, or policy2 explicit null/null pair of any supported scalar kind becomes AlreadyEqual/VerifiedEqual without a tuple before History/writes. Missing optional input is never null. | Excluded/NotAttempted; no B value returned. |
 | Both | Require A value; equal becomes AlreadyEqual/VerifiedEqual without write. On B >=0.6.0 differing values use field History: newer wins, or the side with History wins over confirmed absence. Both absent/tied conflict. B-win returns B; A-win uses the verified writer. Equal Both adds no B observation. Older versions use genuine-only arbitration. | Excluded/NotAttempted; no comparison, conflict or B return. |
 
 This extension preserves authority and follows the server-version timestamp

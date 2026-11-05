@@ -98,7 +98,7 @@ records actual verification outcomes and remaining gaps, not Controller A readin
 5. **Verify every write.** After `add()` or `update()`, reread the saved values and confirm them. An HTTP success is not proof.
 6. **Writes go through `add()` / `update()`** so GLPI creates normal History entries.
 7. **Never guess.** Missing, ambiguous, or unreliable evidence means: change nothing, record a visible status and reason.
-8. **Never delete, archive, clear, or move an asset automatically.**
+8. **Never delete, archive, clear an entire asset, or move an asset automatically.** Explicit mapped-field null/empty assignments follow the approved scalar contract and current authority/permissions; they are not asset deletion or a scope move.
 9. **Loop guard:** changes B makes itself while syncing must never be queued as new changes for A.
 10. **Respect B's service account permissions.** If a write is not permitted, reject that work with a visible reason.
 11. **A timeout means the outcome is unknown**, not that nothing happened. Work IDs must make retries safe (no repeated writes, no duplicate assets).
@@ -236,7 +236,18 @@ is not cleared. Selected A/Both mappings missing a value receive a structured
 prewrite rejection; selected siblings can still proceed. Both timestamp handling
 follows the 0.6.0 History policy (or genuine-only rules on older versions).
 Supported explicit scalar null
-clears remain distinct from omission/exclusion; dropdown null/empty is rejected.
+clears remain distinct from omission/exclusion. The 0.7.0 general-null revision
+accepts explicit null for every supported mapped scalar kind: text, integer,
+number, boolean, date, datetime and dropdown, in both directions. False and0
+are real values. Two permitted current nulls compare equal before History,
+lookup or writer validation; source B requires supplied comparison input.
+Different values retain authority/History. Use each actual binding's supported
+native empty input, reread exactly and preserve explicit null tuples. Required,
+locked, denied or physically unsupported native destinations stay truthful field
+problems; no arbitrary SQL NULL, zero or false substitution is permitted.
+The normative API general-scalar-null section defines native representations,
+unchanged old admission policies0/1 versus new2, exact whole-snapshot handling,
+first-copy/uncertainty preservation and the A-owner compatibility handoff.
 
 Opted-in field outcomes identify a prewrite rejection (`NotAttempted`), verified
 save (`VerifiedApplied`), equal no-write observation (`VerifiedEqual`) or possible

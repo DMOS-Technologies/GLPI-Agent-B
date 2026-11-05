@@ -84,10 +84,13 @@ All version 1 selection rules still apply: distinct current enabled mapping
 IDs for the exact route/itemtype/current Setting version, no values or time
 entries outside the selection, empty selection selects none, and positive
 linked identity is required. Exclusion does not clear or disable a mapping.
-Explicit null is a separately validated clear only where the existing writer
-supports it; dropdown, Fields and GLPI custom-field null clears are not added
-by this extension. Dropdown transport uses readable labels resolved to one
-permitted destination-local option, never foreign IDs.
+Explicit null is a valid intentional empty value for every supported scalar
+kind on the 0.7.0 general-null policy2 path, with native per-binding validation
+and exact reread. False, numeric0 and omission are not null. Local clear inputs
+may be SQL-null sentinels, native empty text or dropdown0; none are foreign IDs
+or substitutes for another scalar type. The normative API section documents
+backend limitations and policies0/1/2; historical requests/receipts retain their
+original meaning. Fresh current-state catch-up never certifies the old write.
 
 The referenced Work must be readable under the authenticated submitting user,
 have subject Asset and operation Sync, and have terminal status Done, Held or

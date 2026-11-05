@@ -1,13 +1,39 @@
 <?php
 
 /** Produce a destination-local scalar; never pass a foreign dropdown ID to GLPI. */
-function plugin_agentbdmosassetsync_write_value(CommonDBTM $asset, array $field, stdClass $mapping, $value)
+function plugin_agentbdmosassetsync_write_value(CommonDBTM $asset, array $field, stdClass $mapping, $value,
+    ?string &$code = null)
 {
     $kind = $field['kind'];
+    if ($value === null && !empty($field['null_values'])) {
+        $modes = $kind === 'dropdown' ? ['text_to_dropdown', 'dropdown_label_to_dropdown']
+            : ($kind === 'text' ? ['direct', 'dropdown_label_to_text'] : ['direct']);
+        if (!in_array($mapping->value_mode, $modes, true)) {
+            throw new RuntimeException('Null conversion does not match destination field kind');
+        }
+        return plugin_agentbdmosassetsync_null_input($asset, $field, $code);
+    }
     if ($kind === 'dropdown') {
         if (!in_array($mapping->value_mode, ['text_to_dropdown', 'dropdown_label_to_dropdown'], true)
-            || !is_string($value) || $value === '') {
+            || ($value !== null && (!is_string($value) || $value === ''
+                || (($field['empty_dropdown'] ?? true) && $value === '-----')))) {
             throw new RuntimeException('Dropdown requires a nonempty readable label and explicit lookup conversion');
+        }
+        if ($value === null) {
+            if (!($field['empty_dropdown'] ?? true)) {
+                throw new RuntimeException('Historical Work does not support dropdown clearing');
+            }
+            if (!empty($field['required'])) {
+                throw new RuntimeException('Destination dropdown is required');
+            }
+            if ($field['custom_field_id'] !== null
+                || !preg_match('/\A(?:tinyint|smallint|mediumint|int|bigint)\b/i', $field['sql']['Type'])) {
+                throw new RuntimeException('Dropdown has no verified empty local writer');
+            }
+            if ($field['container_id'] === null && array_key_exists($field['value_column'], $asset->getLockedFields())) {
+                throw new RuntimeException('Destination dropdown is locked');
+            }
+            return 0;
         }
         return plugin_agentbdmosassetsync_dropdown_id($asset, $field, $value);
     }
@@ -68,7 +94,74 @@ function plugin_agentbdmosassetsync_write_value(CommonDBTM $asset, array $field,
         // GLPI's custom field formatter is authoritative; reject any lossy conversion later on reread.
         $field['custom_type']->formatValueForDB($value);
     }
+    if (!empty($field['null_values']) && $field['custom_field_id'] === null
+        && (($kind === 'boolean' && $value === 0)
+            || ($field['container_id'] !== null && in_array($kind, ['integer', 'number'], true) && $value === 0))) {
+        return '0'; // Native loose comparison must distinguish a real zero/No from SQL NULL.
+    }
     return $value;
+}
+
+/** Local empty input is selected by storage/native formatting, never by casting false or zero. */
+function plugin_agentbdmosassetsync_null_input(CommonDBTM $asset, array $field, ?string &$code = null)
+{
+    $code = 'INVALID_VALUE';
+    if ($field['container_id'] === null && !empty($field['required'])) {
+        throw new RuntimeException('Destination field is required');
+    }
+    if ($field['container_id'] === null
+        && (array_key_exists($field['value_column'], $asset->getLockedFields())
+            || ($field['custom_field_id'] !== null && array_key_exists('custom_fields', $asset->getLockedFields())))) {
+        $code = 'FIELD_PERMISSION';
+        throw new RuntimeException('Destination field is locked');
+    }
+    $kind = $field['kind'];
+    $code = 'STORAGE_UNSUPPORTED';
+    if ($field['custom_field_id'] !== null) {
+        if ($kind === 'boolean') {
+            if ($asset->isNewItem() && $field['custom_default'] === null) {
+                return null; // First-copy's ordinary native creation/reread must verify its empty default.
+            }
+            // Native Asset ignores PHP null virtual input; false would change the meaning to No.
+            throw new RuntimeException('Native custom Yes/No model has no supported null-clear input');
+        }
+        $input = $kind === 'dropdown' ? 0 : '';
+        $formatted = $field['custom_type']->formatValueForDB($input);
+        if ($kind === 'dropdown' && $formatted === 0) {
+            return $input;
+        }
+        if ($kind === 'text' && $formatted === '') {
+            return $input;
+        }
+        if (in_array($kind, ['integer', 'number', 'date', 'datetime'], true)
+            && $formatted === null && plugin_agentbdmosassetsync_custom_stored_value($field, '[]') === null) {
+            return $input;
+        }
+        throw new RuntimeException('Native custom field default or formatter cannot expose an empty value');
+    }
+    if ($kind === 'dropdown') {
+        if (!preg_match('/\A(?:tinyint|smallint|mediumint|int|bigint)\b/i', $field['sql']['Type'])) {
+            throw new RuntimeException('Destination dropdown has no supported native empty storage');
+        }
+        return 0;
+    }
+    if ($field['sql']['Null'] === 'YES') {
+        // CommonDBTM preserves this native SQL-NULL input through numeric/bool/date filtering.
+        return 'NULL';
+    }
+    if ($kind === 'text') {
+        return '';
+    }
+    throw new RuntimeException('Destination storage has no empty value distinct from a real value');
+}
+
+/** Input sentinels are never parsed as saved values or placed in copied-value evidence. */
+function plugin_agentbdmosassetsync_write_expected(array $field, $local, $wire)
+{
+    if ($wire === null && !empty($field['null_values'])) {
+        return $field['kind'] === 'text' && $local === '' ? '' : null;
+    }
+    return plugin_agentbdmosassetsync_field_value($field, $local);
 }
 
 function plugin_agentbdmosassetsync_numeric_bounds(string $sql, $value): void
@@ -152,7 +245,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
             }
             $writeAttempted = false;
             $completionAttempted = false;
-            $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+            $descriptor = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
             $barrier = plugin_agentbdmosassetsync_provenance_begin($work, $asset, $mapping, $descriptor);
             try {
                 $DB->beginTransaction();
@@ -165,7 +258,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                 } catch (RuntimeException $e) {
                     throw new RuntimeException('Hold: ' . $e->getMessage(), 0, $e);
                 }
-                $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, $mapping->source !== 'Both');
+                $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, $mapping->source !== 'Both');
                 $current = plugin_agentbdmosassetsync_locked_value($work, $asset, $field, $mapping->source !== 'Both');
                 if ($mapping->source === 'Both') {
                     $decision = plugin_agentbdmosassetsync_both_decision($work, $asset, $mapping, $field, $value, $current);
@@ -177,13 +270,15 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     }
                     try {
                         plugin_agentbdmosassetsync_check_asset($asset, $work, UPDATE);
-                        $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+                        $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field);
                     } catch (RuntimeException $e) {
                         throw new RuntimeException('Hold: A won Both but the current B write is not permitted: ' . $e->getMessage(), 0, $e);
                     }
                 }
                 if ($mapping->source === 'A'
-                    && plugin_agentbdmosassetsync_blank_text_equal($field, $value, $current)
+                    && (plugin_agentbdmosassetsync_blank_text_equal($field, $value, $current)
+                        || plugin_agentbdmosassetsync_empty_dropdown_equal($field, $value, $current)
+                        || plugin_agentbdmosassetsync_null_equal($field, $value, $current))
                     && ($field['container_id'] === null
                         || plugin_agentbdmosassetsync_locked_fields_row($asset, $field) !== null)) {
                     plugin_agentbdmosassetsync_comparison_value($field, $mapping, $value);
@@ -193,8 +288,9 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
                 }
                 $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $value);
-                $expected = plugin_agentbdmosassetsync_field_value($field, $local);
-                if ($current === $expected) {
+                $expected = plugin_agentbdmosassetsync_write_expected($field, $local, $value);
+                if ($current === $expected && (empty($field['null_values']) || $field['container_id'] === null
+                    || plugin_agentbdmosassetsync_locked_fields_row($asset, $field) !== null)) {
                     $completionAttempted = true;
                     $DB->commit();
                     plugin_agentbdmosassetsync_provenance_restore($barrier);
@@ -259,13 +355,19 @@ function plugin_agentbdmosassetsync_current_value(CommonDBTM $asset, array $fiel
     $found = $field['container_id'] === null ? $stored->getFromDB($asset->getID())
         : $stored->getFromDBByCrit(['items_id' => $asset->getID()]);
     if (!$found) {
-        if ($field['container_id'] !== null) {
+        if ($field['container_id'] !== null && empty($field['null_values'])) {
             return null;
         }
         throw new RuntimeException('Current field storage could not be read');
     }
-    $value = $stored->fields[$field['value_column']];
-    if ($field['kind'] === 'dropdown' && ($value === null || (int) $value === 0)) {
+    if (!array_key_exists($field['value_column'], $stored->fields)) {
+        throw new RuntimeException('Current field storage column could not be read');
+    }
+    $value = $field['custom_field_id'] !== null && !empty($field['null_values'])
+        ? plugin_agentbdmosassetsync_custom_stored_value($field, $stored->fields[$field['column']])
+        : $stored->fields[$field['value_column']];
+    if ($field['kind'] === 'dropdown' && !($field['empty_dropdown'] ?? true)
+        && ($value === null || (int) $value === 0)) {
         return null;
     }
     return plugin_agentbdmosassetsync_field_value($field, $value);
@@ -293,9 +395,26 @@ function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array
         $column = $definition['type'] === 'dropdown'
             ? 'plugin_fields_' . $definition['name'] . 'dropdowns_id' : $definition['name'];
         if (array_key_exists($column, $values)) {
+            $effective = $definition;
             foreach ($overrides as $override) {
-                if ((int) $override['plugin_fields_fields_id'] === (int) $definition['id'] && $override['is_readonly']) {
-                    throw new RuntimeException('Fields value is read-only for the asset current status');
+                if ((int) $override['plugin_fields_fields_id'] === (int) $definition['id']) {
+                    $effective['is_readonly'] = $override['is_readonly'];
+                    $effective['mandatory'] = $override['mandatory'];
+                    if ($override['is_readonly']) {
+                        throw new RuntimeException('Fields value is read-only for the asset current status');
+                    }
+                }
+            }
+            if (!empty($field['null_values'])) {
+                if ($effective['is_readonly']) {
+                    throw new RuntimeException('Selected Fields value is read-only');
+                }
+                $value = $values[$column];
+                $empty = $value === null || $value === '' || $value === 'NULL'
+                    || (($definition['type'] === 'dropdown' || str_starts_with($definition['type'], 'dropdown-'))
+                        && $value === 0);
+                if ($effective['mandatory'] && $empty) {
+                    throw new RuntimeException('Selected Fields value is mandatory for the asset current status');
                 }
             }
         }
@@ -309,9 +428,60 @@ function plugin_agentbdmosassetsync_write_fields_values(CommonDBTM $asset, array
     $data['entities_id'] = $asset->getEntityID();
     $data = array_replace($data, $values);
     $data[$status] = $statusValue;
+    if (!empty($field['null_values'])) {
+        $class = $field['storage_class'];
+        $storage = new $class();
+        $id = (int) ($data['id'] ?? 0);
+        if ($id > 0) {
+            $storage->getFromResultSet($data);
+        }
+        $permissionInput = ['entities_id' => $asset->getEntityID(), 'items_id' => $asset->getID(),
+            'itemtype' => $asset::class, 'plugin_fields_containers_id' => $field['container_id']] + $values;
+        if (!$storage->can($id, $id > 0 ? UPDATE : CREATE, $permissionInput)) {
+            throw new RuntimeException('Native Fields storage write permission is denied');
+        }
+    }
+    if (!empty($field['null_values']) && in_array('NULL', $values, true)) {
+        return plugin_agentbdmosassetsync_write_fields_nulls($asset, $field, $data, $values, $writeAttempted);
+    }
     // Everything above is pre-save validation; only the local writer can make the outcome uncertain.
     $writeAttempted = true;
     return (new PluginFieldsContainer())->updateFieldsValues($data, $asset::class);
+}
+
+/** Fields validates form empties; generated CommonDBTM needs its SQL-NULL input to save them. */
+function plugin_agentbdmosassetsync_write_fields_nulls(CommonDBTM $asset, array $field, array $data,
+    array $values, ?bool &$writeAttempted): bool
+{
+    $validation = $data;
+    foreach ($values as $column => $value) {
+        if ($value === 'NULL') {
+            $validation[$column] = '';
+        }
+    }
+    if (!PluginFieldsContainer::validateValues($validation, $asset::class)) {
+        throw new RuntimeException('Native Fields validation rejected the empty container input');
+    }
+    $class = $field['storage_class'];
+    $stored = new $class();
+    $exists = $stored->getFromDBByCrit(['items_id' => $asset->getID()]);
+    $input = ['plugin_fields_containers_id' => $field['container_id'], 'items_id' => $asset->getID(),
+        'itemtype' => $asset::class, 'entities_id' => $asset->getEntityID()] + $values;
+    $id = $exists ? (int) $stored->getID() : 0;
+    if (!$stored->can($id, $exists ? UPDATE : CREATE, $input)) {
+        throw new RuntimeException('Native Fields storage write permission is denied');
+    }
+    if ($exists) {
+        $input['id'] = $id;
+    }
+    $writeAttempted = true;
+    $saved = $exists ? $stored->update($input) : $stored->add($input);
+    if (!$saved) {
+        return false;
+    }
+    PluginFieldsContainer::constructHistory($field['container_id'], (int) $asset->getID(), $asset::class,
+        $stored->input, $stored);
+    return true;
 }
 
 /** Fields' public validator accepts partial massive-action input; never merge stored siblings. */
@@ -361,6 +531,7 @@ function plugin_agentbdmosassetsync_field_sync_fields_input(CommonDBTM $asset, a
     }
     $code = 'INVALID_VALUE';
     if ($selected['mandatory'] && ($value === null || $value === ''
+        || (!empty($field['null_values']) && $value === 'NULL')
         || ($field['kind'] === 'dropdown' && (int) $value === 0))) {
         throw new RuntimeException('Selected Fields value is mandatory');
     }
@@ -371,6 +542,9 @@ function plugin_agentbdmosassetsync_field_sync_fields_input(CommonDBTM $asset, a
         throw new RuntimeException('Fields validation metadata collides with the selected storage column');
     }
     $validation = $data;
+    if (!empty($field['null_values']) && $value === 'NULL') {
+        $validation[$field['value_column']] = '';
+    }
     $validation[$statusName] = $status;
     if (!PluginFieldsContainer::validateValues($validation, $asset::class, true)) {
         throw new RuntimeException('Native Fields validation rejected the selected partial input');

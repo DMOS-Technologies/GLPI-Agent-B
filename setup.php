@@ -38,7 +38,7 @@ function plugin_version_agentbdmosassetsync()
 {
     return [
         'name' => 'Agent-B-DMOS-AssetSync',
-        'version' => '0.6.0',
+        'version' => '0.7.0',
         'author' => 'DMOS',
         'license' => 'GPLv3+',
         'requirements' => ['glpi' => ['min' => '11.0.7', 'max' => '11.0.99']],

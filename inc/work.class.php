@@ -3,7 +3,7 @@
 class PluginAgentbdmosassetsyncWork extends CommonDBTM
 {
     public static $rightname = 'plugin_agentbdmosassetsync_work';
-    public static $undisclosedFields = ['field_sync_json', 'participation_json', 'participation_state_json'];
+    public static $undisclosedFields = ['field_sync_json', 'participation_json', 'participation_state_json', 'dropdown_empty_version'];
     private ?array $clientCreateInput = null;
     private ?array $participationCompletion = null;
 
@@ -76,6 +76,8 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             $raw['result_json'] = json_encode($result, JSON_THROW_ON_ERROR);
         }
         $raw += [
+            // Keep old admissions immutable: 0 original, 1 dropdown-only, 2 general scalar nulls.
+            'dropdown_empty_version' => $raw['subject'] === 'Asset' && $raw['operation'] === 'Sync' ? 2 : 0,
             'submitted_users_id' => $userId, 'submitted_profiles_id' => $profileId,
             'a_items_id' => $identity->a_items_id, 'b_items_id' => null, 'link_state' => null,
             'processing_started_at' => null, 'status' => 'Accepted', 'result_json' => null,
@@ -117,7 +119,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             'identity_json', 'a_values_json', 'a_change_times_json', 'settings_version'];
         $owned = ['id', 'submitted_users_id', 'submitted_profiles_id', 'a_items_id', 'b_items_id',
             'link_state', 'processing_started_at', 'status', 'result_json', 'error',
-            'date_creation', 'date_mod', 'completed_at', 'participation_state_json'];
+            'date_creation', 'date_mod', 'completed_at', 'participation_state_json', 'dropdown_empty_version'];
         plugin_agentbdmosassetsync_check_fields($input,
             array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json', 'field_sync_json',
                 'participation_json']), $owned);

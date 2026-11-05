@@ -327,7 +327,7 @@ function plugin_agentbdmosassetsync_provenance_first_copy(array $work, CommonDBT
             || ($outcomes[$id]['outcome'] ?? null) !== 'AppliedToB') {
             throw new RuntimeException('Save failed: first-copy mapping receipt changed');
         }
-        $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+        $descriptor = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
         $binding = plugin_agentbdmosassetsync_evidence_binding($route, $mapping, $descriptor);
         if ($binding === null || $binding !== $seed['binding']) {
             throw new RuntimeException('Save failed: first-copy field binding changed');

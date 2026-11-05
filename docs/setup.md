@@ -459,7 +459,7 @@ values and original field times. Sync writes never queue back to A.
 
 Capture does not rewrite or validate GLPI's save input. GLPI and Fields decide
 whether a normal save is valid. Capture failures never reject that save:
-unreadable/empty dropdowns and other unsupported values are omitted, while
+unreadable/invalid dropdowns and other unsupported values are omitted, while
 verified sibling fields may still queue. Check GLPI's existing `php-errors.log`
 for `ASB_CAPTURE_SKIPPED` entries identifying the stage, asset, route and mapping
 when available. Failed queue writes are logged without automatic retries or
@@ -499,3 +499,55 @@ evidence. Neither earlier Asset/Notes passes nor the bounded 0.4.0 reconciliatio
 run certifies every field, hook, fault variant or actual Controller A catch-up.
 Use the current ledger's remaining gaps; historical source-only checklists are
 preserved and must not be interpreted as later runtime results.
+
+## General-null test candidate v0.7.0-rc.1: upgrade and A coordination
+
+Use the normative API general-scalar-null section and A-owner handoff. Earlier
+0.7.0 candidates were dropdown-only; confirm the actual reviewed general-null
+build, not only version text. The test release tag is `v0.7.0-rc.1`; plugin
+metadata remains `0.7.0`. Use the tag commit and installation ZIP SHA-256 to
+identify this general revision. Its runtime GN cases remain NOT RUN.
+The additive hidden B-owned Work column retains
+its name `dropdown_empty_version`: old pre-column rows default0, earlier
+admissions1 retain dropdown-only behavior, new Asset Sync admissions2 use the
+general scalar policy. Never rewrite existing0/1 requests to2. No new A wire
+flag or additional column is required beyond this pending0.7.0 additive column.
+
+Before any separately authorized deployment, back up DB/plugin privately and
+fence new submissions/consumption. Pause only an idle supported automatic
+action; never reset Running. Perform GLPI's supported additive plugin upgrade
+under actual administrator permissions, fingerprint original records, verify
+exact readback/build and restore the prior scheduler configuration. Never
+uninstall/reinstall, replay recovery queues or downgrade old code over new-policy
+requests/Changes. Controller A must align its full null path before consuming
+new null tuples or submitting these requests. This task does not modify A.
+
+The existing `tools/guarded-upgrade.py` and its PHP helper target the earlier
+0.6.0 operation. They are not a reviewed preserving upgrade path for this
+0.7.0 revision; do not edit their target version or reuse them as a 0.7 command.
+The installation ZIP contains only `setup.php`, `hook.php` and `inc/`.
+Ordinary native plugin upgrade/activation preserves stored Work/Change rows,
+but its conservative capture-gap handling may invalidate binding continuity.
+Stored historical evidence is not the same as proof that remains trustworthy
+after a capture gap. No 0.7.0 evidence-preserving operational upgrade or runtime
+upgrade verification is certified by this release. If retaining current
+binding trust is required, review an enforced offline upgrade for the actual
+topology before deployment; do not bypass invalidation or restore generations
+to manufacture continuity. After a native upgrade, inspect current bindings
+and actual fresh History under the existing rules without replaying old Works.
+
+All supported scalar kinds accept explicit null; only actual native bindings
+with a distinct permitted empty representation can be cleared. SQL-null model
+inputs must not become literal stored text/evidence. Text empty strings remain
+exact and use the existing logical blank comparison. False/zero remain genuine
+values. Optional core JSON text/dropdown empties and supported number/date
+formatters use native representations; populated core JSON Boolean clears and
+nonnull defaults that mask JSONnull retain explicit prewrite limitations.
+No raw SQL/model bypass or arbitrary change of column nullability is added.
+
+Keep native hooks, History, actual permissions/locks, first-copy proofs, exact
+snapshots and unknown-outcome recovery intact. Existing general numeric/boolean
+zero transitions need their own verified native handling; never weaken reread
+verification to hide a native no-op. Runtime coverage for this general revision
+is the explicitly scoped manual ledger, not the earlier dropdown/text passes.
+Do not claim full A/B readiness until authorized disposable integration passes.

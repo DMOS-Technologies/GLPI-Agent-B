@@ -5,7 +5,8 @@ function plugin_agentbdmosassetsync_comparison_value(array $field, stdClass $map
 {
     if ($field['kind'] === 'dropdown') {
         if (!in_array($mapping->value_mode, ['text_to_dropdown', 'dropdown_label_to_dropdown'], true)
-            || ($value !== null && !is_string($value))) {
+            || ($value !== null && (!is_string($value)
+                || (($field['empty_dropdown'] ?? true) && ($value === '' || $value === '-----'))))) {
             throw new RuntimeException('Dropdown comparison requires a readable label');
         }
         return $value;
@@ -34,6 +35,21 @@ function plugin_agentbdmosassetsync_blank_text_equal(array $field, $left, $right
 {
     return $field['kind'] === 'text' && ($left === null || $left === '')
         && ($right === null || $right === '');
+}
+
+/** Missing optional comparison input is checked by the caller, never inferred from null. */
+function plugin_agentbdmosassetsync_empty_dropdown_equal(array $field, $left, $right): bool
+{
+    return $field['kind'] === 'dropdown' && ($field['empty_dropdown'] ?? true)
+        && $left === null && $right === null;
+}
+
+/** The caller proves input presence and a permitted locked current read before using this no-op. */
+function plugin_agentbdmosassetsync_null_equal(array $field, $left, $right): bool
+{
+    return ($field['null_values'] ?? true)
+        && in_array($field['kind'], ['text', 'dropdown', 'boolean', 'integer', 'number', 'date', 'datetime'], true)
+        && $left === null && $right === null;
 }
 
 /** The caller holds the asset and actual field-storage locks for this fresh decision. */

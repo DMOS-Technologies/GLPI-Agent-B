@@ -177,3 +177,34 @@ The H01–H12 plan in [manual-tests.md](manual-tests.md) is NOT RUN. Native/Fiel
 custom-field resolution, both one-sided cases, permissions, timezone, equality,
 concurrency, A alignment and exact acknowledgements require manual verification
 before claiming integration readiness.
+
+## General scalar nulls — 0.7.0 candidate
+
+The normative API general-scalar-null section replaces the dropdown-only scope
+for newly admitted policy2 Asset Sync Work. Every supported scalar type accepts
+explicit null as intentional empty data. After actual permitted locked reads,
+two supplied current nulls are AlreadyEqual/VerifiedEqual before History, label
+lookup or writer capability validation under A/B/Both. Source B must actually
+have an A comparison property. No save or History/evidence time is invented.
+Text NULL/empty-string logical equality remains its existing equality-only rule;
+false and numeric0 remain real distinct values, and actual text tuples stay exact.
+
+Different empty/nonempty values retain this document's normal field-specific
+History decision table, including native sync/import writes. Confirmed missing
+History is distinct from unavailable/denied History. Tied/doubly absent different
+values remain unresolved. Copied content keeps its original tuple; sync, copy,
+creation, Work and poll times are not substituted for field History.
+
+B-winning empty tuples retain explicit `value:null` with actual History evidence;
+normal captures use verified saved values and actual capture time. A GLPI SQL-null
+input token is normalized only in capture copies after fresh actual DBnull
+confirmation, never globally as stored text or from a failed/missing read. False,
+numeric0 and invalid custom JSON cannot be converted into invented emptiness.
+
+Historical policy0/1 Work and immutable snapshot identity are not rewritten.
+An exact verified policy2 AppliedToB native clear may use its actual saved
+representation in coverage, retaining the existing winning-time predicates.
+NULL/empty-string logical no-ops do not retroactively complete exact unequal
+snapshots. Native physical limitations remain field problems; the current
+native model's inability to clear a populated core JSON Boolean is not a reason
+to fabricate No=false or fake History. See the API native input matrix.

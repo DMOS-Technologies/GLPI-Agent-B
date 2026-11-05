@@ -68,15 +68,24 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
                 }
             }
             // The installed Fields pre/post-add hooks validate/save one container during native add.
+            $generalNulls = (int) ($work['dropdown_empty_version'] ?? 0) === 2;
             if ($containers) {
                 $first = reset($containers);
                 foreach ($first['values'] as $column => $value) {
-                    if (array_key_exists($column, $input) && $input[$column] !== $value) {
+                    $formValue = $generalNulls && $value === 'NULL' ? '' : $value;
+                    if (array_key_exists($column, $input) && $input[$column] !== $formValue) {
                         throw new RuntimeException('Hold: native and Fields add inputs collide for field ' . $column);
                     }
-                    $input[$column] = $value;
+                    $input[$column] = $formValue;
                 }
                 $input['c_id'] = $first['field']['container_id'];
+                if ($generalNulls) {
+                    $storageClass = $first['field']['storage_class'];
+                    // Child instance rights require a real parent; recheck them after native creation.
+                    if (!$storageClass::canCreate()) {
+                        throw new RuntimeException('Hold: submitting user cannot create Fields storage');
+                    }
+                }
             }
             $id = plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $asset, $input, &$attempted) {
                 plugin_agentbdmosassetsync_current_route($work);
@@ -98,14 +107,14 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
             }
             plugin_agentbdmosassetsync_check_asset($asset, $work, READ);
             foreach ($containers as $containerId => $container) {
-                if ((int) $containerId === (int) ($input['c_id'] ?? 0)) {
+                if (!$generalNulls && (int) $containerId === (int) ($input['c_id'] ?? 0)) {
                     continue;
                 }
                 plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $asset, $container) {
                     plugin_agentbdmosassetsync_current_route($work);
                     plugin_agentbdmosassetsync_check_asset($asset, $work, UPDATE);
                     foreach ($container['selectors'] as $selector) {
-                        plugin_agentbdmosassetsync_field_descriptor($asset, $selector);
+                        plugin_agentbdmosassetsync_work_field($work, $asset, $selector);
                     }
                     $saved = plugin_agentbdmosassetsync_sync_guard(static fn() =>
                         plugin_agentbdmosassetsync_write_fields_values($asset, $container['field'], $container['values']));
@@ -246,11 +255,11 @@ function plugin_agentbdmosassetsync_first_copy_values(CommonDBTM $asset, array $
             if (!property_exists($values, $mapping->mapping_id)) {
                 throw new RuntimeException('A supplied no value for this enabled first-copy mapping');
             }
-            $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field);
+            $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field);
             plugin_agentbdmosassetsync_field_sync_transactional($asset, $field);
-            $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping,
-                plugin_agentbdmosassetsync_exact_work_value($work, $mapping->mapping_id, $values->{$mapping->mapping_id}));
-            $expected = plugin_agentbdmosassetsync_field_value($field, $local);
+            $wire = plugin_agentbdmosassetsync_exact_work_value($work, $mapping->mapping_id, $values->{$mapping->mapping_id});
+            $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $wire);
+            $expected = plugin_agentbdmosassetsync_write_expected($field, $local, $wire);
             try {
                 $binding = plugin_agentbdmosassetsync_evidence_binding($route, $mapping, $field);
             } catch (Throwable $e) {

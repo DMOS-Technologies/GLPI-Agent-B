@@ -37,7 +37,7 @@ function plugin_agentbdmosassetsync_snapshot_scope(array $work, array $route, Co
             || (!is_scalar($field->value) && $field->value !== null)) {
             throw new RuntimeException('Snapshot mapping or genuine field evidence unavailable: ' . $row['id']);
         }
-        plugin_agentbdmosassetsync_field_descriptor($asset, $mappings[$id]->b_field, $mappings[$id]->source === 'A');
+        plugin_agentbdmosassetsync_work_field($work, $asset, $mappings[$id]->b_field, $mappings[$id]->source === 'A');
     }
     return $fields;
 }
@@ -164,7 +164,7 @@ function plugin_agentbdmosassetsync_genuine_time(array $work, CommonDBTM $asset,
     if (!isset($mappings[$mappingId])) {
         throw new RuntimeException('Selected field History mapping is unavailable');
     }
-    $descriptor = plugin_agentbdmosassetsync_field_descriptor($asset, $mappings[$mappingId]->b_field, false);
+    $descriptor = plugin_agentbdmosassetsync_work_field($work, $asset, $mappings[$mappingId]->b_field, false);
     return plugin_agentbdmosassetsync_history_time($asset, $descriptor);
 }
 
@@ -186,14 +186,16 @@ function plugin_agentbdmosassetsync_return_decision(array $work, stdClass $mappi
         }
         try {
             plugin_agentbdmosassetsync_lock_current_asset($work, $asset, READ);
-            $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+            $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
             $value = plugin_agentbdmosassetsync_locked_value($work, $asset, $field);
-            if ($field['kind'] === 'dropdown' && $value === null) {
+            if ($field['kind'] === 'dropdown' && !($field['empty_dropdown'] ?? true) && $value === null) {
                 throw new RuntimeException('Dropdown has no readable selected option');
             }
             $aValues = json_decode($work['a_values_json'], false, 512, JSON_THROW_ON_ERROR);
             if (property_exists($aValues, $mapping->mapping_id)
-                && plugin_agentbdmosassetsync_blank_text_equal($field, $aValues->{$mapping->mapping_id}, $value)) {
+                && (plugin_agentbdmosassetsync_blank_text_equal($field, $aValues->{$mapping->mapping_id}, $value)
+                    || plugin_agentbdmosassetsync_empty_dropdown_equal($field, $aValues->{$mapping->mapping_id}, $value)
+                    || plugin_agentbdmosassetsync_null_equal($field, $aValues->{$mapping->mapping_id}, $value))) {
                 $decision = ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
             } else {
                 $decision = ['outcome' => 'ReturnToA', 'reason' => null,
@@ -285,11 +287,15 @@ function plugin_agentbdmosassetsync_correction_coverage(array $work, array $rout
         if (!property_exists($aValues, $id) || !isset($outcomes[$id])) {
             throw new RuntimeException('Snapshot field was not fully handled: ' . $id);
         }
-        $field = plugin_agentbdmosassetsync_field_descriptor($asset, $mapping->b_field, false);
+        $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
         $current = plugin_agentbdmosassetsync_locked_value($work, $asset, $field);
         $aValue = plugin_agentbdmosassetsync_exact_work_value($work, $id, $aValues->$id);
         if ($mapping->source === 'Both') {
             $expected = plugin_agentbdmosassetsync_comparison_value($field, $mapping, $aValue);
+            if (!empty($field['null_values']) && $aValue === null && $outcomes[$id] === 'AppliedToB') {
+                $expected = plugin_agentbdmosassetsync_write_expected($field,
+                    plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $aValue), $aValue);
+            }
             if (!plugin_agentbdmosassetsync_scalar_equal($current, $expected)) {
                 throw new RuntimeException('Both snapshot still awaits matching A handling: ' . $id);
             }
@@ -306,8 +312,12 @@ function plugin_agentbdmosassetsync_correction_coverage(array $work, array $rout
             }
             throw new RuntimeException('Both snapshot has no complete verified winning outcome: ' . $id);
         }
-        $expected = plugin_agentbdmosassetsync_field_value($field,
-            plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $aValue));
+        if (!empty($field['null_values']) && ($outcomes[$id] === 'AlreadyEqual' || $mapping->source === 'B')) {
+            $expected = plugin_agentbdmosassetsync_comparison_value($field, $mapping, $aValue);
+        } else {
+            $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $aValue);
+            $expected = plugin_agentbdmosassetsync_write_expected($field, $local, $aValue);
+        }
         if ($current !== $expected) {
             throw new RuntimeException('Current field differs from the verified A handling: ' . $id);
         }
@@ -579,10 +589,15 @@ function plugin_agentbdmosassetsync_locked_value(array $work, CommonDBTM $asset,
         $value = null;
     }
     if ($field['custom_field_id'] !== null) {
-        $values = json_decode($value ?? '[]', true, 512, JSON_THROW_ON_ERROR);
-        $value = $field['custom_type']->formatValueFromDB($values[$field['custom_field_id']] ?? $field['custom_default']);
+        if (!empty($field['null_values'])) {
+            $value = plugin_agentbdmosassetsync_custom_stored_value($field, $value);
+        } else {
+            $values = json_decode($value ?? '[]', true, 512, JSON_THROW_ON_ERROR);
+            $value = $field['custom_type']->formatValueFromDB($values[$field['custom_field_id']] ?? $field['custom_default']);
+        }
     }
-    if ($field['kind'] === 'dropdown' && ($value === null || (int) $value === 0)) {
+    if ($field['kind'] === 'dropdown' && !($field['empty_dropdown'] ?? true)
+        && ($value === null || (int) $value === 0)) {
         return null;
     }
     return plugin_agentbdmosassetsync_field_value($field, $value);

@@ -101,6 +101,180 @@ The relevant sources are linked beside the protocol sections. The normative
 rules for this plugin are the schemas and validation rules in this document;
 examples use illustrative IDs and values.
 
+## General scalar nulls — 0.7.0 candidate (normative)
+
+The approved requirement is **general null handling for every supported mapped
+scalar type**, in both directions. It supersedes the previous dropdown-only
+candidate and earlier blanket null-clear prohibitions for new policy-2 Work.
+It uses the existing Setting, Work and Change REST V1 resources, conversion
+modes and result shapes. No endpoint, authentication scheme, A wire flag or
+new Work status is introduced. Notes, non-scalar/multiple fields, billing and
+UUID retain their separate scope and behavior.
+
+This requires the **general-null revision of B 0.7.0**, its additive upgrade,
+and aligned Controller A code. Earlier dropdown-only builds also displayed
+0.7.0; version text alone is not capability evidence. The latest source-only
+manual plan and historical, separately scoped runtime results are preserved
+in manual-tests.md. General-null runtime cases are NOT RUN unless that ledger
+explicitly records them.
+
+### Values, equality and authority
+
+- A present JSON `null` is an intentional empty/clear value for text, integer,
+  number, boolean, date, datetime or dropdown mappings. It is not a format
+  failure solely because of its type. The destination's actual native ability
+  to represent emptiness and current permissions/requirements still apply.
+- An omitted mapping supplies no value. Selected A/Both omission remains
+  VALUE_REQUIRED; legacy omission retains its original behavior. An excluded
+  mapping is not read, arbitrated, returned or written. Neither means clear.
+- Numeric zero, boolean false and nonempty text (including whitespace) remain
+  real values. Do not convert them, unreadable storage, failed reads, missing
+  options, invalid labels or unavailable definitions into null.
+- Dropdown wire values are null or exact readable labels/paths, never foreign
+  IDs. Local native dropdown0 can represent empty, but wire numeric0, `""` and
+  UI placeholder `"-----"` are not null or lookup labels.
+- After actual permitted, locked current-value reads, two supplied null values
+  yield AlreadyEqual, with VerifiedEqual for selected v1/v2, before History,
+  label lookup or nullable-writer validation. No save, storage normalization,
+  B observation tuple, new History or replacement timestamp is required.
+  Source B needs an actually supplied A comparison; omission is not null.
+- Existing supported text NULL/`""` logical equality remains equality-only.
+  Actual text return/capture values remain exact, including stored `""`.
+  Do not globally normalize text or immutable snapshots to null.
+- Different values keep normal A/B/Both authority and the History decision
+  table in history-contract.md. Null does not automatically make A win.
+  Newer specific-field History wins; confirmed one-sided History, confirmed
+  absence, tied values and permission failures retain their existing meanings.
+  Never replace field History with asset date_mod, creation, poll or Work time.
+
+### Native empty inputs and verified outcomes
+
+Transport null is separate from the native local input and exact expected
+saved value. A GLPI SQL-NULL input sentinel must never be interpreted as a
+stored label/text value or leaked into copied content/evidence as `"NULL"`.
+Always reread actual native storage; neither an HTTP acceptance nor update()
+return alone proves the clear.
+
+| Destination binding | Supported new-policy null handling |
+|---|---|
+| Native SQL text | Nullable storage uses the supported native SQL-null input. Optional non-nullable text can use actual native empty string. Required/locked destinations reject before mutation. Preserve the stored representation on an equal blank. |
+| Native SQL integer/number/boolean/date/datetime | Use the verified native SQL-null input only when storage permits null. Never substitute numeric0 or boolean false for an empty value. A field with no distinct native empty representation rejects before a write. |
+| Native/Fields single dropdown integer storage | Use local ID0, then verify logical null. Read permitted actual SQLnull/0/DB string0 as empty. Missing/dangling/invalid selections remain errors. |
+| Fields text/textarea/URL | Use a native empty/SQL-null representation that its validator and storage permit, checking actual mandatory/read-only/status overrides before mutation. |
+| Fields number/date/datetime | Validate the logical empty through the public native validator; save the equivalent native SQL-null input where storage permits it. Keep the validation copy separate from the actual native save input; do not turn a number into zero. |
+| Fields Yes/No | Only a genuinely nullable native binding may clear to null. A NOT NULL No0 is false, not empty; no false clear is reported. |
+| Core custom String/Text/URL JSON | Optional values may clear through native empty string; exact reread/return value remains `""`, logically blank with null. |
+| Core custom single Dropdown JSON | Native local0 can override a configured default and represent unselected; verify logical empty. |
+| Core custom Number/Date/DateTime JSON | Source-verified native empty input can format to JSONnull only where the actual native effective read/default remains empty. A non-null default that masks JSONnull is a prewrite unsupported destination, not a verified clear. |
+| Core custom Boolean JSON | Null is valid transport/current data. An optional new parent with a null definition default can use the existing fully verified first-copy path. The inspected GLPI11.0.7 populated-field writer skips PHPnull via isset and has no demonstrated non-null input that becomes null: an unequal populated-field clear is a truthful prewrite unsupported outcome. Never change it to false or bypass the native model with SQL/shared JSON injection. |
+
+This is a generic policy over actual bindings, not a promise to change GLPI's
+column nullability or bypass native restrictions. Such per-binding native
+limitations are visible field problems; valid independent siblings can proceed.
+Use existing certainty/error categories. A native attempt, commit/rollback,
+verification or result-persistence uncertainty remains Unknown/Held under the
+existing recovery rules, even when the desired value is null.
+
+Legacy/first-copy Fields clear saves and selected partial saves must check
+current actual parent/status overrides and real generated-row rights. Native
+hooks may change unrelated values; no universal physical field isolation is
+promised. First-copy still obeys its original creation/adoption/verification
+and durable association/provenance rules. A skipped or uncertain seed must not
+be certified merely because a default happens to look empty.
+
+### Existing-shaped examples and exact accounting
+
+POST the normal complete Work to
+`${B_V1_BASE}/PluginAgentbdmosassetsyncWork` with the existing App-Token,
+Session-Token and JSON Content-Type headers. Example JSON_TEXT members inside
+that Work (mapping IDs are illustrative enabled Setting keys):
+
+```json
+{
+  "a_values_json":"{\"asset_status\":null,\"installed_date\":null,\"quantity\":null,\"enabled_flag\":null,\"contact_text\":null}",
+  "a_change_times_json":"{\"asset_status\":{\"changed_at\":\"2026-11-05T10:00:00+08:00\",\"reliable\":true}}",
+  "field_sync_json":"{\"version\":1,\"mapping_ids\":[\"asset_status\",\"installed_date\",\"quantity\",\"enabled_flag\",\"contact_text\"]}"
+}
+```
+
+These are members of an ordinary complete immutable request, not a Work PATCH
+or a new endpoint. Use the original legacy identity for first-copy; selection
+still requires a verified existing Active link and cannot authorize creation.
+Missing time entries retain their existing unreliable/absent meaning.
+
+A B-winning or captured genuinely empty value retains its explicit tuple key:
+
+```json
+{"value":null,"changed_at":"2026-11-05T11:00:00+08:00","reliable":true}
+```
+
+This appears inside `b_values_for_a[mapping_id]` or immutable
+`Change.changed_fields_json[mapping_id]`, under normal evidence rules. A saved
+text empty string remains `"value":""`, with the existing text equality rule.
+AlreadyEqual produces no redundant tuple. Native sync writes remain guarded;
+ordinary successful human saves are not blocked by capture failures.
+
+Whole-snapshot acknowledgements remain exact. A logical null/empty-string no-op
+alone cannot retroactively complete a representation-different snapshot. A new
+verified AppliedToB clear may use its exact native saved representation for
+coverage, retaining normal authority and strictly newer-A Both conditions.
+Omitted, excluded, rejected or uncertain members keep a mixed snapshot
+unresolved. Never rewrite immutable snapshots or historical receipts.
+
+### Admission boundary and additive upgrade
+
+Retain hidden B-owned Work column `dropdown_empty_version`, TINYINT UNSIGNED
+NOT NULL DEFAULT0. Its historical name is retained to avoid another schema or
+wire change. Meanings are:
+
+| Stored policy | Meaning |
+|---|---|
+| 0 | Original request semantics, including original non-dropdown null behavior. |
+| 1 | Previously admitted dropdown-only 0.7.0 candidate semantics. |
+| 2 | General scalar null semantics in this revision. |
+
+New Asset Sync admissions are stamped2 by B. Notes/control admissions stay0.
+The additive upgrade gives old pre-column rows0; it never changes an existing
+0/1 request to2. Every Work-driven read/comparison/write/first-copy/coverage
+path must use that immutable policy. A must not send/update/read the hidden
+column as a capability switch. Setting versions do not select this policy.
+No old Work, incident, request, result, link, Change or billing state is reset,
+replayed, relabeled or retroactively certified. New ordinary capture uses the
+new strict read policy; native model inputs remain untouched.
+
+### A-owner handoff and deployment boundary
+
+A must align its full general-null path, not only dropdowns:
+
+1. Refresh copied authoritative B contracts and update the pending handoff.
+   Confirm the actual general-null build and additive upgrade using supported
+   operational evidence; earlier0.7.0 dropdown-only version text is insufficient.
+   Fence new submissions/consumption during the separately authorized upgrade.
+2. Use actual scoped metadata for each source/destination. Preserve explicit
+   null in request/results/Changes/baselines/recovery; distinguish missing keys,
+   failed reads and invalid data. Never use truthiness to discard false/zero.
+3. Remove old blanket null/dropdown-clear exclusions only at the new admission
+   boundary. Do not enable billing allow_clear or add an A→B wire flag. Preserve
+   unsupported per-binding failures, all authority and current source selection.
+4. Accept selected AlreadyEqual/VerifiedEqual null receipts without a B tuple
+   only when A actually supplied that value and fresh permitted current reads
+   still match. Generalize the existing text-only receipt exception carefully,
+   before History lookup, without fabricating B data or time.
+5. When B wins with null, use A's guarded actual native empty representation,
+   required/permission/lock/default checks and verified reread for that binding.
+   Source-A field authority and newer A edits remain protected. Preserve original
+   field tuples/timestamps; native save History is not invented copy evidence.
+6. Retain immutable original requests/receipts and whole-Change accounting.
+   A lost response requires original work_id search and exact original B Work
+   ID GET before further mutation. Later repair uses a distinct current-state
+   v2 request with an eligible exact terminal reference and no overlapping
+   Accepted execution. Current equality does not prove an earlier write worked.
+7. Do not downgrade old code over policy2 requests/new null Changes. Any rollback
+   needs a separately reviewed coherent backup/recovery plan, never queue replay.
+
+No Controller A code or runtime is changed by this B task. No full A/B readiness
+is claimed before separately authorized disposable A/B manual cases pass.
+
 ## 1. Names, storage, and record ownership (deliverable 1)
 
 ### 1.1 Plugin identity
@@ -1820,10 +1994,11 @@ implicit trimming or case folding, match exactly in the destination's locally
 configured option set and entity scope, require a single permitted result,
 and never create options. Do not use translated UI text or a hierarchy leaf
 as sufficient identity when ambiguous. A full unique hierarchy path may be
-matched when the destination metadata defines it. Empty/null dropdown labels
-never implicitly select zero/default or clear a field: leave unchanged with a
-visible reason. Compatible direct scalar nulls remain subject to the actual
-field's supported validation; no destructive scope operation is inferred.
+matched when the destination metadata defines it. From the 0.7.0 general-null admission
+boundary above, explicit JSON null is valid for every supported mapped scalar
+kind and uses the binding's verified native empty representation. Dropdown
+empty strings/placeholders remain invalid labels. Historical Work retains its
+original rules; no destructive scope operation is inferred.
 
 Verified installation facts are GLPI 11.0.7, active Fields 1.24.4, native V1
 record exposure and the exact missing-ID/no-ID behavior in section 3.2.

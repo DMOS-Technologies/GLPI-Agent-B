@@ -1,3 +1,253 @@
+# General scalar nulls — 0.7.0 source candidate, 5 November 2026
+
+This is the **general-null revision**, not the earlier dropdown-only0.7.0
+build. All currently supported mapped scalar kinds accept explicit null;
+physical native restrictions remain binding-specific field outcomes. New Asset
+Sync Work uses hidden B-owned `dropdown_empty_version=2`; existing0/1 requests
+retain their original semantics. No new A wire flag/endpoint/status is added.
+
+The implementation/contract now cover text, integer, number, boolean, date,
+datetime and dropdown reads, no-ops, clears, returns and capture. Actual text
+empty strings stay exact; the existing text blank rule is unchanged. False,
+numeric0, unreadable values, missing keys and invalid stored/custom data must
+not become invented nulls. Native input tokens never become evidence values.
+
+The finite general-null checklist below is NOT RUN unless an actual runtime
+result is entered. Prior ED/BT results below apply to their historical source
+builds only; they do not verify this revision. No A/hosted changes, customer
+queue processing, commits, pushes or automated tests are authorized by this
+ledger. Existing disposable-fixture runtime authorization remains confined to
+isolated B fixtures and must not be treated as A/hosted deployment approval.
+
+| Case | Finite manual requirement | Current result |
+|---|---|---|
+| GN01 | Native/Fields/core-supported scalar null/null under A/B/Both; actual locked reads, no History lookup needed, no native save or representation normalization. | NOT RUN |
+| GN02 | Every supported kind: explicit null versus selected A/Both omission, optional B omission, selection exclusion and JSON key preservation. A missing Fields row is never equality: legacy sourceA must create and verify its supported row or fail; selected/Both reads must reject unavailable storage. | NOT RUN |
+| GN03 | Native nullable SQL text/integer/number/boolean/date/datetime clear from a nonempty value via native input, exact reread; required/NOTNULL-with-no-empty targets reject before mutation. | NOT RUN |
+| GN04 | Fields text/textarea/URL/number/date/datetime clears with logical-empty validation and native SQLnull save; legacy, first-copy and selected sparse paths. | NOT RUN |
+| GN05 | Native/Fields dropdown local0 and core single dropdown0, no placeholder/foreign-ID lookup; scalar0 and false are genuine values, not empty. | NOT RUN |
+| GN06 | Core text optional clears to exact empty string; number/date/datetime empty formatter with null default; non-null default masking remains an explicit prewrite problem. | NOT RUN |
+| GN07 | Core Boolean initial-null first-copy with optional null default verifies parent/seed/receipt/association/provenance; populated→null rejects safely when no native writer exists. | NOT RUN |
+| GN08 | Fields actual status-override mandatory/read-only checks after native parent creation, real generated CREATE/UPDATE rights, no resubmission of excluded siblings. | NOT RUN |
+| GN09 | Native/Fields false and numeric0 remain values; nullable Fields number null→0 and nullable Boolean null→false use supported native representation and exact reread. | NOT RUN |
+| GN10 | B-winning null and ordinary B human clear capture explicit tuple keys, actual field History; no sync feedback Changes or fabricated times. | NOT RUN |
+| GN11 | Both newer-A/newer-B/tied/absent/denied History decisions with null versus nonempty; delayed Work cannot overwrite newer current data. | NOT RUN |
+| GN12 | Human native SQL-null sentinels recognized only with fresh actual DBnull confirmation; null→null resave adds no fake Change; literal stored text and malformed data do not become null. | NOT RUN |
+| GN13 | Mixed snapshot stays Pending with omitted/excluded/rejected/Unknown member; exact full handling may complete only exact IDs. NULL/empty-string no-op alone never gains historical coverage. | NOT RUN |
+| GN14 | First-copy clears use same native/expected separation; failed verification/rollback/interruption cannot certify defaults or recreate uncertain parent. | NOT RUN |
+| GN15 | Legacy/policy0, prior dropdown-only/policy1 and new general/policy2 immutable admission, hidden-column ownership and unchanged legacy result shape. | NOT RUN |
+| GN16 | Lost response exact original-ID readback; restart durable Unknown; fresh exact-terminal-reference v2 catch-up without replaying old ordinary writes or receipts. | NOT RUN |
+| GN17 | Parent/entity/account denial versus field rejection; valid sibling progress, exact text/whitespace, existing Notes/billing/participation/UUID behavior preserved. | NOT RUN |
+| GN18 | Fingerprint protected original Works (including1–7), requests/results, Settings/manifests, Changes, scalar states, Note links and any billing state before/after; no broad worker/customer queue. | NOT RUN |
+
+Known native limits to verify honestly: a populated core JSON Boolean has no
+source-proven native null input on inspected GLPI11.0.7; a non-null custom
+default can mask JSONnull. NOTNULL numeric0/No=false is not a clear. Some native
+numeric filters can recast zero before loose native change detection and leave
+a SQLnull→numeric0 update unverified; retain Unknown rather than weakening the
+reread or falsifying a baseline. The new Fields string-zero/native Boolean
+string-zero handling needs its actual scoped runtime proof. No raw SQL writer,
+GLPI patch, definition default rewrite or new orchestration framework is added.
+
+### General-null implementation and source review
+
+Two programmers worked in parallel with separate file ownership; both read
+AGENTS.md and preserved the pre-existing candidate edits. An independent
+read-only reviewer inspected the complete changes and the installed native
+source. Source review is PASS after the following demonstrated findings were
+fixed; this is not a runtime pass:
+
+- First-copy's first Fields container now receives form-safe validation inputs
+  instead of a numeric SQL-null sentinel during parent creation. Every policy2
+  mapped container is then saved/revalidated under the actual new parent and
+  status before any seed verification, receipt, association or provenance.
+- Actual generated Fields storage CREATE/UPDATE authorization now covers all
+  policy2 legacy/first-copy values, including dropdown0/text-empty. A global
+  CREATE check is used before the parent exists; CommonDBChild instance
+  authorization is deferred until the actual attached parent ID exists.
+- Legacy sourceA's second equality branch now requires a real locked Fields row
+  under policy2. Missing storage cannot become AlreadyEqual from helper null;
+  it uses the existing authorized CREATE + exact reread path instead.
+- Policies0/1, exact snapshot predicates, false/zero, normal History, no-feedback
+  capture and durable uncertainty were reviewed independently. No remaining
+  blocking source finding was reported. Native limitations remain listed above.
+
+A read-only isolated PHP CLI syntax pass checked all **21 plugin PHP files**
+with zero syntax failures. It mounted source read-only, used no network/database
+and did not boot GLPI. No automated tests, runtime probes, asset/Work/configuration
+writes, deployment or commits were performed for this general-null revision.
+GN01–GN18 therefore remain NOT RUN. Prior ED/BT evidence is historical only.
+
+| Changed file | General-null functions/responsibility |
+|---|---|
+| `inc/work.class.php` | `Work::add`: immutable admission2; existing hidden B-owned policy column/ownership checks retained. |
+| `inc/fields.php` | `work_field`, `field_descriptor`, `custom_descriptor`, `custom_stored_value`, `field_read`: pinned type-aware strict actual-value reads and required/default metadata. |
+| `inc/both.php` | `null_equal`: strict null/null no-op for all supported scalar kinds, without loosening text/scalar/snapshot identity. |
+| `inc/capture.php` | `capture_input_unchanged`, `capture_null_input`, `capture_changed`, `capture_value`, `capture_collect`: actual-null preservation and verified native-token capture without false edits. |
+| `inc/write.php` | `write_value`, `null_input`, `write_expected`, `write_mapping`, `current_value`, `write_fields_values`, `write_fields_nulls`, `field_sync_fields_input`: native inputs, exact verification, sparse rights/validation and meaningful zero/false. |
+| `inc/fieldisolation.php` | `field_sync_mapping`: general null no-ops, expected transport separation and existing structured certainty/categories. |
+| `inc/firstcopy.php` | `first_copy_values`, `first_copy`: wire/native/expected separation, form-safe first container, real-parent revalidation and unchanged durable proof gates. |
+| `inc/results.php` | `return_decision`, `locked_value`, `correction_coverage`: explicit null returns, strict custom reads and conservative exact coverage. |
+| `docs/api-contract.md`, `docs/field-sync-contract.md`, `docs/reconciliation-contract.md`, `docs/history-contract.md`, `docs/setup.md`, `spec-b-agent.md` | General policy, storage matrix, historical boundary and A-owner handoff. |
+| `docs/manual-tests.md` | This finite NOT RUN checklist, source findings/checks and retained historical evidence. |
+
+Existing uncommitted hook/schema/version/first-copy-provenance candidate work was
+preserved; the schema column remains the same (default0), and source metadata
+remains0.7.0. This general revision changes admission to2 rather than altering
+any old database row or creating another protocol column. No database was
+accessed for this revision; recovery records were not read/retried/rewritten.
+
+A-owner follow-up: use the API general-null handoff, refresh copied contracts,
+align all scalar source/receipt/application paths (including old dropdown
+exclusion and billing-only allow_clear coupling), preserve historical admissions
+and incidents, then run guarded disposable A/B checks. B-only source review is
+not end-to-end integration readiness.
+
+---
+
+## Historical dropdown-only revision and ED evidence
+
+The following retained ED results apply to the prior policy1 source manifest.
+They are not verification of the new policy2 general-null changes.
+
+# Empty-dropdown candidate 0.7.0 — disposable Docker manual results, 5 November 2026
+
+**B-only result: 10 bounded PASS, 5 PARTIAL, no feature assertion recorded FAIL.**
+No full A/B integration or hosted resolution is claimed. Controller A was not
+changed or used to apply these null tuples. All scenarios below used fresh
+fixture requests and native REST V1 plus supported native targeted processing;
+no automated tests were added/run.
+
+### Target, admission boundary and preservation
+
+A separate clone, `agentb-ed-20261105-web` / `agentb-ed-20261105-db`, used GLPI
+11.0.7 / MySQL 8.4 and the installed Fields 1.24.4 source inherited from the
+stopped BT recovery fixture. Its new volumes are `agentb-ed-20261105-data` and
+`agentb-ed-20261105-dbdata`, on internal network `agentb-ed-20261105-net`.
+The stopped source volumes were mounted read-only while copying. Apache alone
+ran in the clone: no cron/scheduler, published HTTP port or customer queue run.
+This was **not** a deployment/test on the regular localhost:8081 instance.
+
+Private request/response bodies, current-value/History/Change readbacks, source
+hashes and preservation evidence are under:
+`/tmp/agentb-empty-dropdown-gQCr0V/` (private permissions; keep a durable private
+copy before temporary cleanup). No credentials/customer values are reproduced
+here. `candidate-hashes.json` / `build-match.json` confirm all 21 deployed PHP
+source files match the reviewed candidate. The placeholder-label read rejection
+was copied before the final runtime scenarios. A final source-reviewed required-native-definition clear guard was
+added after those cases, copied to the stopped clone and boot/read back there;
+its custom-asset required variant remains NOT RUN. The original Computer/Fields
+cases did not exercise that added custom-definition metadata branch.
+
+The native additive install hook added `dropdown_empty_version`; all 1,208
+original Works received 0. Fixture-only native Plugin registration was aligned
+to source version 0.7.0 to load this isolated candidate. **The full guarded
+upgrade/activation wrapper was NOT RUN**; this is not production lifecycle
+certification. Source metadata alone is insufficient deployment evidence.
+
+`before.json`, `after-upgrade.json`, `final.json` and
+`preservation-summary.json` compare every original column/row (only the newly
+added policy column is excluded from original-column hashes):
+
+| Protected original records | Original count | Changed original rows |
+|---|---:|---:|
+| Works, including Works 1–7 and original terminal/recovery receipts | 1,208 | 0 |
+| Settings and binding manifests | 47 | 0 |
+| Changes | 206 | 0 |
+| Scalar evidence/provenance states | 84 | 0 |
+| Note links | 51 | 0 |
+
+Works1–7 are separately present and equal in the preservation summary. All old
+Works still have policy 0 in `final-evidence.json`. No separate billing table
+was present in this clone; no billing behavior/data was edited. The 38 new
+fixture Works1209–1246, one fixture Setting48 (versions1–6), 13 new Changes and
+six new scalar states are excluded from original-row preservation claims.
+All processing targeted exact new IDs under the native worker lock. No original
+Work was processed/reset/reopened/rewritten/deleted. The interrupted **fixture**
+1232 was only accounted for through the supported no-replay interruption path.
+Its terminal Held receipt remained byte-identical after distinct v2 recovery.
+
+### Actual ED results
+
+PASS is bounded to the stated installed backend/scenario, not every GLPI patch,
+asset type, template, lock, plugin hook or fault window. A provided History tuples
+in these tests were explicit disposable fixture evidence; A's actual History
+extraction/guarded application was not exercised.
+
+| Case | Result | Actual observation / exact remaining gap |
+|---|---|---|
+| ED01 | PASS, bounded | Native and Fields null/null under A, B, Both produced AlreadyEqual/VerifiedEqual without storage normalization, asset History or feedback. Works1211/1218/1220/1242; `baseline.json`, `after-a-equal.json`, `after-b-comparisons.json`. Both equality also succeeded with History READ denied (1220); 1241 proved both field times absent on second first-copy parent before1242's equality. Nullable SQL-column NULL/0 permutations and every legacy authority permutation were not run. |
+| ED02 | PASS, bounded | Selected omitted A values (1225) and Both values (1240) gave Rejected/NotAttempted/VALUE_REQUIRED. B optional omission (1219) returned explicit null tuples rather than equality. Excluded native selection stayed unchanged while Fields/text proceeded (1215). No omission cleared a field. |
+| ED03 | PASS, bounded | Native actual selected option cleared through normal native update to ID0; reread VerifiedApplied in v2 1213/1229, legacy1217 and A-winning Both1223. Successful siblings persisted. |
+| ED04 | PASS, bounded | Fields local native/partial save cleared selected option1 to local0, with VerifiedApplied in v1 1215, v2 1229 and legacy1217. No SQL NULL was forced. Core custom JSON dropdown clear writers remain explicitly unsupported, not runtime-certified. |
+| ED05 | PASS, B-side | Source B1219 and B-winning Both1221 returned `value:null` plus actual specific-field History timestamps/reliability. Covered exact null Changes209/210 were returned without automatically marking them Done. No foreign option IDs/placeholders were used as labels. Applying these tuples on A is NOT RUN. |
+| ED06 | PASS, bounded | Normal native and Fields selected→empty saves succeeded and captured separate explicit-null Changes209/210 with actual edit times (`after-human-clears.json`). Sync clears, AlreadyEqual operations and first-copy saves did not create feedback Changes. Separate native/Fields rows retain their existing capture semantics. |
+| ED07 | PARTIAL | First-copy legacy1210 (A rules) and1239 (Both rules) verified native/Fields0, linked a new parent and stored unreliable/missing copied evidence without promotion. Both fields on the latter parent had no History time (1241). Missing/invalid first-copy inputs, mandatory-first-copy refusal, failed verification/rollback and interrupted creation variants were NOT RUN. No uncertain creation was replayed. |
+| ED08 | PASS, bounded | Nonempty exact labels resolved to local IDs (1214/1216). A fixture option initially outside entity scope was truthfully rejected while native sibling saved (1212); after repairing only that disposable option scope, fresh1214 succeeded. Empty string/placeholder (1226), false/missing label (1227), wire numeric0/foreign option ID1 (1245) were Rejected/NotAttempted, not empty. Whitespace text sibling saved exactly. Dangling stored positive-ID/invalid-label read variants were NOT RUN. |
+| ED09 | PARTIAL | Mandatory Fields clear1224 rejected before save while text sibling saved. Denied native parent READ1228 was Held/PARENT_SCOPE; denied Fields READ1231 was Rejected/FIELD_UNAVAILABLE with sibling progress. Neither became VerifiedEqual/null. Native inventory locks, separate write-only denial, required native/custom definitions and status-override permutations were NOT RUN. Fixture permissions were restored. |
+| ED10 | PASS, bounded | B with actual History and missing A time won with explicit null (1221). Tied different values conflicted (1222). Later A fixture History won and cleared both fields (1223). Both confirmed absent times conflicted on both native/Fields bindings (1241). Neither null nor equal-value processing invented a winner/time. |
+| ED11 | PARTIAL | Old-column additive hashes and policy0 preservation passed. Fresh fixture1230 was admitted using the prepatch Work class via REST, then processed by the restored candidate: policy0 kept nulls Skipped, with no clear/new shape. New admissions used1. GET/collection hid the policy column; client submission rejected HTTP400/ASB_B_OWNED_FIELD and created no Work. Full guarded lifecycle upgrade, downgrade and all older-client deployment combinations were NOT RUN. |
+| ED12 | PASS, B-side | Work/result/Change JSON retained null keys. Mixed Change217 stayed Pending when1236 excluded a member (Held/INCOMPLETE_SNAPSHOT); complete fresh v2 1237 finished only217. Mixed null Change219 retained its null tuple and finished only after fully selected1246. Other unresolved snapshots stayed Pending; original Changes were unchanged. Initial fixture Works1234/1235 contained no handled IDs after a private artifact-parsing error and are not counted as acknowledgement evidence; they were not modified/replayed. |
+| ED13 | PARTIAL | Actual SIGKILL during fixture1232's native clear left Accepted with durable Unknown/in_flight. After app restart, supported handling retained Held/Unknown/INTERRUPTED without replay. Raw values stayed selected after transaction rollback; distinct exact-reference v2 1233 verified current clears and preserved1232's Held receipt. Discarded POST body1238 was reconciled by original work_id search and exact GET before processing once, without resend. Actual network packet loss and postcommit/result-persistence/lock-release fault windows were NOT RUN. |
+| ED14 | PARTIAL | Native text empty-string versus A null (v2 1244) remained AlreadyEqual/VerifiedEqual, preserved exact stored empty string and History47; prior1243 set empty normally. Space/tab text stayed exact (1226). The text comparator/snapshot identity was not loosened. Fields/core-custom text, other scalar subtype and Notes runtime regressions were NOT RUN; Notes source/links and existing data were preserved. |
+| ED15 | PASS | All original hashes match, including Works1–7 and every original recovery receipt; `final-evidence.json` also checks interrupted fixture1232's Held receipt. No broad queue processing, original Work mutation, Controller A or hosted change occurred. |
+
+### Changed files and implementation inventory
+
+| File | Functions / change |
+|---|---|
+| `hook.php` | `plugin_agentbdmosassetsync_install`: additive private Work policy column, old-row default0. |
+| `setup.php` | `plugin_version_agentbdmosassetsync`: candidate0.7.0. |
+| `inc/work.class.php` | `Work::add`, `validateCreation`, `undisclosedFields`: immutable B-owned admission stamp and hidden REST shape. |
+| `inc/fields.php` | `field_descriptor`, `work_field`, `field_read`, `field_value`: definition-required metadata, request-pinned semantics, readable storage/strict empty-ID classification and placeholder rejection. |
+| `inc/both.php` | `comparison_value`, `empty_dropdown_equal`: new-policy valid nullable comparisons without loosening text/scalar/snapshot equality. |
+| `inc/write.php` | `write_value`, `write_mapping`, `current_value`: verified local0 clear, native required/lock guard and A-source no-op with admission semantics. |
+| `inc/fieldisolation.php` | `field_sync_mapping`: selected v1/v2 equality/return/writer path, B optional-input presence check and pinned descriptors. |
+| `inc/capture.php` | `capture_input_value`, `capture_input_unchanged`, `capture_changed`: null/0 logical empty capture and no false empty-representation edit. |
+| `inc/firstcopy.php` | `first_copy`, `first_copy_values`: pinned first-copy seed/container descriptors. |
+| `inc/provenance.php` | `provenance_first_copy`: pinned verification descriptor; copied evidence rules unchanged. |
+| `inc/results.php` | `return_decision`, `locked_value`, `genuine_time`, `snapshot_scope`, `correction_coverage`: pinned return/read/coverage behavior and explicit null returns; History/whole-snapshot predicates preserved. |
+| `spec-b-agent.md`, `docs/api-contract.md` | Approved null-dropdown behavior, exact wire examples, ownership/admission/upgrade boundary and A-owner handoff. |
+| `docs/field-sync-contract.md`, `docs/reconciliation-contract.md`, `docs/history-contract.md` | Superseded null prohibition, selection/History/catch-up and exact accounting preserved. |
+| `docs/setup.md`, `docs/manual-tests.md` | Upgrade/A alignment guidance, finite manual results, preservation and unrun variants. |
+
+### Calls, final state and unrun boundaries
+
+`*.http.json` records exact REST method/path/status and payload without token
+headers. Curl used native `GET /api.php/v1/initSession`, `getActiveProfile`,
+`POST changeActiveEntities`, Setting POST/PUT/GET, Work POST/GET/collection
+search, Change GET and `GET killSession`. Native processing used the same
+recorded submitting user/profile and worker lock with an exact fixture ID;
+POST acceptance was never counted as a processing success. Preflight-only
+fixture account/generated-file permissions were repaired before applicable
+scenarios; these were not changes to the real B or Controller A.
+
+Final source review covered the new stamp's schema/admission/hidden ownership,
+legacy/v1/v2 descriptors, first-copy seeding/provenance, read normalization,
+label/writer validation, native lock check, native required-definition clear
+guard and capture before/after logic. Source inspection of GLPI
+CustomObjectTrait::prepareDefinitionInput() confirmed that path only checks
+definition identity; it does not enforce required field options, so the guard
+rejects a nonempty-to-empty native custom-asset dropdown before attempting its
+writer. Already-empty equality still preserves storage without a save.
+No automated test suite or extra plugin log files were created. Runtime used
+the installed Fields source, not a claim about every upstream Fields build.
+
+The API fixture session was killed normally. Both new clone containers are
+stopped; their volumes/evidence remain. The clone's processWork task stayed
+state0 (disabled), mode2, frequency60; no scheduler was launched or customer
+queue serviced. Regular localhost:8081, Controller A and hosted schedulers were
+not changed. No commit, push, release or deployment beyond these fixtures.
+
+Before integration, A's owner must implement the null-preserving/guarded native
+application and exact accounting in the normative API handoff. Full B→A
+end-to-end checks, full guarded deployment upgrade and the unrun variants above
+remain required for their corresponding readiness claims. Existing native-hook
+side effects and legacy/first-copy Fields container merging remain limits; this
+patch does not certify universal field/transaction isolation.
+
+---
+
 # GLPI B manual curl review checklist
 
 ## Blank-text localhost deployment and BT runtime — 31 October 2026

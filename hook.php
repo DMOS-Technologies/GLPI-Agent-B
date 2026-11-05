@@ -51,6 +51,7 @@ function plugin_agentbdmosassetsync_install()
             `a_change_times_json` LONGTEXT NOT NULL,
             `settings_version` INT UNSIGNED NOT NULL,
             `handled_change_ids_json` LONGTEXT NOT NULL,
+            `dropdown_empty_version` TINYINT UNSIGNED NOT NULL DEFAULT 0,
             `field_sync_json` LONGTEXT NULL DEFAULT NULL,
             `participation_json` LONGTEXT NULL DEFAULT NULL,
             `participation_state_json` LONGTEXT NULL DEFAULT NULL,
@@ -135,7 +136,8 @@ function plugin_agentbdmosassetsync_install()
             'participation_flags_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
             'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL', 'participation_json' => 'LONGTEXT NULL DEFAULT NULL',
-            'participation_state_json' => 'LONGTEXT NULL DEFAULT NULL'],
+            'participation_state_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'dropdown_empty_version' => 'TINYINT UNSIGNED NOT NULL DEFAULT 0'],
         'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
     ];
     foreach ($additiveColumns as $suffix => $columns) {
