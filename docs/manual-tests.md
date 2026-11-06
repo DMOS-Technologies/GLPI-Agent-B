@@ -1,3 +1,47 @@
+# Automatic null discovery — source candidate 0.7.1
+
+All following runtime cases are **NOT RUN**. Source review is not a runtime pass.
+No deployment, GLPI bootstrap, writes, scheduler changes or automated tests.
+
+| Case | Manual check | Result |
+|---|---|---|
+| BN01 | Individual/full collection Setting reads expose scoped JSON_TEXT support only after actual schema upgrade; search/id-only fragments do not invent capability. | NOT RUN |
+| BN02 | Old code, missing columns, failed/unreadable schema or denied READ cannot return positive support; no stored positive capability survives downgrade. | NOT RUN |
+| BN03 | A POST/PUT of either B-owned field rejects; unchanged Setting publication input/equality/version and native error responses preserved. | NOT RUN |
+| BN04 | Fresh-initialized Asset capture stamps2 atomically; old-bootstrap/new-class capture remains unknown NULL; Notes NULL; original snapshots including older general captures remain byte-exact with unknown NULL marker. | NOT RUN |
+| BN05 | Restart/readback retains marker; capture rollback/persistence failure cannot certify snapshot; no sync feedback. | NOT RUN |
+| BN06 | Aligned A requires no manual control/hash/Change ID; first-stage classification uses immutable marker, staged pins never change. | NOT RUN |
+| BN07 | Null/omission/false/zero, authority/History, native permissions and unsupported clears preserve independent field progress. | NOT RUN |
+| BN08 | Lost response exact original-ID readback; no blind resend; mixed snapshot cannot ACK with unresolved members; fingerprint original Works1–7 and all protected evidence. | NOT RUN |
+
+## Focused source review — 6 November 2026
+
+Implementation and independent read-only review are complete: PASS. The owner
+and reviewer read AGENTS.md and native GLPI11.0.7 REST serializer source.
+Individual GET and full collection use the existing permission/serialization
+path; search/filter fragments are not authoritative support responses.
+
+Resolved findings: require full Setting shape and strict stored NULL; require
+fresh current plugin initialization as well as policy constants/schema; guard
+the capture stamp with that same fresh-init marker so mixed old bootstrap/new
+Change class cannot certify pre-general snapshots. Such captures remain unknown.
+
+Source inventory: hook.php additive schema; setup.php init/version0.7.1;
+Setting::unsetUndisclosedFields/scalarNullSupport/scalarNullReady/validateSetting;
+Work::add policy constant; Change::createCapturedChange/rawSearchOptions/
+validateAcknowledgement. Normative automatic-null contract, API/field-sync/
+reconciliation links, specification/setup and this checklist were updated.
+
+No database was accessed or changed, no GLPI bootstrap or runtime probe was run,
+and no syntax/automated tests, deployment, configuration/scheduler changes,
+commits, pushes or releases were performed. BN01–BN08 remain NOT RUN. Existing
+Works, snapshots, results, links and recovery evidence were untouched; source
+review does not constitute a runtime preservation fingerprint or integration pass.
+
+Historical manual ledgers below retain their original scope and results.
+
+---
+
 # General scalar nulls — 0.7.0 source candidate, 5 November 2026
 
 This is the **general-null revision**, not the earlier dropdown-only0.7.0

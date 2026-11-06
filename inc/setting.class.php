@@ -14,9 +14,85 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
     public static function unsetUndisclosedFields(&$fields)
     {
         parent::unsetUndisclosedFields($fields);
+        if (array_key_exists('scalar_null_support_json', $fields)) {
+            $fields['scalar_null_support_json'] = self::scalarNullSupport($fields);
+        }
         $flags = $fields['participation_flags_json'] ?? null;
         if ($flags === null || (is_string($flags) && json_decode($flags) === [])) {
             unset($fields['participation_flags_json']);
+        }
+    }
+
+    private static function scalarNullSupport(array $fields): ?string
+    {
+        // V1 also calls this serializer for id-only rows and search filter fragments.
+        if ($fields['scalar_null_support_json'] !== null) {
+            return null;
+        }
+        foreach (['route_enabled', 'enabled_itemtypes_json', 'field_mappings_json',
+            'notes_itemtypes_json', 'participation_flags_json'] as $key) {
+            if (!array_key_exists($key, $fields)) {
+                return null;
+            }
+        }
+        foreach (['id', 'route_id', 'settings_version', 'a_entities_id', 'entities_id'] as $key) {
+            if (!array_key_exists($key, $fields)) {
+                return null;
+            }
+            if ($key !== 'route_id' && ((!is_int($fields[$key]) && !is_string($fields[$key]))
+                || !ctype_digit((string) $fields[$key]))) {
+                return null;
+            }
+        }
+        if ((int) $fields['id'] < 1 || (int) $fields['settings_version'] < 1
+            || !plugin_agentbdmosassetsync_is_key($fields['route_id']) || !self::scalarNullReady()) {
+            return null;
+        }
+        return json_encode(['version' => 1, 'ready' => true,
+            'work_policy' => PluginAgentbdmosassetsyncWork::SCALAR_NULL_POLICY,
+            'change_capture_policy' => PluginAgentbdmosassetsyncChange::SCALAR_CAPTURE_POLICY,
+            'change_policy_field' => 'capture_policy', 'historical_change_policy' => null,
+            'settings_id' => (int) $fields['id'], 'route_id' => $fields['route_id'],
+            'settings_version' => (int) $fields['settings_version'],
+            'a_entities_id' => (int) $fields['a_entities_id'], 'entities_id' => (int) $fields['entities_id']],
+            JSON_THROW_ON_ERROR);
+    }
+
+    private static function scalarNullReady(): bool
+    {
+        global $DB;
+
+        try {
+            if (!defined('PLUGIN_AGENTBDMOSASSETSYNC_SCALAR_NULL_RUNTIME')
+                || PLUGIN_AGENTBDMOSASSETSYNC_SCALAR_NULL_RUNTIME !== 2
+                || !Plugin::isPluginActive('agentbdmosassetsync')
+                || !defined(PluginAgentbdmosassetsyncWork::class . '::SCALAR_NULL_POLICY')
+                || !defined(PluginAgentbdmosassetsyncChange::class . '::SCALAR_CAPTURE_POLICY')
+                || PluginAgentbdmosassetsyncWork::SCALAR_NULL_POLICY !== 2
+                || PluginAgentbdmosassetsyncChange::SCALAR_CAPTURE_POLICY !== 2) {
+                return false;
+            }
+            $required = [
+                'settings' => ['scalar_null_support_json', 'evidence_bindings_json', 'participation_flags_json'],
+                'works' => ['dropdown_empty_version', 'field_sync_json', 'participation_json', 'participation_state_json'],
+                'changes' => ['capture_policy', 'subject', 'note_json'],
+                'scalarstates' => ['state_json'], 'notelinks' => ['state'],
+            ];
+            foreach ($required as $suffix => $columns) {
+                $table = 'glpi_plugin_agentbdmosassetsync_' . $suffix;
+                if (!$DB->tableExists($table)) {
+                    return false;
+                }
+                foreach ($columns as $column) {
+                    if (!$DB->fieldExists($table, $column)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } catch (Throwable $e) {
+            // Discovery failure cannot certify support or interfere with ordinary Setting reads.
+            return false;
         }
     }
 
@@ -61,7 +137,7 @@ class PluginAgentbdmosassetsyncSetting extends CommonDBTM
             $allowed[] = 'id';
         }
         plugin_agentbdmosassetsync_check_fields($input, $allowed,
-            array_merge(['evidence_bindings_json'], $creating ? ['id'] : []));
+            array_merge(['evidence_bindings_json', 'scalar_null_support_json'], $creating ? ['id'] : []));
         $required = array_merge(self::contentFields(), [$creating ? 'route_id' : 'id']);
         plugin_agentbdmosassetsync_require_fields($input, $required);
 

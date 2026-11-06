@@ -1,5 +1,11 @@
 # Agent-B-DMOS-AssetSync: GLPI B API contract
 
+**Automatic discovery extension (0.7.1 source candidate):**
+[automatic-null-contract.md](automatic-null-contract.md) supersedes the earlier
+manual build/hash/capture-boundary requirement for aligned new clients. Earlier
+manual declarations remain historical evidence; existing requests/snapshots are
+not repinned. This candidate has no runtime verification.
+
 **Target:** GLPI 11, built-in REST API **V1** (the legacy, low-level API).
 **Scope:** B only. A initiates every request. No custom routes, authentication,
 HTTP responses, or outbound calls from B. This file defines the required

@@ -513,3 +513,12 @@ current decision record and supersedes defaults where it provides an answer.
 14. **Plugin name, directory name, and code namespace.** **You decide.** A needs these to build its REST URLs.
 15. **Duplicate work ID on POST.** Default: reject it with a clear "already exists" error. A then reads the existing record.
 16. **Stale settings version on write.** Default: reject a version that is not higher than the stored one.
+
+
+## Automatic null discovery (0.7.1 candidate)
+
+The normative [automatic-null contract](docs/automatic-null-contract.md) adds
+computed read-only Setting support and immutable Change capture classification
+through existing REST resources. Old unclassified snapshots remain unknown; no
+Work or snapshot is migrated. A removes its manual compatibility controls only
+after implementing this contract. History, certainty and exact ACK are unchanged.

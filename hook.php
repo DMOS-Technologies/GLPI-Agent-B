@@ -35,6 +35,7 @@ function plugin_agentbdmosassetsync_install()
             `field_mappings_json` LONGTEXT NOT NULL,
             `evidence_bindings_json` LONGTEXT NULL DEFAULT NULL,
             `participation_flags_json` LONGTEXT NULL DEFAULT NULL,
+            `scalar_null_support_json` LONGTEXT NULL DEFAULT NULL,
             PRIMARY KEY (`id`), UNIQUE KEY `route_id` (`route_id`),
             KEY `entities_id` (`entities_id`)",
         'works' => "
@@ -82,6 +83,7 @@ function plugin_agentbdmosassetsync_install()
             `note_json` LONGTEXT NULL DEFAULT NULL,
             `identity_json` LONGTEXT NOT NULL,
             `changed_fields_json` LONGTEXT NOT NULL,
+            `capture_policy` TINYINT UNSIGNED NULL DEFAULT NULL,
             `status` VARCHAR(16) NOT NULL DEFAULT 'Pending',
             `retry_count` INT UNSIGNED NOT NULL DEFAULT 0,
             `error` TEXT NULL DEFAULT NULL,
@@ -133,12 +135,14 @@ function plugin_agentbdmosassetsync_install()
     $additiveColumns = [
         'settings' => ['notes_itemtypes_json' => 'LONGTEXT NULL DEFAULT NULL',
             'evidence_bindings_json' => 'LONGTEXT NULL DEFAULT NULL',
-            'participation_flags_json' => 'LONGTEXT NULL DEFAULT NULL'],
+            'participation_flags_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'scalar_null_support_json' => 'LONGTEXT NULL DEFAULT NULL'],
         'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
             'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL', 'participation_json' => 'LONGTEXT NULL DEFAULT NULL',
             'participation_state_json' => 'LONGTEXT NULL DEFAULT NULL',
             'dropdown_empty_version' => 'TINYINT UNSIGNED NOT NULL DEFAULT 0'],
-        'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL'],
+        'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'capture_policy' => 'TINYINT UNSIGNED NULL DEFAULT NULL'],
     ];
     foreach ($additiveColumns as $suffix => $columns) {
         $table = 'glpi_plugin_agentbdmosassetsync_' . $suffix;

@@ -2,6 +2,7 @@
 
 class PluginAgentbdmosassetsyncChange extends CommonDBTM
 {
+    public const SCALAR_CAPTURE_POLICY = 2;
     public static $rightname = 'plugin_agentbdmosassetsync_change';
     private bool $internalDone = false;
     private bool $internalCreate = false;
@@ -32,7 +33,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
     public function rawSearchOptions()
     {
         return plugin_agentbdmosassetsync_search_options(static::getTable(), [
-            'id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype', 'subject',
+            'id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype', 'subject', 'capture_policy',
         ]);
     }
 
@@ -105,6 +106,13 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
                 plugin_agentbdmosassetsync_fail('ASB_INVALID_FIELD: field=changed_fields_json');
             }
         }
+        // Never infer a policy for historical snapshots; only this capture assigns it.
+        if ($DB->fieldExists(static::getTable(), 'capture_policy')) {
+            $input['capture_policy'] = $subject === 'Asset'
+                && defined('PLUGIN_AGENTBDMOSASSETSYNC_SCALAR_NULL_RUNTIME')
+                && PLUGIN_AGENTBDMOSASSETSYNC_SCALAR_NULL_RUNTIME === 2
+                ? self::SCALAR_CAPTURE_POLICY : null;
+        }
         $input += ['subject' => 'Asset', 'note_json' => null,
             'status' => 'Pending', 'retry_count' => 0, 'error' => null, 'done_at' => null];
         $DB->beginTransaction();
@@ -140,7 +148,7 @@ class PluginAgentbdmosassetsyncChange extends CommonDBTM
     {
         $owned = ['route_id', 'settings_version', 'a_entities_id', 'entities_id', 'itemtype',
             'subject', 'note_json', 'identity_json', 'changed_fields_json', 'retry_count', 'error',
-            'date_creation', 'date_mod', 'done_at'];
+            'date_creation', 'date_mod', 'done_at', 'capture_policy'];
         plugin_agentbdmosassetsync_check_fields($input, ['id', 'status'], $owned);
         plugin_agentbdmosassetsync_require_fields($input, ['id', 'status']);
         if (!plugin_agentbdmosassetsync_is_uint($input['id'], 1)) {

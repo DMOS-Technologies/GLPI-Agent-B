@@ -1,5 +1,11 @@
 # Automatic scalar reconciliation — field-sync version 2
 
+**Automatic discovery extension (0.7.1 source candidate):**
+[automatic-null-contract.md](automatic-null-contract.md) supersedes the earlier
+manual build/hash/capture-boundary requirement for aligned new clients. Earlier
+manual declarations remain historical evidence; existing requests/snapshots are
+not repinned. This candidate has no runtime verification.
+
 This normative extension requires Agent B **0.4.0** and the existing 0.3.0
 plugin upgrade. It extends [the API contract](api-contract.md) and
 [field-sync version 1](field-sync-contract.md). It introduces no column,

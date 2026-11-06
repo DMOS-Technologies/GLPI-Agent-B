@@ -2,6 +2,7 @@
 
 class PluginAgentbdmosassetsyncWork extends CommonDBTM
 {
+    public const SCALAR_NULL_POLICY = 2;
     public static $rightname = 'plugin_agentbdmosassetsync_work';
     public static $undisclosedFields = ['field_sync_json', 'participation_json', 'participation_state_json', 'dropdown_empty_version'];
     private ?array $clientCreateInput = null;
@@ -77,7 +78,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
         }
         $raw += [
             // Keep old admissions immutable: 0 original, 1 dropdown-only, 2 general scalar nulls.
-            'dropdown_empty_version' => $raw['subject'] === 'Asset' && $raw['operation'] === 'Sync' ? 2 : 0,
+            'dropdown_empty_version' => $raw['subject'] === 'Asset' && $raw['operation'] === 'Sync' ? self::SCALAR_NULL_POLICY : 0,
             'submitted_users_id' => $userId, 'submitted_profiles_id' => $profileId,
             'a_items_id' => $identity->a_items_id, 'b_items_id' => null, 'link_state' => null,
             'processing_started_at' => null, 'status' => 'Accepted', 'result_json' => null,

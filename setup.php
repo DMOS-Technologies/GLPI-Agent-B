@@ -32,13 +32,17 @@ function plugin_init_agentbdmosassetsync()
     Plugin::registerClass(PluginAgentbdmosassetsyncWork::class);
     Plugin::registerClass(PluginAgentbdmosassetsyncChange::class);
     Plugin::registerClass(PluginAgentbdmosassetsyncProfile::class, ['addtabon' => Profile::class]);
+    // Old initialized PHP contexts must not advertise a newly autoloaded record class.
+    if (!defined('PLUGIN_AGENTBDMOSASSETSYNC_SCALAR_NULL_RUNTIME')) {
+        define('PLUGIN_AGENTBDMOSASSETSYNC_SCALAR_NULL_RUNTIME', 2);
+    }
 }
 
 function plugin_version_agentbdmosassetsync()
 {
     return [
         'name' => 'Agent-B-DMOS-AssetSync',
-        'version' => '0.7.0',
+        'version' => '0.7.1',
         'author' => 'DMOS',
         'license' => 'GPLv3+',
         'requirements' => ['glpi' => ['min' => '11.0.7', 'max' => '11.0.99']],

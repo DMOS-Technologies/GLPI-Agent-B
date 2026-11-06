@@ -1,5 +1,11 @@
 # Opt-in scalar field isolation — contract version 1
 
+**Automatic discovery extension (0.7.1 source candidate):**
+[automatic-null-contract.md](automatic-null-contract.md) supersedes the earlier
+manual build/hash/capture-boundary requirement for aligned new clients. Earlier
+manual declarations remain historical evidence; existing requests/snapshots are
+not repinned. This candidate has no runtime verification.
+
 This extension to [api-contract.md](api-contract.md) requires Agent B **0.3.0**
 and its additive plugin upgrade. It applies only to a new `subject=Asset`,
 `operation=Sync` Work for an already verified **Active** retained relationship.

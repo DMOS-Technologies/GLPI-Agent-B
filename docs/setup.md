@@ -551,3 +551,14 @@ zero transitions need their own verified native handling; never weaken reread
 verification to hide a native no-op. Runtime coverage for this general revision
 is the explicitly scoped manual ledger, not the earlier dropdown/text passes.
 Do not claim full A/B readiness until authorized disposable integration passes.
+
+
+## Automatic discovery candidate 0.7.1
+
+Read [automatic-null-contract.md](automatic-null-contract.md). The additive upgrade
+adds nullable Setting support and Change policy columns without backfilling old
+snapshots. Aligned A discovers support automatically; no manual hash/Change ID
+attestation is required. Deploy consistent code/schema and fresh PHP contexts
+before resuming sync. Existing Works and unresolved historical snapshots remain
+unchanged. Old upgrade-helper and native binding-continuity limits still apply.
+No deployment or runtime check has been performed for this candidate.
