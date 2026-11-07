@@ -6,6 +6,68 @@ built-in Legacy REST API V1 on Setting, Work and Change records. It performs
 asset and native Notes operations locally and makes no outbound requests.
 There are no custom HTTP routes, authentication methods or log files.
 
+## Test release v0.7.2-rc.1 — 8 November 2026
+
+This release packages the Fields full-container null validation fix and the
+additive typed B-parent Work lookup index. Plugin metadata is **0.7.2**.
+Read [the release and upgrade guide](release-v0.7.2-rc.1.md) before installation.
+The matching data-plane code passed the disposable FN/LQ and 3,000-asset runs
+while metadata was still 0.7.1; the new version transition itself has NOT RUN
+runtime upgrade verification. Earlier results and limitations below remain
+historical evidence, not a new operational upgrade certification.
+
+A version change can unload the plugin before native upgrade/activation.
+Drain/fence all B write contexts and coordinate A submissions before changing
+the installed package. Back up the database and full plugin privately, pause
+only an idle supported task, use the native administrator additive upgrade,
+and verify retained records before restoring the prior schedule. Never
+uninstall/reinstall, reset Running, replay old Works or restore old trust
+generations. Native lifecycle may conservatively invalidate binding trust;
+preserving records does not guarantee uninterrupted evidence continuity.
+The old 0.6.x guarded-upgrade tools are not certified for this release.
+
+The index-only helper described below is for narrowly scoped maintenance on
+an already matching, upgraded active build. It does not complete the 0.7.1 to
+0.7.2 native version/schema transition and must not be used to bypass it.
+No REST or Controller A contract change is required by these two fixes.
+
+## Unreleased Work lookup index candidate — 7 November 2026
+
+The working-tree candidate adds the nonunique, full-column BTREE index
+`b_asset_link (itemtype, b_items_id, subject)` to B's Work table. It accelerates
+the existing typed B-parent ownership reads, including their `FOR UPDATE`
+variant. No processing predicate, permission, ownership check, Work payload,
+status, History rule, acknowledgement or REST format changes. Controller A
+needs no contract change. The source version remains 0.7.1; that version string
+and previously published ZIPs do not prove the index is installed.
+
+Fresh native installation includes the index. For an existing installation,
+the narrowly scoped administrator helper in `hook.php`,
+`plugin_agentbdmosassetsync_install_work_lookup_index()`, adds only this index
+and returns true when its exact usable definition already exists. A conflicting
+index of that name or a database failure returns false; never drop or replace
+an existing index automatically to bypass that result.
+
+An index-only change does not require deactivate/activate or the full install
+hook. Those lifecycle paths have separate evidence-continuity effects; do not
+invoke them merely to add this index. A later authorized operator must first
+back up the database, drain active B processing and human/API saves through
+supported maintenance, and use a fresh administrator CLI database session with
+no active transaction. Require the reviewed plugin's `hook.php` after native
+GLPI initialization and call only the helper, checking its boolean result.
+DDL implicitly commits and can wait for metadata locks; this helper must never
+run inside a worker, save hook or ordinary request transaction. Confirm with
+`SHOW INDEX FROM glpi_plugin_agentbdmosassetsync_works` that the key is
+nonunique, full-length, usable and has exactly the three columns above in that
+order. Read back retained records and restore the prior idle scheduling
+configuration; never reset a Running task or replay a Work.
+
+This task authorizes only disposable Docker verification, not deployment to
+localhost:8081 or hosted systems. See the [query-plan manual ledger](manual-tests.md#work-lookup-index-disposable-verification--7-november-2026)
+for the measured scope and unrun integration cases. An index changes physical
+lock ranges and storage/write costs; it does not replace the existing native
+parent locks, serialized worker, route locks or recovery evidence.
+
 **Blank-text patch deployed to localhost only:** the post-`61795e5` candidate treats
 NULL and exact empty string as equal only for verified supported scalar text
 bindings, before a native write or History arbitration. Original 0.6.0 release

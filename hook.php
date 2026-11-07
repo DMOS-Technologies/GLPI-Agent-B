@@ -18,6 +18,37 @@ function plugin_agentbdmosassetsync_deactivate(): void
     plugin_agentbdmosassetsync_evidence_upgrade_clear_after_reset();
 }
 
+/** Administrator-only additive index upgrade; never call from a worker or save hook. */
+function plugin_agentbdmosassetsync_install_work_lookup_index(): bool
+{
+    global $DB;
+
+    $table = 'glpi_plugin_agentbdmosassetsync_works';
+    try {
+        $rows = $DB->doQuery("SHOW INDEX FROM `$table`");
+        $columns = [];
+        while ($row = $DB->fetchAssoc($rows)) {
+            if ($row['Key_name'] !== 'b_asset_link') {
+                continue;
+            }
+            if ((int) $row['Non_unique'] !== 1 || $row['Sub_part'] !== null
+                || strtoupper($row['Index_type']) !== 'BTREE'
+                || strtoupper($row['Visible'] ?? 'YES') !== 'YES'
+                || strtoupper($row['Ignored'] ?? 'NO') !== 'NO') {
+                return false;
+            }
+            $columns[(int) $row['Seq_in_index']] = $row['Column_name'];
+        }
+        if ($columns) {
+            ksort($columns);
+            return $columns === [1 => 'itemtype', 2 => 'b_items_id', 3 => 'subject'];
+        }
+        return (bool) $DB->doQuery("ALTER TABLE `$table` ADD INDEX `b_asset_link` (`itemtype`, `b_items_id`, `subject`)");
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
 function plugin_agentbdmosassetsync_install()
 {
     global $DB;
@@ -71,7 +102,8 @@ function plugin_agentbdmosassetsync_install()
             `completed_at` DATETIME NULL DEFAULT NULL,
             PRIMARY KEY (`id`), UNIQUE KEY `work_id` (`work_id`),
             KEY `entities_id` (`entities_id`), KEY `status` (`status`),
-            KEY `route_id` (`route_id`), KEY `asset_link` (`route_id`, `itemtype`, `a_items_id`)",
+            KEY `route_id` (`route_id`), KEY `asset_link` (`route_id`, `itemtype`, `a_items_id`),
+            KEY `b_asset_link` (`itemtype`, `b_items_id`, `subject`)",
         'changes' => "
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
             `route_id` VARCHAR(128) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -151,6 +183,9 @@ function plugin_agentbdmosassetsync_install()
                 $DB->doQuery("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
             }
         }
+    }
+    if (!plugin_agentbdmosassetsync_install_work_lookup_index()) {
+        return false;
     }
     $settingsTable = 'glpi_plugin_agentbdmosassetsync_settings';
     $DB->update($settingsTable, ['notes_itemtypes_json' => '[]'], ['notes_itemtypes_json' => null]);

@@ -459,7 +459,7 @@ function plugin_agentbdmosassetsync_write_fields_nulls(CommonDBTM $asset, array 
             $validation[$column] = '';
         }
     }
-    if (!PluginFieldsContainer::validateValues($validation, $asset::class)) {
+    if (!PluginFieldsContainer::validateValues($validation, $asset::class, false)) {
         throw new RuntimeException('Native Fields validation rejected the empty container input');
     }
     $class = $field['storage_class'];

@@ -1,3 +1,421 @@
+# Release v0.7.2-rc.1 evidence summary — 8 November 2026
+
+The release packages the two reviewed local patches described below and changes
+only plugin version metadata from 0.7.1 to 0.7.2 beyond that tested runtime.
+No new runtime checks, deployment or existing-Work processing were performed
+for packaging. The actual 0.7.1 to 0.7.2 native lifecycle/upgrade is **NOT RUN**.
+See [the release and upgrade guide](release-v0.7.2-rc.1.md).
+
+On 7 November, latest A commit `4c5622983d75d0909dfedb6971a989fd8f0c0557`
+and patched B (0.7.1 metadata) completed a fresh disposable GLPI 11.0.7 /
+Fields 1.24.4 / MySQL 8.4.8 run. All 41 A / 21 B runtime files were pinned.
+Independent native readback and independent review passed:
+
+- Exactly 1,000 Computers, 1,000 Monitors and 1,000 Peripherals, with unique
+  scoped parents/associations and all 3,000 latest A asset Works current,
+  finalized and clean.
+- All 63,000 exact typed scalar values, including the original 1,500 nulls,
+  1,800 empty strings, 438 whitespace-only values, 3,000 false values and
+  600 numeric zeros. No failing cohort member was removed.
+- All 3,000 formatted Notes, exact identities/content/copied times and actual
+  native durable acknowledgement checks; all 6,000 actual Yes flags and their
+  configured verified receipts.
+- All 63,000 copied scalar states; 3,646 valid finalization journals and
+  75,851 references. Four historical superseded Works remain retained, not
+  relabelled successful. All 3,650 B Asset receipts finish Done; no unresolved
+  current cohort operation or initial sync feedback remains.
+
+Strict full convergence took **8,592.534s (2h23m12.5s)**, including two observer
+pauses totalling 416.425s. Independent full readback took 97.263s separately.
+Native automatic-action time was A 3,517.811s / B 677.207s. Calls used unchanged
+A50/Notes25/B20 caps, accelerated serial CLI without minute-schedule waits.
+The earlier optimized-A run was faster at 7,758.344s; these unpaired runs do not
+establish an index-only overall speedup. The targeted B lookup patterns used
+indexes: 157,800 calls / 205,671 rows examined / 6.7595 DB seconds, versus the
+older 175,800 / 815,796,574 / 443.174s. Request counts also differ.
+
+Eighteen subsequent real native Notes actions and nine background calls passed
+in a separate 90.495s: A/B additions and edits, equal no-ops, six exact immutable
+B Change acknowledgements, unchanged 2,997 unselected parent Note rows per side,
+unchanged flags/options/History and no feedback. Both sides end with 3,006 Notes.
+
+Private evidence: `/tmp/agentb-rerun3000-20261107-measure/SAFE-report.md` and
+its completion/performance/followup verdicts. Root preservation passed all 183
+pre-existing container projections, both repository manifests/status and the
+protected original A Works 1–7 fingerprint. Only the four new fixtures were
+stopped; their volumes and receipts were retained. This is the exact fingerprint
+scope, not a fresh hash of every unrelated historical B database row. Existing
+B Works/hosted systems were not accessed or changed by that run.
+
+The two original observer error causes remain unknown; their pauses and
+checkpoint history were retained, no native action was replayed, and later
+bounded confirmations were read-only. This is scoped disposable integration
+evidence, not production throughput, all SQL versions, arbitrary mappings,
+native upgrade continuity, hosted Name-failure resolution or all fault/recovery
+windows. Earlier FN PARTIAL and unrun cases below remain explicit.
+
+# Work lookup index disposable verification — 7 November 2026
+
+Unreleased working-tree candidate; source version remains 0.7.1. This is an
+index-only change in `hook.php`, separate from the preserved Fields validator
+patch below. No change to A, REST contracts, worker queries, Work statuses,
+retained payloads, History, permissions, acknowledgements or recovery policy.
+Previously released ZIPs do not contain this index addition.
+
+The earlier 3,000-asset run measured two typed B-parent ownership SELECT shapes
+on `glpi_plugin_agentbdmosassetsync_works`, plain and `FOR UPDATE`: 122,900 and
+52,900 executions, 443.174 summed database seconds and 815,796,574 examined
+rows. This motivated plan diagnosis; those counters alone did not establish an
+index fix or a total-sync speedup. The unchanged source sites are
+`inc/process.php::plugin_agentbdmosassetsync_find_existing()` and
+`inc/results.php::plugin_agentbdmosassetsync_lock_current_asset()`.
+
+The candidate adds one nonunique full-column BTREE index
+`b_asset_link (itemtype, b_items_id, subject)`. It must retain every matching
+Work, including conflicting ownership and suspended relationships. No LIMIT,
+uniqueness constraint, cache, field projection or ownership shortcut is added.
+The index-only helper must not be confused with full install/activation, which
+has separate lifecycle effects; see [setup guidance](setup.md#unreleased-work-lookup-index-candidate--7-november-2026).
+
+## Finite manual checklist
+
+Use only a new isolated database copied from the stopped synthetic B fixture,
+with the original volume mounted read-only for copying. Never start its
+original application/worker, attach A, expose a database port or drain a queue.
+Do not print request values or credentials. Keep exact row hashes privately.
+
+| Case | Manual check | Result |
+|---|---|---|
+| LQ01 | Confirm both measured query shapes; record EXPLAIN and actual read work before the index for Computer, Monitor and Peripheral. | PASS: all 30 plans used ALL/no key; EXPLAIN ANALYZE scanned the 12,665-row retained Work table. Both source shapes reproduce the earlier ownership patterns; restarted clone does not retain the original in-memory digest counters. |
+| LQ02 | Call the actual PHP index-only helper twice; confirm exact index shape and idempotency. Reject a conflicting same-name index without destructive repair. | PASS: installed GLPI 11.0.7 DBmysql invoked the real helper, true/true with exactly one ALTER. Later calls were SHOW-only. Separate synthetic schema with reversed same-name index returned false/false, SHOW-only, no repair. |
+| LQ03 | Compare exact complete result rowsets before/after for plain and locked reads, including missing/NULL parent references and the same numeric B ID across types. | PASS: all 30 result counts/full-row hashes identical, 10 per type, 15 plain/15 locked; NULL probes use IS NULL. |
+| LQ04 | On an isolated probe table, retain duplicate/cross-route/cross-source owners and control/suspended evidence; selection must not silently pick one owner. | PASS for complete retained result equality and explicit collisions: two Computer owners from different routes/A sources remain visible; same numeric B ID for Monitor/Peripheral stays typed. No control/status filter was added; full worker control-order behavior was not rerun. |
+| LQ05 | Repeat the same finite lookup workload after upgrade; record actual plans, examined rows and timings without extrapolating total sync throughput. | PASS: all 30 plans become ref/b_asset_link. Same 360-query batch, 2,753,200 result bytes, 2.193199125s before / 0.095109250s after. |
+| LQ06 | Two-session repeatable-read probe: matching row updates/equal-key inserts wait under FOR UPDATE; unrelated-parent writes can proceed. Roll back all probes. | PASS: matching UPDATE and equal-key INSERT time out with SQL 1205 at the short probe timeout; unrelated-parent UPDATE completes and rolls back. Owner transaction rolls back. This is a bounded lock-range check, not universal concurrency certification. |
+| LQ07 | Compare all retained B plugin row fingerprints and original environment state before/after; stop only new verification containers and preserve artifacts. | PASS for stated scope: all five clone plugin tables retain exact full-row hashes, source volume copied read-only, original source DB container state unchanged, new clone stopped. No original application, scheduler or Work processing was invoked. |
+
+## Executed result and preservation scope
+
+MySQL **8.4.8**, installed native GLPI **11.0.7** DBmysql. A new unexposed
+database container copied the stopped synthetic `scale50k-20261106-bdbdata`
+volume read-only into its own disposable volume. No original volume was used
+as a writable server datadir. No A application was attached. The helper ran
+through the installed native DBmysql implementation without Kernel boot,
+activation, full installation or worker execution. The clone retains the
+existing successful synthetic run's records; none was submitted or replayed.
+
+Before/after/final exact full-row fingerprints match for **12,665 Works,
+6 Changes, 1 Setting, 3,006 Note associations and 63,000 scalar states**.
+Collision, lock and malformed-index fixtures used separate probe tables/schema;
+they did not alter these retained plugin records. The original source database
+container stayed stopped with identical recorded state. This is not a new
+fingerprint of every unrelated local/hosted database; they were not accessed.
+The new clone is stopped and its private evidence retained at
+`/tmp/agentb-lookup-20261107/`: `before-plans.json`, `after-plans.json`,
+`before-row-hashes.json`, `after-row-hashes.json`, `final-row-hashes.json`,
+`baseline-benchmark.json`, `candidate-benchmark.json`,
+`synthetic-probes.json` and `final-verdict.json`.
+
+The fixed lookup batch improved approximately **23.06 times**, including CLI
+and result-transfer overhead, in this finite local workload. This is not a cold
+cache study, production estimate or full-sync throughput measurement. The new
+index uses 22 reported InnoDB pages (about 352 KiB at 16 KiB/page) on this dataset;
+larger retained histories have additional storage and write-maintenance cost.
+No historical benchmark elapsed time has been rewritten.
+
+Independent source and runtime-evidence review found no actionable blocker.
+The existing parent locks, worker serialization, route locks, competing-owner
+checks and uncertain-first-copy guards remain present. The physical Work lock
+range is narrower; correctness does not depend on retaining accidental full
+table scan locks. PHP syntax check of `hook.php` passed. The pre-existing
+`inc/write.php` validator fix and its ledger below were preserved.
+
+No automated test suite, worker replay, native asset write or complete A/B
+integration rerun is part of this index diagnosis. Real REST/worker integration,
+all SQL versions, production-scale concurrent DDL and total-sync throughput
+after A's latest optimization remain NOT RUN unless separately recorded below.
+
+# Fields SQL-null full-container validator fix — 6 November 2026
+
+**Unreleased working-tree patch; version remains 0.7.1. Installed and checked
+only in the new disposable `fnfix-20261106` pair.** The existing localhost B
+and hosted systems were not deployed to. The published 0.7.1/0.7.1-rc.1
+artifacts are not patched by this local change. The results below apply to this
+specific candidate and workload; none of the older GN/BN cases is promoted to
+PASS by this entry.
+
+The candidate changes only
+`inc/write.php::plugin_agentbdmosassetsync_write_fields_nulls()` to pass the
+required third argument `false` to Fields' full-container `validateValues()`
+call, matching its ordinary full `updateFieldsValues()` validation mode.
+Selected partial validation keeps its existing `true` argument. Native
+validation, actual permissions/status overrides, exact reread, first-copy
+association/provenance gates, uncertainty and historical receipts remain
+binding. No wire/schema/status change, version bump, new endpoint or Controller
+A code change is required for this argument correction. This does not certify
+every nullable destination or resolve any old Held request.
+
+## Confirmed unpatched diagnosis
+
+The finite disposable `emptydiag-20261106` run used GLPI 11.0.7, Fields 1.24.4,
+candidate A 0.2.7 and unchanged released B 0.7.1. All ten fresh admissions had
+immutable scalar policy2. These are **pre-fix runtime results**, not candidate
+verification:
+
+| Diagnostic case | Actual unpatched result |
+|---|---|
+| Populated first copy, all 21 scalar mappings | Done; all seeds AppliedToB |
+| First copy with the original mixed empty text/date/dropdown pattern | Held / ASB_FIRST_COPY_UNCERTAIN |
+| First copy with only the A-owned Fields date empty | Held / ASB_FIRST_COPY_UNCERTAIN |
+| First copy with empty Fields dropdowns | Done; native0 / logical null |
+| First copy with Fields text `""` | Done; exact empty strings |
+| First copy with explicit nullable Fields text `null` | Held / ASB_FIRST_COPY_UNCERTAIN |
+| Linked legacy Fields date clear | Held / Processing interrupted; prior sibling AlreadyEqual receipts retained |
+| Linked legacy native nullable text clear | Done / AppliedToB; actual SQL NULL |
+| Linked v2 Fields date clear | Done / AppliedToB / VerifiedApplied; actual SQL NULL |
+| Linked v2 already-empty date/dropdown | Done / AlreadyEqual / VerifiedEqual |
+
+Total: **6 Done, 4 Held**. A separate native transaction under the actual
+submitting identity proved that the three-argument validator accepted the same
+logical-empty full-container data with `false`; the unmodified full writer then
+raised `ArgumentCountError` because it supplied two arguments while installed
+Fields required three. The generated child save was not attempted at that
+boundary; the diagnostic parent was rolled back and reread absent. First-copy
+parent creation had already been attempted before this branch, so its
+conservative ASB_FIRST_COPY_UNCERTAIN outcome must not be relabelled as
+NotAttempted. Explicit nullable Fields text also reaches this branch; dropdown0
+and exact text `""` need not. Native text and selected v2 use different paths.
+
+All **28** historical mixed-cohort Held requests, inspected through an
+authorized read-only copy of a stopped disposable database, had policy2,
+absent field selection and explicit null for both Fields dates. Their immutable
+inputs match the freshly reproduced branch. Their original underlying
+Throwable/stack was not retained: this correlation does not invent an old stack
+or retroactively establish that any individual old write had no effects.
+Request/status/policy/error/result/identity projection fingerprints were
+unchanged; that projection is not every Work column.
+
+The prior diagnosis retained zero B feedback Changes and no current-value
+states for failed first-copy parents; initial fresh Work rows stayed byte-exact
+after later distinct requests. The equal-value control had identical storage,
+but no separate before/after History-count snapshot was taken. Parent
+preservation recorded all 157 older container identities/states/mounts, both
+repository manifests/statuses and original A Works1–7 full-row hashes unchanged.
+These observations apply to that unpatched diagnosis only.
+
+Private evidence: `/tmp/agentb-emptydiag-20261106-measure/SAFE-report.md`,
+`manual-case-results.json`, `boundary-result.json` and
+`/tmp/agentb-emptydiag-20261106-fixture/historical/held28-safe-readback.json`;
+preservation: `/tmp/agentb-emptydiag-preserve-600n20os/preservation-final.json`.
+Those artifacts retain their original pre-fix scope.
+
+## Finite candidate manual results
+
+Use newly authorized disposable fixtures and distinct immutable Work IDs only.
+Do not reopen or resend any diagnostic/historical Held request. Read the exact
+original Work after a lost response before considering any further mutation.
+Use actual native REST admission and supported background processing confined
+to those fixtures; POST acceptance alone is not success.
+
+| Case | Required manual check | Candidate result |
+|---|---|---|
+| FN01 | Fresh first copy with the original mixed empty text/date/dropdown pattern: verify actual parent/Fields values, durable receipts, association and truthful copied-value provenance; no feedback or false human-edit evidence. | PASS — fresh Work2 Done/Active, all21 seeds AppliedToB; actual nullable dates SQL NULL, text `""` and dropdown0 verified. |
+| FN02 | Fresh first copy with only one A-owned Fields date explicit null and every other value valid: verify SQL NULL and independent seed results. | PASS — fresh Work3 Done/Active, all21 seeds AppliedToB, selected date SQL NULL and other date populated. |
+| FN03 | Fresh first copy with explicitly nullable Fields text null, separately from exact text `""`: verify actual storage and immutable wire null; do not replace null with a sentinel string. | PASS — fresh Work6 Done/Active, all21 seeds AppliedToB, explicit wire null saved as actual SQL NULL; exact-empty-string control remained distinct. |
+| FN04 | Fresh linked legacy Fields date clear on a verified Active parent: verify native clear/reread, valid sibling progress, A/B/Both History authority and durable truthful outcomes. Do not reuse the failed diagnostic request. | PASS — Work7 Done, actual Fields date SQL NULL with sibling outcomes retained. Work14 newer-A Both clear applied; Work20 genuine newer-B null returned; actual tied History in Work16 conflicted without choosing a winner. |
+| FN05 | Controls: populated first copy; native nullable text clear; empty Fields dropdown0; exact text `""`; selected v2 date clear and already-empty VerifiedEqual. Retain false, numeric0 and whitespace as genuine values; missing comparison is not null. Check equal-value History counts and excluded Fields siblings before/after. | PASS — controls1/4/5/8–13 verified; SQL NULL/native0/false/numeric0/exact whitespace preserved. Equal controls left native/Fields storage and actual Computer History unchanged; selected writes left excluded Fields columns unchanged. Missing source-B comparison returned an explicit null tuple rather than asserting equality. |
+| FN06 | Actual mandatory/status-override rejection and service-account denial remain enforced. Distinguish prewrite rejection from an attempted/uncertain save; do not bypass native rights or validation. Valid independent siblings retain progress. | PASS — Work17 rejected mandatory date as NotAttempted/INVALID_VALUE; Work19 rejected denied Fields target as NotAttempted/FIELD_PERMISSION. Both independently saved and verified the permitted native sibling; rejected storage remained unchanged. |
+| FN07 | Verify original genuine edit times versus copied-value provenance, restart-persistent receipts, first-copy failure/rollback gates and zero sync feedback. Failed verification/persistence must not leave falsely trusted state or recreate an uncertain parent. | PARTIAL — all126 initial copied states retained exact source values/times/reliability; native-validation failure Work18 stayed Held without a confirmed parent or trusted state. Idle B-web restart preserved all recorded rows/receipts. In-flight interruption, failed reread, commit/rollback uncertainty and result/provenance-persistence fault injection NOT RUN. |
+| FN08 | Mixed Change snapshot: an unresolved/excluded/rejected/Unknown member prevents whole-snapshot ACK. After response loss, exact original-ID readback preserves identity and receipts; any supported later catch-up is a distinct guarded request. | PARTIAL — excluded mixed member kept Change6 Pending; after guarded native A application of the whole snapshot, distinct Work23 acknowledged that exact unchanged snapshot. A discarded POST response was recovered by exact original-ID readback with one POST. Actual transport interruption and rejected/Unknown mixed-snapshot fault variants NOT RUN. |
+| FN09 | Before/after fingerprints preserve protected Works, requests/results, links, Changes and evidence, especially original Works1–7 and all prior Held/Unknown receipts. No customer queue processing, historical reset/retry/reopen, hosted change or deployment. | PARTIAL — named preservation boundary passed:162 older container projections, both repository manifests/statuses at the check, and original A Works1–7 full-row hash unchanged. No old queues were targeted. Broad original B Work/link/Change/evidence table fingerprints were not captured; do not infer them from container state. |
+
+## Authorized disposable candidate run — 6 November 2026
+
+The run used GLPI11.0.7, Fields1.24.4 and MySQL8.4.8 in the new isolated
+`fnfix-20261106` pair, with candidate A0.2.7 and the working-tree B0.7.1 patch.
+All41 A and21 B runtime files matched their frozen manifests before/after.
+Patched `inc/write.php` SHA256:
+`95ea3e16bce68573589005d4a6e3d61fac872a0afc8ef7a8bb0c21200119a35f`.
+Version text alone does not identify this unreleased fix.
+
+The first five Works were admitted by A's native runner; later cases used
+distinct native REST Work submissions with current native-read values and
+supported B background processing. All23 fresh Works were policy2. The four
+previously failing paths now completed and their actual native/Fields values
+were reread; POST acceptance alone was not counted. Only six first-copy
+parents, six Fields rows and126 current-value states persisted. All126 initial
+states had origin Copied and exactly matched their original A values and field
+History evidence:109 reliable times retained and17 absent/unreliable entries
+not upgraded. Copy/creation time was not substituted.
+
+Selected controls saved numeric0 and three literal spaces, preserving all
+excluded Fields columns. Their equal-value follow-up and the empty date/
+dropdown follow-up preserved actual Computer History and native/Fields
+storage. Boolean false remained false. An omitted source-B comparison produced
+ReturnToA with an explicit null tuple, not an invented AlreadyEqual receipt.
+
+Both authority was checked with actual differing native-field History. Newer A
+won in Work14; genuinely newer B won in fresh Work20 and returned null with
+its recorded timestamp. An earlier intended newer-B control (Work15) made no
+new B edit because B was already empty; its correct AppliedToB outcome was
+retained and was not counted as the newer-B test. Real tied History in Work16
+remained Held/Conflict. No Work was rewritten or rerun to correct a fixture.
+
+Native status overrides and service-account container rights were exercised
+only on the new fixture. Their rejected targets stayed unchanged while valid
+native siblings completed with VerifiedApplied. The actual original container
+right was4; an initial restore to3 was corrected through the native model to4.
+The test override's mandatory effect was disabled afterward. First-copy
+validation failure Work18 deliberately remained ASB_FIRST_COPY_UNCERTAIN with
+no confirmed parent or current proof; returned rollback/absence was not
+relabelled as proof of no possible effects.
+
+For FN08, a real two-field human edit produced one immutable Change6. Partial
+selection Work22 left it Pending. Existing guarded native A application saved
+both captured values before a distinct full-snapshot Work23 marked the same
+Change Done, retaining its exact JSON. The receiving helper discarded Work23's
+POST response, searched the frozen original UUID and read the original ID
+before worker processing, then read that same terminal ID: one POST, no resend.
+This was receiver-side response-loss simulation, not an injected network
+timeout. Initial A-helper context validation refused before any native write;
+the private helper context was corrected and continued without replaying a
+Work. This manual native A application does not verify Controller A's complete
+scheduler/finalization workflow.
+
+An idle restart of only the new B web container initially failed because its
+fixture entrypoint repeated a non-idempotent Apache Listen-port rewrite. The
+owner restored only that new fixture's intended Apache configuration under
+explicit authorization and started it. Authenticated readback then retained
+Held Work18 and Done Work23; all B plugin rows, native/Fields values, Computer
+History and A Work rows matched the pre-restart snapshot. This was a fixture
+bootstrap issue, not a demonstrated Agent B defect. No in-flight or database
+restart/failure was injected.
+
+The run ended with20 Done and three intentional Held Works:16 (tied History),
+18 (native-validation creation failure) and22 (incomplete mixed snapshot).
+Six Changes came from explicit human fixture edits; none was created by sync
+processing. Change6 was acknowledged only after the whole snapshot was
+accounted for. Only these four new containers were stopped, after both native
+tasks were WAITING, worker locks free and no writer/scheduler remained; their
+volumes and requests/results/evidence were retained. No existing Work was
+retried, reset, reopened, deleted or blindly resent.
+
+Root preservation evidence at
+`/tmp/agentb-fnfix-preserve-uanc2xjo/preservation-final.json` records162 protected
+older container projections, source manifests/statuses and original A Works1–7
+full-row hash unchanged before this authorized ledger edit. Runtime source
+hashes are unchanged; this ledger update is intentional. There was no broad
+original B database fingerprint baseline. No hosted system, existing local
+container/configuration/scheduler or Controller A source was changed. No
+automated suite, commit, push or release was performed.
+
+Evidence directory: `/tmp/agentb-fnfix-20261106-measure/`. Exact wire/receipts,
+storage and Computer History are retained in the private accepted/processed
+snapshots. `runtime-source-pin.json`, `FN04-actual-newer-B-evidence.json`,
+`FN07-restart-result.json`, `FN08-result.json` and `ending-idle-state.json`
+record the respective build, arbitration, restart, accounting and final-state
+checks. Independent source/helper and offline evidence review covered these
+boundaries; partial cases above are not promoted by source inspection.
+
+## Reviewer curl procedure — literal commands NOT RUN
+
+These literal curl examples were not executed; the authorized run above used
+equivalent native REST client calls. The procedure itself is not authorization
+to repeat writes or deploy. Use a newly authorized, isolated B with no
+customer/recovery queue.
+`B_V1_BASE` is that fixture's configured Legacy API base; `B_AUTH_HEADERS` is a
+private file containing its existing App-Token and Session-Token header lines.
+Keep tokens and raw fixture evidence private. Use the actual permitted
+profile/entity context and read its exact Setting before submission:
+
+```bash
+curl --silent --show-error --header "@$B_AUTH_HEADERS" \
+  "$B_V1_BASE/PluginAgentbdmosassetsyncSetting/$B_SETTING_ID?get_hateoas=false&expand_dropdowns=false"
+```
+
+Prepare one immutable JSON file per case with a new `work_id`, actual routed
+entity/type/settings version and native-read values. For example, this is a
+complete first-copy body for an illustrative five-mapping, source-A fixture
+route (`native_name`, `native_serial`, `optional_text`, `optional_date`,
+`optional_dropdown`). Its optional Fields bindings must exist and be writable;
+replace the example scope/identifiers before freezing the file. If the fixture
+enables more mappings, supply their current values too. Never send native
+`"NULL"` input tokens or foreign dropdown IDs on the wire.
+
+```json
+{
+  "input": [{
+    "work_id": "fn-new-run-FN01-001",
+    "operation": "Sync",
+    "subject": "Asset",
+    "route_id": "fn-new-run",
+    "a_entities_id": 1,
+    "entities_id": 1,
+    "itemtype": "Computer",
+    "identity_json": "{\"a_items_id\":42,\"b_items_id\":null,\"serial\":\"FN-NEW-RUN-001\"}",
+    "a_values_json": "{\"native_name\":\"FN disposable computer\",\"native_serial\":\"FN-NEW-RUN-001\",\"optional_text\":\"\",\"optional_date\":null,\"optional_dropdown\":null}",
+    "a_change_times_json": "{}",
+    "settings_version": 1,
+    "handled_change_ids_json": "[]"
+  }]
+}
+```
+
+Empty time evidence deliberately claims no known field History. Any Both
+authority variant must use its actual specific-field History evidence and
+normal winner/conflict rules. FN02/FN03 use distinct first-copy identities;
+FN04 uses a newly verified Active parent, its actual B ID and a complete legacy
+snapshot. Selected v2 controls additionally require the existing contracted
+`field_sync_json` with an eligible exact terminal same-link reference; a failed
+first copy with no confirmed parent is not such a reference.
+
+Set `FN_BODY` to that private prepared file and `FN_RESPONSE` to a private
+response file. Submit **once**, then read the original returned B Work ID:
+
+```bash
+curl --silent --show-error --request POST \
+  --header "@$B_AUTH_HEADERS" --header 'Content-Type: application/json' \
+  --data-binary "@$FN_BODY" --output "$FN_RESPONSE" \
+  --write-out '%{http_code}\n' \
+  "$B_V1_BASE/PluginAgentbdmosassetsyncWork"
+
+curl --silent --show-error --header "@$B_AUTH_HEADERS" \
+  "$B_V1_BASE/PluginAgentbdmosassetsyncWork/$FN_B_WORK_ID?get_hateoas=false&expand_dropdowns=false"
+```
+
+A 201 response means acceptance only. Process only these new disposable
+fixtures through supported background methods; never run a broad worker on an
+existing queue. Read the same ID to its terminal outcome and check the FN table
+against actual native storage, association and evidence. Field nulls must
+survive JSON_TEXT decoding; Held/Skipped or a missing receipt cannot prove no
+write occurred. Native storage/History inspection requires a separately
+authorized fixture-only read; this curl readback alone does not prove them.
+
+If the POST response is lost or its ID unreadable, do not POST again. Set
+`FN_WORK_ID` to the frozen original request ID and locate/read that exact Work:
+
+```bash
+curl --silent --show-error --header "@$B_AUTH_HEADERS" --get \
+  --data-urlencode "searchText[work_id]=^${FN_WORK_ID}$" \
+  --data-urlencode 'range=0-1' --data-urlencode 'sort=id' \
+  --data-urlencode 'order=ASC' --data-urlencode 'get_hateoas=false' \
+  --data-urlencode 'expand_dropdowns=false' \
+  "$B_V1_BASE/PluginAgentbdmosassetsyncWork"
+```
+
+Require exactly one row with the identical `work_id`, then GET its original ID
+as above. No match, ambiguous identity or an unreadable outcome remains
+unresolved; stop before another mutation. Do not update Work rows or acknowledge
+any mixed Change until its exact whole snapshot has been accounted for.
+
+The initial source-review stage performed no post-fix GLPI/bootstrap/write
+verification; the later authorized disposable run is recorded above. It does
+not resolve or reinterpret historical Held receipts. FN07–FN09 retain their
+precise unrun variants, and no full B-to-A end-to-end or hosted resolution is
+claimed. No commit, push, release or existing-local/hosted deployment occurred.
+
+---
+
 # Automatic null discovery — source candidate 0.7.1
 
 All following runtime cases are **NOT RUN**. Source review is not a runtime pass.
