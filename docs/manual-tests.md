@@ -1,3 +1,73 @@
+# Linked-History blocker fix — 9 November 2026
+
+Unreleased source candidate after v0.7.2-rc.1; metadata remains 0.7.2. The
+native-History decision no longer depends on the old upgrade marker, and linked
+legacy/v1/v2 sync no longer writes old scalarstates provenance. First-copy and
+actual durable Work evidence remain strict. No A implementation change, hosted
+deployment, commit or existing-queue processing is authorized by this run.
+
+Finite checklist was prepared before runtime; the following are actual final
+observations using frozen current A **0.2.9** (41 runtime files), patched B
+**0.7.2** (21 runtime files), GLPI **11.0.7**, Fields **1.24.2** and disposable
+MySQL **8.4**. One fresh 100-Computer cohort was created; four isolated offline
+copies of its healthy settled baseline exercised separate faults. They are
+copies of the same cohort, not a claim of 500 independently sourced assets.
+No published ports or daemon schedulers; requests used native REST V1 and named
+native automatic actions in fresh PHP processes. Caps stayed A50/Notes25/B20.
+
+| Case | Result | Actual runtime evidence |
+|---|---|---|
+| GF01 | PASS | 100 fresh Computers, 900 matched scalars, 100 exact formatted Notes and 200 actual Yes flags. 300 A Works finalized/300 B Done; clean intents, no feedback. All 900 first-copy proof rows passed exact value/receipt/provenance reads: 366 retained reliable original A times, 534 stayed unreliable. |
+| GF02 | PASS | All 100 newer native Both and 100 Fields Both B edits reached A; B-owned values matched. All 200 original Changes acknowledged with actual original ID/hash native PUT proofs. False/stale A manual verification remained false and did not block. 400 A finalized/400 B Done. |
+| GF03 | PASS | All 100 newer native Both/Fields Both A edits and A-owned Names reached B. Final 500 A finalized/500 B Done, 200 Changes Done; no feedback/duplicate assets/Notes. Latest 100 A journals passed existing validation; 100 independently read original B receipts matched immutable identity and A's ordinary-result normalization. |
+| GF04 | PASS | With a deliberately pending old continuity marker, all 100 newer A Both values AppliedToB/VerifiedApplied, 100 independent Names saved, all 100 later Fields comparisons AlreadyEqual/VerifiedEqual. All latest A Works finalized/clean. Marker remained pending; no automatic repair. |
+| GF05 | PASS | Removed old manifest entries and injected untrusted scalar-state metadata while keeping actual definitions and History. All 100 linked updates AppliedToB/VerifiedApplied and finalized; later fields completed. This does not certify faulted first-copy creation. |
+| GF06 | PASS | A trigger rejected the target mapping's scalarstates UPDATE. All 100 new B Works Done: 50 AppliedToB/VerifiedApplied and 50 AlreadyEqual/VerifiedEqual. 100 earlier Names saved and 100 later Fields comparisons completed. All latest A Works finalized/clean; no old proof writes were attempted. |
+| GF07 | PASS | Separate real Work-journal trigger rejected provisional verified completion after the writer branch. Fresh fixture Work512 remained Held/Unknown/JOURNAL_UNCERTAIN; native Name reread matched rollback. Another native worker run preserved its exact terminal row/value, with no replay or fabricated success. |
+| GF08 | PARTIAL | Safety behavior PASS: worker lock left original Work510 Accepted/unstarted/unchanged; its first normal execution after release completed. Route lock left Work511 Held, target Pending/NotAttempted, in_flight null and value unchanged. Existing aggregate diagnostic was SNAPSHOT_INVALID rather than expected ROUTE_BUSY; precise diagnostic categorization remains a limitation. History denial/tied/doubly absent comparisons also stayed safe. |
+| GF09 | PASS | Legacy/v1/v2 equality and three controlled ReturnToA requests passed with BOTH pending marker and scalarstates failure active; legacy shape unchanged, selected equality VerifiedEqual. Ties/double absence Conflict/NotAttempted; denied native History Rejected/NotAttempted with existing INVALID_VALUE category. All 12 requests used distinct fresh IDs and exact original readback. The three one-sided ReturnToA inputs supplied synthetic A absence, with actual B History; they are protocol checks, not an A fresh-snapshot/end-to-end claim. Invalid v2 references were not newly fault-tested; unchanged guards were source-reviewed. |
+| GF10 | PASS | Each main fault clone retained exact 500 baseline A Works, 500 B Works, 200 Changes and all 900 scalar-state rows as they stood after deliberate setup. Safety retained its original 500 A/500 B Works and 200 Changes; only 12 new B requests were added. All 38 pre-existing container projections and all 205 tracked A files/HEAD/status remained unchanged. All 20 owned containers stopped without OOM/restart after idle external tasks/free worker locks. Frozen/deployed A41/B21 runtime hashes matched. |
+
+Direct winner proofs passed 706 newer-B and 906 newer-A assertions; independent
+cross-peer value/link/Note/flag reads passed 1,709 and 1,809 assertions. Initial
+settlement took 89.28s; newer-B 99.93s; newer-A 56.99s. These are accelerated
+functional runs, not production throughput or a matched performance benchmark.
+No native elapsed entries were missing. Read-only final journal/receipt/ACK
+observers used 512M; worker memory/configuration was unchanged.
+
+Private evidence: `.git/gates-fix100-20261109/`, especially `report.md`,
+`summary.json`, `base/healthy-summary.json`, each main clone's `verdict.json`,
+`safety/safety-verdict.json`, `preservation-verdict.json` and
+`deployed-source-verdict.json`. Raw requests/results and injected faults remain
+private and retained. The historical failing run remains separately in
+`.git/gates-100-20261109/`; no historical result was overwritten.
+
+Setup/observer corrections are retained: a copied synthetic JSON observer file
+needed fixture-only read permissions; initial trigger DDL was refused before
+any POST, then exact readback and owner-only missing DDL completed setup;
+the route-lock observer's more specific code assertion failed and was retained,
+then only the unrun journal case continued. A container preservation comparison
+initially treated Docker's Mounts array ordering as a change; exact mount records
+matched when keyed by destination. No Work was replayed or relabelled to resolve
+an observer/setup error. Logs READ was restored in the safety clone; injected
+markers/triggers remain there, with all owned runtimes stopped.
+
+Remaining limits: no hosted or localhost:8081 deployment, no existing customer
+DB/Work access (Works1–7 protected by isolation, not a fabricated row fingerprint),
+no automated/unit tests or commits. First-copy success/proof is exercised, but
+first-copy faulted commits, arbitrary hook transaction leaks, all crash/lost-
+response windows, every asset/field type and actual offline upgrade interruption
+are NOT RUN here. Stale-marker injection does not certify a partial installation
+or establish a hosted cause. Existing coarse error labels were not changed.
+Legacy/v1 direct fault cases cover equality/ReturnToA; their A-winning native
+mutations were not separately repeated. Fields 1.24.2 is the copied fixture's
+actual source version, verified in its setup.php; this run does not certify
+another installed Fields release.
+Durable receipts/uncertainty, identity/rights/locks and exact whole snapshots
+remain mandatory; an older Unknown stays historical. No new wire/schema/right
+or A configuration is required for the linked fix; original released 0.7.2 lacks
+this patch despite the same metadata version. See the History build boundary.
+
 # Release v0.7.2-rc.1 evidence summary — 8 November 2026
 
 The release packages the two reviewed local patches described below and changes

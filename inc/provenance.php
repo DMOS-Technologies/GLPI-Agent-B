@@ -332,7 +332,7 @@ function plugin_agentbdmosassetsync_provenance_first_copy(array $work, CommonDBT
         if ($binding === null || $binding !== $seed['binding']) {
             throw new RuntimeException('Save failed: first-copy field binding changed');
         }
-        plugin_agentbdmosassetsync_field_sync_transactional($asset, $descriptor);
+        plugin_agentbdmosassetsync_field_sync_transactional($asset, $descriptor, true);
         if (!plugin_agentbdmosassetsync_scalar_equal(
             plugin_agentbdmosassetsync_locked_value($work, $asset, $descriptor), $seed['expected'])
             || plugin_agentbdmosassetsync_provenance_storage($asset, $descriptor, true) === null) {

@@ -176,7 +176,7 @@ exception diagnostics or rejected business values.
 | `FIELD_PERMISSION` | Selected field/container permission denies the operation before writer while parent authorization remains valid; Rejected/NotAttempted. Parent UPDATE denial is a work-context PARENT_SCOPE failure, not this field rejection. |
 | `STORAGE_UNSUPPORTED` | Safe partial native storage/update or checked transactional storage could not be established before writer; Rejected/NotAttempted. |
 | `EVIDENCE_CONFLICT` | Selected Both comparison cannot establish a winner; Conflict/NotAttempted and Work Held. On 0.6.0 this covers both History timestamps absent or tied with different values; one-sided confirmed absence alone is not a conflict. |
-| `FIELD_BINDING_UNAVAILABLE` (0.5.2) | In 0.5.2 this identifies missing/invalid/changed bindings or an incomplete upgrade. On 0.6.0 History arbitration no longer requires the internal manifest; this code is retained for the incomplete-upgrade fence. Conflict/NotAttempted; aggregate `EVIDENCE_CONFLICT`. Historical receipts stay unchanged. |
+| `FIELD_BINDING_UNAVAILABLE` (0.5.2) | Historical 0.5.2 receipts identify missing/invalid/changed bindings or an incomplete upgrade; original 0.6.0–0.7.2 History arbitration retained the upgrade-marker fence. The unreleased linked-History fix after v0.7.2-rc.1 removes that legacy-marker dependency. Old Conflict/NotAttempted receipts remain historical evidence and are never rewritten. Actual current field/History failures still reject truthfully. |
 | `SAVE_UNCONFIRMED` | Native writer was invoked but did not confirm save; Unknown. A native false return is not a no-effects proof. |
 | `VERIFICATION_FAILED` | Writer was invoked but reread did not establish intended saved value; Unknown. |
 | `WRITE_UNCERTAIN` | Durable in-flight marker or possible native mutation lacks confirmed completion; Unknown. |
@@ -220,6 +220,16 @@ is introduced and no terminal Work is reopened. A must not treat a top-level
 Done as proof that every mapping was applied or every snapshot acknowledged.
 
 ## Durable journal and interruption
+
+The unreleased linked-History fix after v0.7.2-rc.1 removes scalarstates
+barrier/copied-proof writes from linked legacy/v1/v2 processing. A locked
+AlreadyEqual or History decision no longer depends on that obsolete store.
+Before selected native writes, native parent/field and Work tables remain
+checked transactional storage. First-copy explicitly retains scalarstates in
+its transactional prerequisite.
+This changes no durable Work marker, certainty, native verification, observer,
+snapshot or interruption rule below. A failure in the actual Work journal is
+still unresolved and is never bypassed as an obsolete tracking error.
 
 Admission initializes this result only for opt-in Work, including Pending and
 Excluded entries and the exact request selection. Legacy Accepted result stays

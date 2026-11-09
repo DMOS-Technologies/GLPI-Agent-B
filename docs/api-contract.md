@@ -73,6 +73,22 @@ no version-string capability or hosted/runtime success is implied.
 
 ## Contract status and sources
 
+**Unreleased linked-History blocker fix after v0.7.2-rc.1 (9 November 2026):**
+the candidate removes the legacy upgrade-marker gate from unequal Both
+comparisons and old scalarstates barrier/copied-proof persistence from linked
+scalar legacy/v1/v2 processing. Actual permitted locked current values and field
+History still determine the outcome. Durable selected Work in-flight/provisional/
+final receipts, native transactions/save verification, independent readback,
+scope/permissions, first-copy provenance and exact whole-Change acknowledgements
+remain required. A real journal/commit/cleanup failure is still Unknown/Held.
+This supersedes older statements requiring linked sync to write copied
+provenance before/after saving; it does not change first copy or certify old
+matching proof. See [the exact boundary](history-contract.md) and
+[manual ledger](manual-tests.md#linked-history-blocker-fix--9-november-2026).
+No API keys, statuses, option versions, schema or rights are added. Metadata is
+still 0.7.2; the original release lacks this fix. A needs the existing History
+policy and recovery rules, with no new wire adoption or manual gate action.
+
 **Optional participation flags (0.5.0, local candidate):**
 [participation-contract.md](participation-contract.md) defines optional Setting
 `participation_flags_json`, immutable Work opt-in `participation_json` and the

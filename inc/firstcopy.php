@@ -59,7 +59,7 @@ function plugin_agentbdmosassetsync_first_copy(PluginAgentbdmosassetsyncWork $re
             if (!$type::canCreate()) {
                 throw new RuntimeException('Hold: submitting user lacks current asset CREATE permission');
             }
-            plugin_agentbdmosassetsync_field_sync_transactional($asset, ['table' => $asset::getTable()]);
+            plugin_agentbdmosassetsync_field_sync_transactional($asset, ['table' => $asset::getTable()], true);
             [$input, $containers, $seeds] = plugin_agentbdmosassetsync_first_copy_values($asset, $route, $work, $result);
             $preparedIds = array_column($seeds, 'mapping_id');
             foreach ($seeds as $seed) {
@@ -256,7 +256,7 @@ function plugin_agentbdmosassetsync_first_copy_values(CommonDBTM $asset, array $
                 throw new RuntimeException('A supplied no value for this enabled first-copy mapping');
             }
             $field = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field);
-            plugin_agentbdmosassetsync_field_sync_transactional($asset, $field);
+            plugin_agentbdmosassetsync_field_sync_transactional($asset, $field, true);
             $wire = plugin_agentbdmosassetsync_exact_work_value($work, $mapping->mapping_id, $values->{$mapping->mapping_id});
             $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $wire);
             $expected = plugin_agentbdmosassetsync_write_expected($field, $local, $wire);

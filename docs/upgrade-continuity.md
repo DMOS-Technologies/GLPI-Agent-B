@@ -1,5 +1,16 @@
 # Evidence-safe controlled upgrade and binding initialization (0.5.2)
 
+**Current linked-History candidate, 9 November 2026:** the unreleased fix after
+v0.7.2-rc.1 no longer treats this legacy continuity marker as a linked History
+arbitration gate or writes old scalarstates proof during linked scalar sync.
+The marker still fences legacy proof trust and first-copy provenance. All
+offline application/database fencing, actual worker/route locks and guarded
+certification requirements below remain. A stale marker is not proof of live
+maintenance; readable History is not proof a partial installation is safe.
+No marker is cleared/repaired automatically, no old proof is blessed and no
+historical Work is replayed. This does not certify the old guarded-upgrade tool
+for a newer release; use the current setup/release deployment boundary.
+
 **0.6.0 deployment boundary:** the current local operator tool targets 0.6.0 and
 also accepts 0.5.2 as a reviewed source format. Its offline fence, independent
 observer and record-preservation rules remain required; historical proof is not

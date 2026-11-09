@@ -149,10 +149,34 @@ its existing support for this policy is not claimed.
 
 Source A/B authority, selected-field exclusion, explicit clears, identity/scope
 and actual native save permissions remain unchanged. Missing internal binding
-manifests no longer block History-time arbitration; an incomplete upgrade still
-does. Existing binding/current-proof records remain stored for save/recovery
-accounting, but do not determine the new comparison timestamp. No historical
-proof or outcome is rewritten or promoted.
+manifests no longer block History-time arbitration. The unreleased linked-History
+fix after v0.7.2-rc.1 also removes the old `evidence_upgrade` marker from this
+decision: pending, malformed or unreadable legacy continuity metadata is not
+field History and cannot prove that maintenance is currently running. Actual
+worker/route locks, permitted concrete field reads and readable field-specific
+History remain required. Supported upgrades must still drain/fence application
+contexts; this does not authorize processing during an active upgrade or repair
+a partially installed schema.
+
+Linked scalar updates (legacy and selected v1/v2) no longer write the old
+scalarstates barrier/copied proof or require that table's engine merely to
+compare or save a field. They use native current values/History and the existing
+Work durability mechanisms. Selected in-flight/provisional/final Work evidence,
+native save verification, commit/rollback, independent visibility and lock
+cleanup remain mandatory. Real uncertainty still Holds; equality cannot
+manufacture an old Work's success. Old binding/current-proof records remain
+stored unchanged by these linked operations, are not promoted and do not
+determine comparison time. They must not be reused as current proof by future
+code or an older build without a separately reviewed migration. Capture,
+first-copy provenance and its checked storage/receipt/association rules retain
+their behavior. The legacy proof reader remains fenced by the continuity
+marker. No historical proof or outcome is rewritten or promoted.
+
+This build adds no wire/schema/version-option change. Metadata remains 0.7.2,
+so the version string alone does not establish this fix is installed. Controller
+A already aligned with History needs no new request/result shape; it must
+retain exact original-ID readback, current-state catch-up and whole-snapshot
+accounting. See [the finite manual ledger](manual-tests.md#linked-history-blocker-fix--9-november-2026).
 
 ## Recovery, capture and verification
 

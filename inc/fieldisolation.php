@@ -523,11 +523,15 @@ function plugin_agentbdmosassetsync_field_sync_interrupted(PluginAgentbdmosasset
 }
 
 /** Verify only the actual storage whose value and journal must commit together. */
-function plugin_agentbdmosassetsync_field_sync_transactional(CommonDBTM $asset, array $field): void
+function plugin_agentbdmosassetsync_field_sync_transactional(CommonDBTM $asset, array $field,
+    bool $includeProvenance = false): void
 {
     global $DB;
-    foreach (array_unique([$asset::getTable(), $field['table'], PluginAgentbdmosassetsyncWork::getTable(),
-        'glpi_plugin_agentbdmosassetsync_scalarstates']) as $table) {
+    $tables = [$asset::getTable(), $field['table'], PluginAgentbdmosassetsyncWork::getTable()];
+    if ($includeProvenance) {
+        $tables[] = 'glpi_plugin_agentbdmosassetsync_scalarstates';
+    }
+    foreach (array_unique($tables) as $table) {
         $row = $DB->fetchAssoc($DB->doQuery("SHOW TABLE STATUS WHERE `Name` = '" . $DB->escape($table) . "'"));
         if (!$row || strcasecmp($row['Engine'] ?? '', 'InnoDB') !== 0) {
             throw new RuntimeException('Transactional field and Work storage could not be established');
@@ -556,7 +560,6 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
     $stage = 'ACCOUNT_DENIED';
     $decision = null;
     $failure = null;
-    $barrier = null;
     try {
         $stage = 'ROUTE_BUSY';
         $lockRequestUncertain = true;
@@ -568,19 +571,14 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
         $locked = true;
         $stage = 'ACCOUNT_DENIED';
         $decision = plugin_agentbdmosassetsync_as_submitter($work, static function () use ($record, $work, $options,
-            $mapping, $id, $value, &$result, &$transaction, &$attempted, &$commitAttempted, &$stage, &$barrier, $DB) {
+            $mapping, $id, $value, &$result, &$transaction, &$attempted, &$commitAttempted, &$stage, $DB) {
             [$route, $asset, $mappings] = plugin_agentbdmosassetsync_field_sync_context($work, $options, $stage);
             if (!isset($mappings[$id]) || $mappings[$id] != $mapping
                 || (int) $asset->getID() !== $result['b_items_id']) {
                 $stage = 'SETTING_SCOPE';
                 throw new RuntimeException('Selected mapping or retained parent changed');
             }
-            if ($mapping->source !== 'B') {
-                $stage = 'FIELD_UNAVAILABLE';
-                $descriptor = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
-                $stage = 'JOURNAL_UNCERTAIN';
-                $barrier = plugin_agentbdmosassetsync_provenance_begin($work, $asset, $mapping, $descriptor);
-            }
+            // Linked scalar completion uses the Work journal; arbitration reads native field History.
             $stage = 'STORAGE_UNSUPPORTED';
             try {
                 $DB->beginTransaction();
@@ -656,8 +654,6 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
                                 plugin_agentbdmosassetsync_locked_value($work, $asset, $field), $expected)) {
                             throw new RuntimeException('Reread did not verify the intended value');
                         }
-                        $stage = 'JOURNAL_UNCERTAIN';
-                        plugin_agentbdmosassetsync_provenance_copied($work, $asset, $mapping, $field, $expected, $barrier);
                         $result['field_sync']['in_flight']['verified'] = true;
                         $stage = 'JOURNAL_UNCERTAIN';
                         if (!$record->saveFieldSyncEvidence((int) $work['id'], $result)) {
@@ -672,9 +668,6 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
             $commitAttempted = true;
             $DB->commit();
             $transaction = false;
-            if (!$attempted) {
-                plugin_agentbdmosassetsync_provenance_restore($barrier);
-            }
             plugin_agentbdmosassetsync_field_sync_reconcile_visible($work,
                 ['result_json' => json_encode($result, JSON_THROW_ON_ERROR)]);
             return $decision;
@@ -693,11 +686,7 @@ function plugin_agentbdmosassetsync_field_sync_mapping(PluginAgentbdmosassetsync
                 throw new RuntimeException('Field rollback is uncertain; stop this worker without replay', 9101, $rollbackError);
             }
         }
-        if (!$attempted && !$commitAttempted) {
-            plugin_agentbdmosassetsync_provenance_restore($barrier);
-        }
     } finally {
-        plugin_agentbdmosassetsync_provenance_end($barrier);
         if ($locked || $lockRequestUncertain) {
             try {
                 $released = $DB->fetchAssoc($DB->doQuery("SELECT RELEASE_LOCK('$lock') AS released"));

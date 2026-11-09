@@ -27,6 +27,13 @@ current-value evidence exists. See [API section 5.6](api-contract.md#56-scalar-g
 The 0.6.0 History policy above supersedes that arbitration dependency; retained
 binding/provenance receipts still do not certify an old operation's completion.
 
+The unreleased linked-History fix after v0.7.2-rc.1 additionally removes the
+legacy upgrade-marker decision gate and linked scalarstates persistence
+dependency. Version 2 keeps the same terminal reference, selection, native Work
+journal/uncertainty, current-state scope and whole-snapshot rules. It does not
+reopen an old request, turn earlier Unknown into NotAttempted, or allow
+first-copy recovery through v2. See [the History contract](history-contract.md).
+
 The local post-0.6.0 [blank text patch](history-contract.md#blank-text-comparison--local-patch-after-060)
 adds permitted locked NULL/empty-string no-op equality for concrete text fields
 under A/B/Both. It changes neither v2 admission nor History timestamp meaning.

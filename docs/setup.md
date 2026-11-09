@@ -6,6 +6,26 @@ built-in Legacy REST API V1 on Setting, Work and Change records. It performs
 asset and native Notes operations locally and makes no outbound requests.
 There are no custom HTTP routes, authentication methods or log files.
 
+## Unreleased linked-History blocker fix — 9 November 2026
+
+The candidate after v0.7.2-rc.1 removes a legacy continuity-marker gate and
+unnecessary scalarstates writes from linked scalar comparisons/saves. Metadata
+remains 0.7.2; neither that version string nor the published ZIP proves this fix
+is present. No schema/rights/REST change or new A configuration is needed.
+Aligned A must keep its field History and safe original-ID/current-state
+recovery behavior.
+
+Do not clear a pending marker, replay Held/Unknown Works or rerun an upgrade
+merely to enable this comparison fix. Actual partial installation/maintenance
+must still be accounted for through the supported fenced native lifecycle.
+First-copy still requires provenance storage and verified association/receipt;
+real Work journal/save/commit uncertainty still Holds. Old scalarstates left by
+linked processing are historical, not a downgrade-compatible current proof.
+Installation on an existing system requires separate authorization and a
+recoverable backup; this task deploys only to newly owned disposable Docker
+fixtures. Read [the contract boundary](history-contract.md) and
+[the manual results](manual-tests.md#linked-history-blocker-fix--9-november-2026).
+
 ## Test release v0.7.2-rc.1 — 8 November 2026
 
 This release packages the Fields full-container null validation fix and the

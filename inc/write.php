@@ -228,9 +228,8 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
     if ((int) $row['acquired'] !== 1) {
         throw new RuntimeException('Hold: route is busy');
     }
-    $barrier = null;
     try {
-        return plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $mapping, $assetId, $value, &$barrier, $DB) {
+        return plugin_agentbdmosassetsync_as_submitter($work, static function () use ($work, $mapping, $assetId, $value, $DB) {
             try {
                 $route = plugin_agentbdmosassetsync_current_route($work);
                 $asset = plugin_agentbdmosassetsync_find_existing($work);
@@ -245,8 +244,7 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
             }
             $writeAttempted = false;
             $completionAttempted = false;
-            $descriptor = plugin_agentbdmosassetsync_work_field($work, $asset, $mapping->b_field, false);
-            $barrier = plugin_agentbdmosassetsync_provenance_begin($work, $asset, $mapping, $descriptor);
+            // Linked scalar writes retain their Work outcomes; old copied-value proofs are not History.
             try {
                 $DB->beginTransaction();
             } catch (Throwable $e) {
@@ -265,7 +263,6 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     if ($decision['outcome'] !== 'AppliedToB') {
                         $completionAttempted = true;
                         $DB->commit();
-                        plugin_agentbdmosassetsync_provenance_restore($barrier);
                         return $decision;
                     }
                     try {
@@ -284,7 +281,6 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     plugin_agentbdmosassetsync_comparison_value($field, $mapping, $value);
                     $completionAttempted = true;
                     $DB->commit();
-                    plugin_agentbdmosassetsync_provenance_restore($barrier);
                     return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
                 }
                 $local = plugin_agentbdmosassetsync_write_value($asset, $field, $mapping, $value);
@@ -293,7 +289,6 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     || plugin_agentbdmosassetsync_locked_fields_row($asset, $field) !== null)) {
                     $completionAttempted = true;
                     $DB->commit();
-                    plugin_agentbdmosassetsync_provenance_restore($barrier);
                     return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
                 }
                 try {
@@ -314,7 +309,6 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                     }
                     throw new RuntimeException('Hold: local asset write outcome is uncertain; reconcile before new Work', 0, $e);
                 }
-                plugin_agentbdmosassetsync_provenance_copied($work, $asset, $mapping, $field, $expected, $barrier);
                 $completionAttempted = true;
                 $DB->commit();
                 return ['outcome' => 'AppliedToB', 'reason' => null, 'return' => null];
@@ -328,9 +322,6 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
                 if ($completionAttempted) {
                     throw new RuntimeException('Hold: asset transaction completion is uncertain; reconcile before new Work', 0, $e);
                 }
-                if (!$writeAttempted) {
-                    plugin_agentbdmosassetsync_provenance_restore($barrier);
-                }
                 if ($writeAttempted && !($e instanceof RuntimeException
                     && (str_starts_with($e->getMessage(), 'Save failed:') || str_starts_with($e->getMessage(), 'Hold:')))) {
                     throw new RuntimeException('Hold: attempted asset write outcome is uncertain; reconcile before new Work', 0, $e);
@@ -339,7 +330,6 @@ function plugin_agentbdmosassetsync_write_mapping(array $work, stdClass $mapping
             }
         });
     } finally {
-        plugin_agentbdmosassetsync_provenance_end($barrier);
         try {
             $DB->doQuery("SELECT RELEASE_LOCK('$lock')");
         } catch (Throwable $e) {

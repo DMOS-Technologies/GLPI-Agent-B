@@ -33,6 +33,17 @@ limits. B-only verification does not certify Controller A integration.
 
 ## Decisions already made
 
+The unreleased linked-History fix after v0.7.2-rc.1 removes two obsolete
+dependencies from linked scalar legacy/v1/v2 processing: the old
+`evidence_upgrade` continuity marker no longer gates Both History comparisons,
+and linked processing no longer persists old scalarstates barriers/copied proof.
+Current values/History, native scope/rights/locks and selected Work durability
+remain mandatory. Actual upgrade fencing and first-copy checked provenance,
+uncertain-write recovery and exact whole-snapshot acknowledgements are retained.
+No wire/schema change or Controller A change is introduced. See
+[the precise build boundary](docs/history-contract.md) and
+[the finite manual ledger](docs/manual-tests.md#linked-history-blocker-fix--9-november-2026).
+
 The local patch after 0.6.0 commit `61795e5` implements the approved scalar
 text blank rule: SQL NULL and exact empty string mean the same unfilled value
 for supported concrete text metadata. After permitted locked current reads,

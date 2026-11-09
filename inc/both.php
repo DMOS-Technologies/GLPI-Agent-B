@@ -61,12 +61,8 @@ function plugin_agentbdmosassetsync_both_decision(array $work, CommonDBTM $asset
         || plugin_agentbdmosassetsync_blank_text_equal($field, $aValue, $bValue)) {
         return ['outcome' => 'AlreadyEqual', 'reason' => null, 'return' => null];
     }
-    if (plugin_agentbdmosassetsync_evidence_upgrade_pending()) {
-        return ['outcome' => 'Conflict',
-            'reason' => 'Field history comparison is blocked by an incomplete upgrade; administrator verification is required',
-            'return' => null,
-            'error_code' => 'FIELD_BINDING_UNAVAILABLE'];
-    }
+    // Native field History does not depend on the older copied-value continuity marker.
+    // Actual upgrade/reset exclusion still uses the worker/route locks held by callers.
     $aTimes = json_decode($work['a_change_times_json'], false, 512, JSON_THROW_ON_ERROR);
     $aEvidence = $aTimes->{$mapping->mapping_id} ?? null;
     $bEvidence = plugin_agentbdmosassetsync_genuine_time($work, $asset, $mapping->mapping_id, $bValue, true);
