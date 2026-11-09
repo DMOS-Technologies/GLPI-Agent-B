@@ -33,6 +33,15 @@ limits. B-only verification does not certify Controller A integration.
 
 ## Decisions already made
 
+Version 0.7.3 adds the approved **B assessment and A handoff** in
+[the recovery-assessment contract](docs/recovery-assessment-contract.md).
+Native upgrades schedule bounded read-only background observations and separate
+B-owned metadata; they never replay old payloads, reopen terminal Works or
+manufacture completion. New asset writes require fresh A intent under existing
+v2 rules. Original receipts, first-copy uncertainty, successful siblings,
+permissions/locks and whole-snapshot acknowledgements remain. No A code or
+outbound B call is added. The handoff is documented, not implemented in A.
+
 The unreleased linked-History fix after v0.7.2-rc.1 removes two obsolete
 dependencies from linked scalar legacy/v1/v2 processing: the old
 `evidence_upgrade` continuity marker no longer gates Both History comparisons,

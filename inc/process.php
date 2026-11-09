@@ -7,6 +7,7 @@ require_once __DIR__ . '/scope.php';
 require_once __DIR__ . '/both.php';
 require_once __DIR__ . '/notes.php';
 require_once __DIR__ . '/fieldisolation.php';
+require_once __DIR__ . '/recovery.php';
 
 function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
 {
@@ -43,8 +44,9 @@ function plugin_agentbdmosassetsync_process_batch(CronTask $task): int
             }
             ++$count;
         }
+        $assessed = plugin_agentbdmosassetsync_recovery_batch($task);
         $task->addVolume($count);
-        return $count > 0 ? 1 : 0;
+        return $count > 0 || $assessed > 0 ? 1 : 0;
     } catch (Throwable $error) {
         $primaryFailure = $error;
         throw $error;

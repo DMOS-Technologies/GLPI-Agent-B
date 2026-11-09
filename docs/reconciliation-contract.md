@@ -1,5 +1,12 @@
 # Automatic scalar reconciliation — field-sync version 2
 
+**0.7.3 recovery-assessment candidate:**
+[B's post-upgrade report](recovery-assessment-contract.md) can help A discover
+old requests needing fresh current-state handling. It does not reopen them or
+change this version 2 request/reference/authority/uncertainty contract. B never
+copies old A targets into a new request. See [A's required handoff](controller-a-recovery-handoff.md).
+Unavailable advisory field observations do not introduce another sync gate.
+
 **Automatic discovery extension (0.7.1 source candidate):**
 [automatic-null-contract.md](automatic-null-contract.md) supersedes the earlier
 manual build/hash/capture-boundary requirement for aligned new clients. Earlier

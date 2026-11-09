@@ -1,5 +1,12 @@
 # Scalar field History timestamps — Agent B 0.6.0
 
+**Current 0.7.3 candidate:** includes the linked-History blocker fix documented
+below and adds separate [post-upgrade recovery assessments](recovery-assessment-contract.md).
+Assessments never become field History, choose a winner from stale A data, or
+replace native write/uncertainty evidence. A supplies fresh current values and
+History through the existing v2 flow; B's legacy marker/manifest observations
+are not new prerequisites for ordinary History synchronization.
+
 Status: deployed to localhost:8081 as 0.6.0. Administrative installation and
 record-preservation readback passed; functional H01–H12 checks are NOT RUN.
 This approved policy replaces the older genuine-human-edit/copy-provenance

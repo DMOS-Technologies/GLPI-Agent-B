@@ -6,6 +6,37 @@ built-in Legacy REST API V1 on Setting, Work and Change records. It performs
 asset and native Notes operations locally and makes no outbound requests.
 There are no custom HTTP routes, authentication methods or log files.
 
+## Post-upgrade recovery assessment candidate — 0.7.3
+
+Local integration package **v0.7.3-rc.1** is described in
+[the release and additive-upgrade guide](release-v0.7.3-rc.1.md). Its companion
+source manifest pins the exact commit/runtime hashes. Packaging does not extend
+the UR verification scope or establish A automatic-consumer readiness.
+
+The additive native upgrade adds hidden nullable Work `recovery_json` and
+automatically schedules a bounded background assessment generation. Installation
+does no asset recovery writes. Existing `processWork` handles at most 20
+assessment rows after its normal batch. No second scheduler, service-account
+right, manual approval switch, outbound call or terminal Work reset is added.
+Assessment failures remain visible in native Cron messages; the job stays
+Pending. A completed scan is not proof all assets synchronized.
+
+Read [the exact recovery contract](recovery-assessment-contract.md) and
+[Controller A handoff](controller-a-recovery-handoff.md). A must adopt explicit
+native Work Search option 9 and send fresh existing-shape v2 requests when
+needed. Default Work GET/result shapes stay unchanged. Reports contain no
+fresh scalar values or History timestamps and never authorize replay/creation.
+Unavailable advisory observations are not a new sync gate.
+
+For a later separately authorized deployment, privately back up the database
+and full plugin, fence/drain B write contexts, pause only an idle supported
+task, use the native additive administrator upgrade, and verify all original
+request/result/evidence columns before restoring its prior schedule. Do not
+uninstall/reinstall or reset Running. This task authorizes disposable fixtures
+only; n8n and existing localhost/hosted installations remain untouched. The old
+guarded-upgrade tools are not certified for this newer version. The
+[manual ledger](manual-tests.md) distinguishes actual verification from plans.
+
 ## Unreleased linked-History blocker fix — 9 November 2026
 
 The candidate after v0.7.2-rc.1 removes a legacy continuity-marker gate and

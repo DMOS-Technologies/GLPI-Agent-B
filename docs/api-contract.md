@@ -73,6 +73,16 @@ no version-string capability or hosted/runtime success is implied.
 
 ## Contract status and sources
 
+**Post-upgrade recovery assessments (0.7.3 candidate):**
+[recovery-assessment-contract.md](recovery-assessment-contract.md) defines a
+hidden B-owned Work sidecar, explicit native Search projection 9 and bounded
+upgrade-triggered background assessments. It is advisory metadata, not a replay,
+terminal status transition, new scalar gate or historical success claim. Old
+requests/results/errors/timestamps remain unchanged. Fresh current-state writes
+still require A's distinct v2 request and current values/History. A adoption is
+described in [the handoff](controller-a-recovery-handoff.md); no A implementation
+is included. The candidate also contains the linked-History blocker fix below.
+
 **Unreleased linked-History blocker fix after v0.7.2-rc.1 (9 November 2026):**
 the candidate removes the legacy upgrade-marker gate from unequal Both
 comparisons and old scalarstates barrier/copied-proof persistence from linked
@@ -553,6 +563,7 @@ settings GET and no remote lookup by B.
 | `handled_change_ids_json` | `JSON_TEXT`, array of distinct positive B Change IDs | Optional; inner default `[]` | A at creation only |
 | `participation_json` (0.5.0) | nullable `JSON_TEXT`, exactly `{"version":1}` | Optional; null/omission preserves legacy behavior; Asset Sync only; hidden from raw GET/search | A at creation only |
 | `participation_state_json` (0.5.0) | nullable `JSON_TEXT`, internal target snapshot/intention/receipt journal | Null for old/unopted requests; hidden from raw GET/search | B only; A may never supply it |
+| `recovery_json` (0.7.3) | nullable `JSON_TEXT`, version 1 advisory recovery sidecar | Default null; hidden from ordinary single/collection reads; explicit computed Work Search option 9 exposes the versioned report, not the physical column | B only; A may never supply or update it |
 | `submitted_users_id` | `ID` | Derived from authenticated GLPI user | B only |
 | `submitted_profiles_id` | `ID` | Derived from active GLPI profile | B only |
 | `a_items_id` | `ID` | Derived from validated identity JSON; indexed with route/type | B only |

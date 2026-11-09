@@ -1,5 +1,12 @@
 # Evidence-safe controlled upgrade and binding initialization (0.5.2)
 
+**0.7.3 recovery-assessment candidate:** native additive installation schedules
+only [separate advisory assessments](recovery-assessment-contract.md), not asset
+replays or historical proof repair. It does not relax any real maintenance
+fencing below or certify this older administrative tool for 0.7.3. Old Works
+and uncertainty remain immutable; A needs fresh v2 current-state intent for
+another write. No A code or existing deployment is changed by this candidate.
+
 **Current linked-History candidate, 9 November 2026:** the unreleased fix after
 v0.7.2-rc.1 no longer treats this legacy continuity marker as a linked History
 arbitration gate or writes old scalarstates proof during linked scalar sync.

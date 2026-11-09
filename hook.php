@@ -100,6 +100,7 @@ function plugin_agentbdmosassetsync_install()
             `date_creation` DATETIME NOT NULL,
             `date_mod` DATETIME NOT NULL,
             `completed_at` DATETIME NULL DEFAULT NULL,
+            `recovery_json` LONGTEXT NULL DEFAULT NULL,
             PRIMARY KEY (`id`), UNIQUE KEY `work_id` (`work_id`),
             KEY `entities_id` (`entities_id`), KEY `status` (`status`),
             KEY `route_id` (`route_id`), KEY `asset_link` (`route_id`, `itemtype`, `a_items_id`),
@@ -172,6 +173,7 @@ function plugin_agentbdmosassetsync_install()
         'works' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
             'field_sync_json' => 'LONGTEXT NULL DEFAULT NULL', 'participation_json' => 'LONGTEXT NULL DEFAULT NULL',
             'participation_state_json' => 'LONGTEXT NULL DEFAULT NULL',
+            'recovery_json' => 'LONGTEXT NULL DEFAULT NULL',
             'dropdown_empty_version' => 'TINYINT UNSIGNED NOT NULL DEFAULT 0'],
         'changes' => ['subject' => "VARCHAR(16) NOT NULL DEFAULT 'Asset'", 'note_json' => 'LONGTEXT NULL DEFAULT NULL',
             'capture_policy' => 'TINYINT UNSIGNED NULL DEFAULT NULL'],
@@ -212,14 +214,17 @@ function plugin_agentbdmosassetsync_install()
     ProfileRight::cleanAllPossibleRights();
     $cron = new CronTask();
     if (!$cron->getFromDBbyName(PluginAgentbdmosassetsyncWork::class, 'processWork')) {
-        return (bool) CronTask::register(PluginAgentbdmosassetsyncWork::class, 'processWork', 60, [
+        if (!CronTask::register(PluginAgentbdmosassetsyncWork::class, 'processWork', 60, [
             'mode' => CronTask::MODE_EXTERNAL,
             'allowmode' => CronTask::MODE_EXTERNAL,
             'state' => CronTask::STATE_WAITING,
             'comment' => 'Process accepted Agent B synchronization and scope-control work.',
-        ]);
+        ])) {
+            return false;
+        }
     }
-    return true;
+    require_once __DIR__ . '/inc/recovery.php';
+    return plugin_agentbdmosassetsync_recovery_schedule();
 }
 
 function plugin_agentbdmosassetsync_uninstall()

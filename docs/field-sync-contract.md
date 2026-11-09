@@ -1,5 +1,12 @@
 # Opt-in scalar field isolation — contract version 1
 
+**0.7.3 recovery-assessment candidate:** the separate
+[post-upgrade sidecar](recovery-assessment-contract.md) preserves original v1/v2
+results, field certainty, selections and successful siblings. Its current B
+observations cannot turn old Unknown into VerifiedEqual/Applied or acknowledge
+a Change. Fresh assignments still use A's existing v2 contract; no sidecar field
+is added inside legacy/v1/v2 `result_json`.
+
 **Automatic discovery extension (0.7.1 source candidate):**
 [automatic-null-contract.md](automatic-null-contract.md) supersedes the earlier
 manual build/hash/capture-boundary requirement for aligned new clients. Earlier

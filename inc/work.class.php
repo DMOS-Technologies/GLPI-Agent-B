@@ -4,7 +4,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
 {
     public const SCALAR_NULL_POLICY = 2;
     public static $rightname = 'plugin_agentbdmosassetsync_work';
-    public static $undisclosedFields = ['field_sync_json', 'participation_json', 'participation_state_json', 'dropdown_empty_version'];
+    public static $undisclosedFields = ['field_sync_json', 'participation_json', 'participation_state_json', 'dropdown_empty_version', 'recovery_json'];
     private ?array $clientCreateInput = null;
     private ?array $participationCompletion = null;
 
@@ -37,9 +37,13 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
 
     public function rawSearchOptions()
     {
-        return plugin_agentbdmosassetsync_search_options(static::getTable(), [
+        $options = plugin_agentbdmosassetsync_search_options(static::getTable(), [
             'id', 'work_id', 'status', 'route_id', 'settings_version', 'entities_id', 'itemtype', 'subject',
         ]);
+        $options[] = ['id' => 9, 'table' => static::getTable(), 'field' => 'recovery_assessment',
+            'name' => 'recovery_assessment', 'datatype' => 'text', 'computation' => 'TABLE.recovery_json',
+            'nosearch' => true, 'nosort' => true, 'massiveaction' => false];
+        return $options;
     }
 
     public function add(array $input, $options = [], $history = true)
@@ -120,7 +124,7 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
             'identity_json', 'a_values_json', 'a_change_times_json', 'settings_version'];
         $owned = ['id', 'submitted_users_id', 'submitted_profiles_id', 'a_items_id', 'b_items_id',
             'link_state', 'processing_started_at', 'status', 'result_json', 'error',
-            'date_creation', 'date_mod', 'completed_at', 'participation_state_json', 'dropdown_empty_version'];
+            'date_creation', 'date_mod', 'completed_at', 'participation_state_json', 'dropdown_empty_version', 'recovery_json'];
         plugin_agentbdmosassetsync_check_fields($input,
             array_merge($required, ['operation', 'handled_change_ids_json', 'subject', 'note_json', 'field_sync_json',
                 'participation_json']), $owned);
@@ -380,6 +384,80 @@ class PluginAgentbdmosassetsyncWork extends CommonDBTM
     public function update(array $input, $history = true, $options = [])
     {
         plugin_agentbdmosassetsync_fail('ASB_WORK_IMMUTABLE');
+    }
+
+    /** Assessment metadata never rewrites the historical request, receipt or modification date. */
+    public function saveRecoveryAssessment(array $original, array $assessment, DBmysql $observer): bool
+    {
+        global $DB;
+        $context = $GLOBALS['plugin_agentbdmosassetsync_recovery_context'] ?? null;
+        if (!is_array($context) || ($context['writer'] ?? null) !== $DB || ($context['observer'] ?? null) !== $observer) {
+            throw new RuntimeException('Recovery assessment execution context is unavailable', 9101);
+        }
+        if (($assessment['original_fingerprint'] ?? null) !== plugin_agentbdmosassetsync_recovery_fingerprint($original)) {
+            return false;
+        }
+        plugin_agentbdmosassetsync_recovery_guard();
+        $id = (int) $original['id'];
+        $json = json_encode($assessment, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
+        $commitAttempted = false;
+        $rollingBack = false;
+        try {
+            $DB->beginTransaction();
+        } catch (Throwable $e) {
+            throw new RuntimeException('Recovery assessment transaction start is uncertain', 9101, $e);
+        }
+        try {
+            $row = $DB->fetchAssoc($DB->doQuery('SELECT * FROM `' . static::getTable()
+                . '` WHERE `id` = ' . $id . ' FOR UPDATE'));
+            if (!$row || plugin_agentbdmosassetsync_recovery_fingerprint($row) !== $assessment['original_fingerprint']) {
+                $rollingBack = true;
+                $DB->rollBack();
+                return false;
+            }
+            if (!$DB->update(static::getTable(), ['recovery_json' => $json], ['id' => $id])) {
+                $rollingBack = true;
+                $DB->rollBack();
+                return false;
+            }
+            $saved = $DB->request(['FROM' => static::getTable(), 'WHERE' => ['id' => $id]])->current();
+            if (!$saved || $saved['recovery_json'] !== $json
+                || plugin_agentbdmosassetsync_recovery_fingerprint($saved) !== $assessment['original_fingerprint']) {
+                throw new RuntimeException('Recovery assessment storage was not verified');
+            }
+            plugin_agentbdmosassetsync_recovery_guard();
+            $commitAttempted = true;
+            $DB->commit();
+        } catch (Throwable $e) {
+            if ($commitAttempted) {
+                throw new RuntimeException('Recovery assessment commit is uncertain', 9101, $e);
+            }
+            if ($rollingBack) {
+                throw new RuntimeException('Recovery assessment rollback is uncertain', 9101, $e);
+            }
+            try {
+                $DB->rollBack();
+            } catch (Throwable $rollbackError) {
+                throw new RuntimeException('Recovery assessment rollback is uncertain', 9101, $rollbackError);
+            }
+            if ($e->getCode() === 9101) {
+                throw $e;
+            }
+            return false;
+        }
+        try {
+            plugin_agentbdmosassetsync_recovery_guard($observer);
+            $saved = $observer->request(['FROM' => static::getTable(), 'WHERE' => ['id' => $id]])->current();
+            if (!$saved || $saved['recovery_json'] !== $json
+                || plugin_agentbdmosassetsync_recovery_fingerprint($saved) !== $assessment['original_fingerprint']) {
+                throw new RuntimeException('Recovery assessment is not independently visible');
+            }
+            plugin_agentbdmosassetsync_recovery_guard($observer);
+            plugin_agentbdmosassetsync_recovery_guard();
+        } catch (Throwable $e) {
+            throw new RuntimeException('Recovery assessment visibility is uncertain', 9101, $e);
+        }
+        return true;
     }
 
     /** Called by local processing code only; REST still reaches the forbidden update(). */

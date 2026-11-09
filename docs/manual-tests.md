@@ -1,3 +1,81 @@
+# Post-upgrade recovery assessments — 0.7.3 candidate, 9 November 2026
+
+The preceding blocker fix was committed locally as
+`3bc468a37d75d6b241f126eea7e78611d0c9cd22`, without push/deployment.
+The recovery implementation is now prepared as local integration package
+v0.7.3-rc.1; its exact commit/build is recorded in the release source manifest.
+Packaging adds no new runtime pass. Nothing is pushed or published by this step.
+The approved scope is B assessment plus an A handoff, not replaying old payloads.
+See [the normative contract](recovery-assessment-contract.md) and
+[A handoff](controller-a-recovery-handoff.md). No A implementation or automatic
+end-to-end consumption is claimed.
+
+Finite plan was prepared before execution. Actual verification used three NEW
+internal/no-port disposable pairs, GLPI11.0.7, Fields1.24.2, MySQL8.4 image,
+frozen A0.2.9/41 runtime files and B0.7.3/23 runtime files. A code was not changed.
+Historical disposable source containers/volumes remained stopped/read-only;
+no existing localhost, n8n, hosted installation or customer Work was accessed.
+
+| Case | Result | Actual observation |
+|---|---|---|
+| UR01 | PASS | Native administrator 0.7.2→0.7.3 install/activate queued cursor0/high600 and zero install-time sidecars. All600 original Work columns and protected native/History/Change/Note/Fields/scalarstate rows stayed exact. Native lifecycle Config/catalog/Cron/Setting continuity metadata was not claimed unchanged. |
+| UR02 | PASS | Native discovery exposed option9; default single/collection hid physical column and default Search omitted9. Forced9 returned exact untruncated1749/2085-byte JSON matching DB SHA; unassessed returned JSON null. Native POST recovery_json rejected400/ASB_B_OWNED_FIELD with no Work created. Final corrected first-copy projection also matched all1845 bytes. |
+| UR03 | PASS | B automatically completed600 reports in20-row batches:500NoAction,100FreshARequired/FreshV2 for oldHeld requests. Their900 observations were800current-equal/100different. No old status/result/error/date or native value/History changed. |
+| UR04 | PASS | Separate copied tracking-failure cohort retained all100 oldUnknown/Held outcomes and100 verified sibling receipts; reports observed50equal/50different target values without certifying old success or repeating writes. |
+| UR05 | PASS after corrected initial FAIL | Actual old-version first-copy association persistence fault left fresh601Held/ASB_FIRST_COPY_UNCERTAIN with null parents/9Skipped and no retained created asset. Initial assessment wrongly labelled it Damaged. Reviewed parser correction was then tested on a separate fresh pair/newUUID through native upgrade/assessment: Legacy,9priorSkipped/nullcertainty, Unresolved/ResolveIdentity/FIRST_COPY_IDENTITY_UNRESOLVED, no lookup/creation/v2. Original receipt exact; positive legacyDone stillNoAction. Initial failing artifact retained. |
+| UR06 | PASS | Distinct freshv2 Work602 against oldUnknown502 verified current equality as AlreadyEqual/VerifiedEqual; native value and exact field History unchanged, oldUnknown untouched. |
+| UR07 | PASS | Actual newer native A edit/History sent in freshv2 Work603; B AppliedToB/VerifiedApplied. Original unknownWork501 remained historical. |
+| UR08 | PASS, B response only | Actual newer B edit returned through freshv2 Work604 as ReturnToA/NotAttempted without B rewrite. A's later application and automatic sidecar consumer NOT RUN/not implemented by this task. |
+| UR09 | PARTIAL | Direct native read-only assessor checks passed actual History denial, committed Accepted overlap606, disabled route and advanced Setting. Denial never became absence; advanced mappings unavailable rather than reconstructed. These are component guards, not full concurrent A/B workflow. Definition deletion/recreation NOT RUN. |
+| UR10 | PASS, bounded | Fresh PHP invocations resumed cursor; same-build native reinstall preserved exact20/20 state and laterComplete600 state. Different-build queued generation and interrupted native installation NOT RUN. |
+| UR11 | PASS, bounded | Actual Config cursor trigger left independently saved sidecar21 while cursor stayed20/Pending; removing only injected fault allowed a fresh native invocation to resume40/40. No Work reprocessed. This tests metadata persistence interruption, not process-kill/lost-commit/all transaction windows. |
+| UR12 | PASS, bounded | Actual external worker exclusion prevented progress. Real worker/nonce/job-lock ownership-loss checks each raised9101 and left cursor40/40sidecars/protected data unchanged; locks released safely. Not a proof for every network/backend failure. |
+| UR13 | PASS, bounded | Trigger rejecting only sidecar updates left assessmentPending at40 while a distinct ordinary B-source Work601 completedDone/ReturnToA/NotAttempted with Cron ordinaryvolume1. Assessment-only runs had ordinaryvolume0. No claim of handling every database outage. |
+| UR14 | PASS | Real two-field Change202 stayed exactPending when freshWork605 selected one field; resultSNAPSHOT_NOT_SELECTED, handled_done empty. Tested before Setting advancement. Assessment never acknowledged a Change. |
+| UR15 | PARTIAL | All200 original NoteWorks NoAction/OUT_OF_SCOPE;100Notes/notelinks and200Yes flags unchanged; assessment counts stayed separate from sync volume. Control requests and51-mapping truncation boundary NOT RUN. |
+| UR16 | PASS | Upgrade pair retained600 originalBWorks and originalArows. Safety/corrected pairs each retained601 originalBWorks excluding onlynewsidecar and600AWork fingerprints; allold200Changes retained. All58 pre-existing container projections/all210 frozenAfiles+HEAD/status stayed exact;23 finalB runtime/deployed hashes matched. All12 owned containers stopped idle/external/free locks/noOOM/restart. |
+
+Review: two programmers worked with separate file ownership; independent review
+caught a missing live-lock guard before runtime (fixed), and confirmed the real
+UR05 diagnostic defect/correction. Raw captured records were reviewed after
+verification; no remaining unsafe certainty, replay or premature ACK claim found.
+Legacy/v1/v2 result shapes and ordinary Work outcomes were not extended.
+
+Source pins: initial candidate and failing UR05 remain retained; final pin differs
+only in `inc/recoveryassessment.php` for nullable legacy parsing and explicit
+null-identity diagnosis. Only the affected fresh first-copy/positive-legacy case
+was repeated after correction. Unchanged positive-link, scheduling, compatibility
+and fresh-handoff paths retain their original executed evidence.
+
+The upgrade pair created one intentional ordinary Work above its captured high
+water. Safety created five distinct freshv2 requests602–606 and two intentional
+human B Changes201/202, which remain Pending;606 was the committed overlap
+fixture. New fixture requests are not resends of historical requests. Only fresh
+fixture values changed in the explicit handoff cases. A source/configuration/
+scheduler and old A Works were unchanged; current fixture asset edits were used
+to obtain actual new A/B History, without A's worker or a new A consumer.
+
+Private evidence `.git/upgrade-recovery-20261109/`: `upgrade/primary-verdict.json`
+and UR01/02/10/11/12/13 proofs; `safety/verdict.json` and original
+`UR04-UR05-assessment-verdict.json`; `firstcopy/verdict.json` and private recoverable
+pre-upgrade dump; `preservation-verdict.json`, `deployed-source-verdict.json`,
+initial/final source manifests, raw native/REST receipts and final report.
+Do not publish credential-bearing private artifacts.
+
+Preservation is by separate copies and fingerprints, not a fabricated customer
+row check. Native Config, Setting continuity manifests, catalog and Cron metadata
+legitimately change during installation/assessment and are outside unchanged-row
+claims. Existing proof rows remaining stored does not certify their old trust.
+Observer/setup failures were retained (one empty-PHP-array hash projection needed
+read-only correction); no original Work was replayed or relabelled to fix them.
+
+Remaining NOT RUN: A automatic consumption and guarded B→A application; actual
+interrupted native install/process kill/all commit/lost-response windows;
+different-build queued-generation execution; recreated definitions; controls;
+51-field cap; other GLPI/Fields/SQL combinations. This is bounded B support and
+controlled handoff evidence, not full automatic A/B recovery readiness. Current
+matching values never turn an oldUnknown into historical success.
+
 # Linked-History blocker fix — 9 November 2026
 
 Unreleased source candidate after v0.7.2-rc.1; metadata remains 0.7.2. The
